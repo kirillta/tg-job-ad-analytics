@@ -5,7 +5,21 @@ namespace TgJobAdAnalytics.Services;
 
 public sealed class AdStatsCalculator
 {
-    public static Report GetMaximumNumberOfAdsByMonthAndYear(List<Message> messages)
+    public static ReportGroup CalculateAll(List<Message> messages)
+    {
+        var reports = new List<Report>
+        {
+            GetMaximumNumberOfAdsByMonthAndYear(messages),
+            GetNumberOfAdsByMonth(messages),
+            GetNumberOfAdsByYear(messages),
+            PrintNumberOfAdsByYearAndMonth(messages)
+        };
+
+        return new ReportGroup("Ad Statistics", reports);
+    }
+
+
+    private static Report GetMaximumNumberOfAdsByMonthAndYear(List<Message> messages)
     {
         var results = messages
             .GroupBy(message => new { message.Date.Year, message.Date.Month })
@@ -23,7 +37,7 @@ public sealed class AdStatsCalculator
     }
 
 
-    public static Report GetNumberOfAdsByMonth(List<Message> messages)
+    private static Report GetNumberOfAdsByMonth(List<Message> messages)
     {
         var results = messages
             .GroupBy(message => message.Date.Month)
@@ -39,7 +53,7 @@ public sealed class AdStatsCalculator
     }
 
 
-    public static Report GetNumberOfAdsByYear(List<Message> messages)
+    private static Report GetNumberOfAdsByYear(List<Message> messages)
     {
         var results = messages
             .GroupBy(message => message.Date.Year)
@@ -55,7 +69,7 @@ public sealed class AdStatsCalculator
     }
 
 
-    public static Report PrintNumberOfAdsByYearAndMonth(List<Message> messages)
+    private static Report PrintNumberOfAdsByYearAndMonth(List<Message> messages)
     {
         var results = messages
             .GroupBy(message => message.Date.Year)

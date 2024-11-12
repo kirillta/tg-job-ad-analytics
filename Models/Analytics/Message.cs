@@ -6,7 +6,7 @@ namespace TgJobAdAnalytics.Models.Analytics;
 public readonly record struct Message
 {
     [JsonConstructor]
-    public Message(long id, DateTime date, string text, Salary salary)
+    public Message(long id, DateOnly date, string text, Salary salary)
     {
         Id = id;
         Date = date;
@@ -16,7 +16,7 @@ public readonly record struct Message
 
 
     public long Id { get; init; }
-    public DateTime Date { get; init; }
+    public DateOnly Date { get; init; }
     public string Text { get; init; }
     public Salary Salary { get; init; }
 }

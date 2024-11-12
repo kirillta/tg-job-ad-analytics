@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System;
 using System.Text;
 using TgJobAdAnalytics.Models.Analytics;
 using TgJobAdAnalytics.Models.Telegram;
@@ -15,12 +14,12 @@ public sealed class MessageProcessor
     }
 
 
-    public List<Message> Get(List<TgMessage> tgMessages)
+    public async ValueTask<List<Message>> Get(List<TgMessage> tgMessages)
     {
         var adMessages = new ConcurrentBag<Message>();
-        Parallel.ForEach(tgMessages, tgMessage =>
+        await Parallel.ForEachAsync(tgMessages, new ParallelOptions { MaxDegreeOfParallelism = 1 }, async (tgMessage, cancellationToken) =>
         {
-            var message = Get(tgMessage);
+            var message = await Get(tgMessage);
             if (message is not null)
                 adMessages.Add(message.Value);
         });
@@ -29,9 +28,9 @@ public sealed class MessageProcessor
     }
 
 
-    public Message? Get(TgMessage tgMessage)
+    public async ValueTask<Message?> Get(TgMessage tgMessage)
     {
-        if (!IsAdMessage())
+        if (!IsAd())
             return null;
 
         if (IsCurrentMonth())
@@ -41,16 +40,20 @@ public sealed class MessageProcessor
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
-        var salary = _salaryService.Get(text);
+        var date = DateOnly.FromDateTime(tgMessage.Date);
+        var salary = await _salaryService.Get(text, date);
+        if (salary.Currency == Currency.Unknown)
+            return null;
 
-        return new Message(tgMessage.Id, tgMessage.Date, text, salary);
+        return new Message(tgMessage.Id, date, text, salary);
 
 
-        bool IsAdMessage()
+        bool IsAd()
         {
             var hashTags = tgMessage.TextEntities
-            .Where(entity => entity.Type is TgTextEntryType.HashTag)
-            .ToList();
+                .Where(entity => entity.Type is TgTextEntryType.HashTag)
+                .ToList();
+
             if (hashTags.Count == 0)
                 return false;
 

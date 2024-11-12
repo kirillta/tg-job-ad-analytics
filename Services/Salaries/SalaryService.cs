@@ -1,30 +1,48 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TgJobAdAnalytics.Models.Analytics;
+﻿using TgJobAdAnalytics.Models.Analytics;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
 public class SalaryService
 {
-    public SalaryService(SalaryNormalizer salaryNormalizer)
+    public SalaryService(Currency baseCurrency, RateService rateService)
     {
-        _salaryNormalizer = salaryNormalizer;
+        _baseCyrrency = baseCurrency;
+        _rateService = rateService;
     }
 
 
-    public Salary Get(string text)
+    public ValueTask<Salary> Get(string text, DateOnly date)
     {
-        var salary = GetSalaryBounds(text);
-        var normalizedSalary = _salaryNormalizer.Normalize(salary);
-
-        return normalizedSalary;
+        var salary = ParseBoundaries(text);
+        return Normalize(date, salary);
     }
 
 
-    private static Salary GetSalaryBounds(string text)
+    private async ValueTask<Salary> Normalize(DateOnly date, Salary salary)
+    {
+        if (salary.Currency == Currency.Unknown || salary.Currency == _baseCyrrency)
+            return salary with { LowerBoundNormalized = salary.LowerBound, UpperBoundNormalized = salary.UpperBound };
+
+        var lowerNormalized = await NormalizeInternal(salary.LowerBound);
+        var upperNormalized = await NormalizeInternal(salary.UpperBound);
+
+        return salary with { LowerBoundNormalized = lowerNormalized, UpperBoundNormalized = upperNormalized };
+
+
+        async ValueTask<double> NormalizeInternal(double value)
+        {
+            if (double.IsNaN(value) || value == 0)
+                return value;
+
+            var rate = await _rateService.GetRate(_baseCyrrency, salary.Currency, date);
+            var amount = value * rate;
+
+            return Math.Round(amount, 4);
+        }
+    }
+
+
+    private static Salary ParseBoundaries(string text)
     {
         var salaryPatterns = SalaryPattenrFactory.Get();
         foreach (var pattern in salaryPatterns)
@@ -39,16 +57,19 @@ public class SalaryService
             }
         }
 
-        return default;
+        return new Salary(double.NaN, double.NaN, Currency.Unknown);
 
 
-        static double ParseSalary(string salary)
+        static double ParseSalary(string salaryString)
         {
-            salary = salary.Replace(" ", "").Replace(",", "").Replace("k", "000", StringComparison.OrdinalIgnoreCase);
-            return double.TryParse(salary, out var result) ? result : double.NaN;
+            salaryString = salaryString.Replace(" ", "").Replace(",", "")
+                .Replace("k", "000", StringComparison.OrdinalIgnoreCase);
+
+            return double.TryParse(salaryString, out var result) ? result : double.NaN;
         }
     }
 
 
-    private readonly SalaryNormalizer _salaryNormalizer;
+    private readonly Currency _baseCyrrency;
+    private readonly RateService _rateService;
 }
