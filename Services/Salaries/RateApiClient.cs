@@ -11,6 +11,6 @@ public class RateApiClient
 {
     public async ValueTask<double?> Get(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate)
     {
-        return new Random().NextDouble();
+        return await Task.FromResult<double?>(new Random().NextDouble());
     }
 }

@@ -14,6 +14,7 @@ var rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.cs
 var rateApiClient = new RateApiClient();
 var rateService = new RateService(rateSourceManager, rateApiClient);
 
+var minHashCalculator = new MinHashCalculator(128);
 var salaryService = new SalaryService(Currency.RUB, rateService);
 var messageProcessor = new MessageProcessor(salaryService);
 
@@ -22,13 +23,28 @@ List<Message> adMessages = [];
 var fileNames = Directory.GetFiles(sourcePath);
 foreach (string fileName in fileNames)
 {
+    if (!fileName.EndsWith(".json"))
+        continue;
+
     Console.WriteLine(fileName);
     using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
     var chat = await JsonSerializer.DeserializeAsync<TgChat>(json);
     Console.WriteLine(chat.Name);
 
-    var chatMessages = await messageProcessor.Get(chat.Messages);
+    var chatMessages = messageProcessor.Get(chat.Messages);
     adMessages.AddRange(chatMessages);
+}
+
+var termFrequencies = adMessages.Select(message => message.TermFrequency)
+    .ToList();
+var inverseDocumentFrequency = SimilarityCalculator.GetInverseDocumentFrequency(termFrequencies);
+foreach (var message in adMessages)
+{
+    var tfIdf = SimilarityCalculator.GetTfIdf(message.TermFrequency, inverseDocumentFrequency);
+    foreach (var kvp in tfIdf)
+    {
+        Console.WriteLine($"{kvp.Key}: {kvp.Value}");
+    }
 }
 
 List<ReportGroup> reports = [];

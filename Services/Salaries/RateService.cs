@@ -1,6 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
-using TgJobAdAnalytics.Models.Analytics;
+﻿using TgJobAdAnalytics.Models.Analytics;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
@@ -11,7 +9,7 @@ public class RateService
         _rateApiClient = rateApiClient;
         _rateSourceManager = rateSourceManager;
     }
-
+    
 
     public async ValueTask<double> GetRate(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate)
     {

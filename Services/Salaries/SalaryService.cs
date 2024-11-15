@@ -62,8 +62,8 @@ public class SalaryService
 
         static double ParseSalary(string salaryString)
         {
-            salaryString = salaryString.Replace(" ", "").Replace(",", "")
-                .Replace("k", "000", StringComparison.OrdinalIgnoreCase);
+            salaryString = salaryString.Replace("k", "000", StringComparison.OrdinalIgnoreCase)
+                .Replace("тр", "000", StringComparison.OrdinalIgnoreCase);
 
             return double.TryParse(salaryString, out var result) ? result : double.NaN;
         }

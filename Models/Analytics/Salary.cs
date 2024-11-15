@@ -20,6 +20,10 @@ public readonly record struct Salary
     { }
 
 
+    public static Salary Empty
+        => new(double.NaN, double.NaN, Currency.Unknown);
+
+
     public Currency Currency { get; init; }
     public double LowerBound { get; init; }
     public double LowerBoundNormalized { get; init; }

@@ -6,7 +6,7 @@ using TgJobAdAnalytics.Services.Salaries;
 
 namespace TgJobAdAnalytics.Services;
 
-public sealed class MessageProcessor
+public sealed partial class MessageProcessor
 {
     public MessageProcessor(SalaryService salaryService)
     {
@@ -14,12 +14,12 @@ public sealed class MessageProcessor
     }
 
 
-    public async ValueTask<List<Message>> Get(List<TgMessage> tgMessages)
+    public List<Message> Get(List<TgMessage> tgMessages)
     {
         var adMessages = new ConcurrentBag<Message>();
-        await Parallel.ForEachAsync(tgMessages, new ParallelOptions { MaxDegreeOfParallelism = 1 }, async (tgMessage, cancellationToken) =>
+        Parallel.ForEach(tgMessages, new ParallelOptions { MaxDegreeOfParallelism = 1 }, tgMessage =>
         {
-            var message = await Get(tgMessage);
+            var message = Get(tgMessage);
             if (message is not null)
                 adMessages.Add(message.Value);
         });
@@ -28,7 +28,7 @@ public sealed class MessageProcessor
     }
 
 
-    public async ValueTask<Message?> Get(TgMessage tgMessage)
+    public Message? Get(TgMessage tgMessage)
     {
         if (!IsAd())
             return null;
@@ -41,11 +41,9 @@ public sealed class MessageProcessor
             return null;
 
         var date = DateOnly.FromDateTime(tgMessage.Date);
-        var salary = await _salaryService.Get(text, date);
-        if (salary.Currency == Currency.Unknown)
-            return null;
+        var termFrequency = SimilarityCalculator.GetTermFrequency(text);
 
-        return new Message(tgMessage.Id, date, text, salary);
+        return new Message(tgMessage.Id, date, text, termFrequency, Salary.Empty);
 
 
         bool IsAd()
@@ -78,18 +76,71 @@ public sealed class MessageProcessor
                     stringBuilder.Append(entity.Text);
             }
 
-            return stringBuilder.ToString();
+            return ClearText(stringBuilder.ToString());
+        }
+
+
+        static string ClearText(string text)
+        {
+            Span<char> clearedText = stackalloc char[text.Length];
+            text.AsSpan().ToLowerInvariant(clearedText);
+            clearedText = ExcludeNonAlphabeticOrNumbers(clearedText);
+            clearedText = ReplaceMultipleSpacesWithOne(clearedText);
+
+            return clearedText.Trim().ToString();
         }
     }
 
 
-    private readonly HashSet<string> AdTags = 
+    private static readonly HashSet<string> AdTags = 
     [
         "#вакансия",
         "#работа",
         "#job",
         "#vacancy",
     ];
+    
+
+    private static Span<char> ExcludeNonAlphabeticOrNumbers(Span<char> text)
+    {
+        Span<char> result = new char[text.Length];
+        int index = 0;
+        foreach (var ch in text)
+        {
+            if (char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch))
+            {
+                result[index++] = ch;
+            }
+        }
+
+        return result[..index];
+    }
+
+
+    private static Span<char> ReplaceMultipleSpacesWithOne(Span<char> text)
+    {
+        Span<char> result = new char[text.Length];
+        int index = 0;
+        bool inSpace = false;
+        foreach (var ch in text)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                if (!inSpace)
+                {
+                    result[index++] = ' ';
+                    inSpace = true;
+                }
+            }
+            else
+            {
+                result[index++] = ch;
+                inSpace = false;
+            }
+        }
+
+        return result[..index];
+    }
 
 
     private readonly SalaryService _salaryService;
