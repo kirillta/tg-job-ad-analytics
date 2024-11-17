@@ -24,7 +24,7 @@ public sealed partial class MessageProcessor
                 adMessages.Add(message.Value);
         });
 
-        return [.. adMessages.OrderByDescending(message => message.Date)];
+        return [.. adMessages];
     }
 
 
@@ -41,9 +41,7 @@ public sealed partial class MessageProcessor
             return null;
 
         var date = DateOnly.FromDateTime(tgMessage.Date);
-        var termFrequency = SimilarityCalculator.GetTermFrequency(text);
-
-        return new Message(tgMessage.Id, date, text, termFrequency, Salary.Empty);
+        return new Message(tgMessage.Id, date, text, Salary.Empty);
 
 
         bool IsAd()

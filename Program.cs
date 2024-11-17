@@ -14,7 +14,6 @@ var rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.cs
 var rateApiClient = new RateApiClient();
 var rateService = new RateService(rateSourceManager, rateApiClient);
 
-var minHashCalculator = new MinHashCalculator(128);
 var salaryService = new SalaryService(Currency.RUB, rateService);
 var messageProcessor = new MessageProcessor(salaryService);
 
@@ -28,29 +27,23 @@ foreach (string fileName in fileNames)
 
     Console.WriteLine(fileName);
     using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-    var chat = await JsonSerializer.DeserializeAsync<TgChat>(json);
+    var buffer = new byte[json.Length];
+    await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));
+    var chat = JsonSerializer.Deserialize<TgChat>(buffer);
+
     Console.WriteLine(chat.Name);
 
     var chatMessages = messageProcessor.Get(chat.Messages);
     adMessages.AddRange(chatMessages);
 }
 
-var termFrequencies = adMessages.Select(message => message.TermFrequency)
-    .ToList();
-var inverseDocumentFrequency = SimilarityCalculator.GetInverseDocumentFrequency(termFrequencies);
-foreach (var message in adMessages)
-{
-    var tfIdf = SimilarityCalculator.GetTfIdf(message.TermFrequency, inverseDocumentFrequency);
-    foreach (var kvp in tfIdf)
-    {
-        Console.WriteLine($"{kvp.Key}: {kvp.Value}");
-    }
-}
+var orderedAdMessages = adMessages.OrderByDescending(message => message.Date).ToList();
+var messages = SimilarityCalculator.Distinct(orderedAdMessages);
 
 List<ReportGroup> reports = [];
 
-reports.Add(AdStatsCalculator.CalculateAll(adMessages));
-reports.Add(SalaryCalculator.CalculateAll(adMessages));
+reports.Add(AdStatsCalculator.CalculateAll(messages));
+reports.Add(SalaryCalculator.CalculateAll(messages));
 
 ConsoleReportPrinter.Print(reports);
 

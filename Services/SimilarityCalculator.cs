@@ -1,60 +1,90 @@
 ﻿using System;
+using System.Buffers;
+using System.Collections.Concurrent;
+using System.Linq;
+using TgJobAdAnalytics.Models.Analytics;
+
 namespace TgJobAdAnalytics.Services;
 
 public sealed class SimilarityCalculator
 {
-    public static Dictionary<string, int> GetTermFrequency(ReadOnlySpan<char> text)
+    public static List<Message> Distinct(List<Message> messages)
     {
-        var termFrequency = new Dictionary<string, int>();
-        foreach (var word in text.Split(' '))
+        var vacabulary = new HashSet<ReadOnlyMemory<char>>();
+        var adShingles = new List<HashSet<ReadOnlyMemory<char>>>();
+
+        foreach (var message in messages)
         {
-            var wordStr = word.ToString();
-            if (termFrequency.TryGetValue(wordStr, out int value))
-                termFrequency[wordStr] = ++value;
-            else
-                termFrequency[wordStr] = 1;
+            var shingles = GetShingles(message.Text.AsMemory());
+            adShingles.Add(shingles);
+            vacabulary.UnionWith(shingles);
         }
 
-        return termFrequency;
-    }
-
-
-    public static Dictionary<string, double> GetInverseDocumentFrequency(List<Dictionary<string, int>> termFrequencies)
-    {
-        var documentFrequency = GetDocumentFrequency(termFrequencies);
-
-        var inverseDocumentFrequency = new Dictionary<string, double>();
-        foreach (var term in documentFrequency.Keys)
-            inverseDocumentFrequency[term] = Math.Log((double)termFrequencies.Count / documentFrequency[term]);
-
-        return inverseDocumentFrequency;
-    }
-
-
-    public static Dictionary<string, double> GetTfIdf(Dictionary<string, int> termFrequency, Dictionary<string, double> inverseDocumentFrequency)
-    {
-        var tfIdf = new Dictionary<string, double>();
-        foreach (var term in termFrequency.Keys)
-            tfIdf[term] = termFrequency[term] * inverseDocumentFrequency[term];
-
-        return tfIdf;
-    }
-
-
-    private static Dictionary<string, int> GetDocumentFrequency(List<Dictionary<string, int>> termFrequencies)
-    {
-        var documentFrequency = new Dictionary<string, int>();
-        foreach (var tf in termFrequencies)
+        var minHashes = new List<int[]>();
+        foreach (var message in messages)
         {
-            foreach (var term in tf.Keys)
+            var vector = ArrayPool<int>.Shared.Rent(vacabulary.Count);
+
+            OneHotEncode(adShingles[messages.IndexOf(message)], vacabulary.ToList(), ref vector);
+            var minHash = CalculateMinHash(vector);
+            minHashes.Add(minHash);
+            
+            Array.Clear(vector, 0, vector.Length);
+            ArrayPool<int>.Shared.Return(vector);
+        }
+
+        // Further processing to determine distinct messages based on minHashes
+
+        return messages;
+    }
+
+
+    private static int[] CalculateMinHash(int[] oneHotVector, int numHashFunctions = 100)
+    {
+        var minHash = new int[numHashFunctions];
+        var random = new Random();
+
+        for (int i = 0; i < numHashFunctions; i++)
+        {
+            minHash[i] = int.MaxValue;
+            for (int j = 0; j < oneHotVector.Length; j++)
             {
-                if (documentFrequency.TryGetValue(term, out int value))
-                    documentFrequency[term] = ++value;
-                else
-                    documentFrequency[term] = 1;
+                if (oneHotVector[j] == 1)
+                {
+                    var hashValue = random.Next();
+                    if (hashValue < minHash[i])
+                    {
+                        minHash[i] = hashValue;
+                    }
+                }
             }
         }
 
-        return documentFrequency;
+        return minHash;
+    }
+
+
+    private static HashSet<ReadOnlyMemory<char>> GetShingles(ReadOnlyMemory<char> text, int shingleSize = 5)
+    {
+        if (text.Length < shingleSize)
+            return Enumerable.Empty<ReadOnlyMemory<char>>().ToHashSet();
+
+        var shingles = new HashSet<ReadOnlyMemory<char>>();
+        for (int i = 0; i <= text.Length - shingleSize; i++)
+            shingles.Add(text.Slice(i, shingleSize));
+
+        return shingles;
+    }
+
+
+    private static void OneHotEncode(HashSet<ReadOnlyMemory<char>> textShingles, List<ReadOnlyMemory<char>> vocabulary, ref int[] oneHotVector)
+    {
+        for (int i = 0; i < vocabulary.Count; i++)
+        {
+            if (textShingles.Contains(vocabulary[i]))
+                oneHotVector[i] = 1;
+            else
+                oneHotVector[i] = 0;
+        }
     }
 }
