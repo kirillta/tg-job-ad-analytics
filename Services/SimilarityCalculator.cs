@@ -1,7 +1,5 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Collections.Concurrent;
-using System.Linq;
 using TgJobAdAnalytics.Models.Analytics;
 
 namespace TgJobAdAnalytics.Services;
@@ -10,28 +8,30 @@ public sealed class SimilarityCalculator
 {
     public static List<Message> Distinct(List<Message> messages)
     {
-        var vacabulary = new HashSet<ReadOnlyMemory<char>>();
-        var adShingles = new List<HashSet<ReadOnlyMemory<char>>>();
+        var vacabulary = new HashSet<string>();
+        var adShingles = new Dictionary<Message, HashSet<string>>();
 
         foreach (var message in messages)
         {
-            var shingles = GetShingles(message.Text.AsMemory());
-            adShingles.Add(shingles);
+            var shingles = GetShingles(message.Text);
+            adShingles.Add(message, shingles);
             vacabulary.UnionWith(shingles);
         }
 
-        var minHashes = new List<int[]>();
-        foreach (var message in messages)
+        var vocabularyList = vacabulary.ToList();
+
+        var minHashCalculator = new MinHashCalculator();
+        var minHashes = new ConcurrentBag<int[]>();
+        Parallel.ForEach(messages, message =>
         {
             var vector = ArrayPool<int>.Shared.Rent(vacabulary.Count);
+            OneHotEncode(adShingles[message], vocabularyList, ref vector);
+            var hash = minHashCalculator.GenerateSignature(vector);
+            minHashes.Add(hash);
 
-            OneHotEncode(adShingles[messages.IndexOf(message)], vacabulary.ToList(), ref vector);
-            var minHash = CalculateMinHash(vector);
-            minHashes.Add(minHash);
-            
             Array.Clear(vector, 0, vector.Length);
             ArrayPool<int>.Shared.Return(vector);
-        }
+        });
 
         // Further processing to determine distinct messages based on minHashes
 
@@ -64,20 +64,20 @@ public sealed class SimilarityCalculator
     }
 
 
-    private static HashSet<ReadOnlyMemory<char>> GetShingles(ReadOnlyMemory<char> text, int shingleSize = 5)
+    private static HashSet<string> GetShingles(string text, int shingleSize = 5)
     {
         if (text.Length < shingleSize)
-            return Enumerable.Empty<ReadOnlyMemory<char>>().ToHashSet();
+            return Enumerable.Empty<string>().ToHashSet();
 
-        var shingles = new HashSet<ReadOnlyMemory<char>>();
+        var shingles = new HashSet<string>();
         for (int i = 0; i <= text.Length - shingleSize; i++)
-            shingles.Add(text.Slice(i, shingleSize));
+            shingles.Add(text.Substring(i, shingleSize));
 
         return shingles;
     }
 
 
-    private static void OneHotEncode(HashSet<ReadOnlyMemory<char>> textShingles, List<ReadOnlyMemory<char>> vocabulary, ref int[] oneHotVector)
+    private static void OneHotEncode(HashSet<string> textShingles, List<string> vocabulary, ref int[] oneHotVector)
     {
         for (int i = 0; i < vocabulary.Count; i++)
         {
