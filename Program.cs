@@ -33,6 +33,7 @@ foreach (string fileName in fileNames)
 
     Console.WriteLine(chat.Name);
 
+    // TODO: add the chat ID to the message
     var chatMessages = messageProcessor.Get(chat.Messages);
     adMessages.AddRange(chatMessages);
 }

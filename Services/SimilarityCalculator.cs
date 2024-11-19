@@ -20,18 +20,23 @@ public sealed class SimilarityCalculator
 
         var vocabularyList = vacabulary.ToList();
 
-        var minHashCalculator = new MinHashCalculator();
-        var minHashes = new ConcurrentBag<int[]>();
-        Parallel.ForEach(messages, message =>
+        var minHashCalculator = new MinHashCalculator(100, vocabularyList.Count);
+        var lshCalculator = new LocalitySensitiveHashCalculator();
+        var minHashes = new ConcurrentBag<uint[]>();
+        //Parallel.ForEach(messages, message =>
+        foreach (var message in messages)
         {
             var vector = ArrayPool<int>.Shared.Rent(vacabulary.Count);
             OneHotEncode(adShingles[message], vocabularyList, ref vector);
             var hash = minHashCalculator.GenerateSignature(vector);
+
+            lshCalculator.Add(message.Id, hash);
+
             minHashes.Add(hash);
 
             Array.Clear(vector, 0, vector.Length);
             ArrayPool<int>.Shared.Return(vector);
-        });
+        }//);
 
         // Further processing to determine distinct messages based on minHashes
 

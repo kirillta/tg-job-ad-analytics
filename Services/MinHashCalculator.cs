@@ -2,63 +2,74 @@
 
 public sealed class MinHashCalculator 
 {
-    public MinHashCalculator(int hashFunctionCount = 100, int seed = 1000)
+    public MinHashCalculator(int hashFunctionCount, int vocabularySize, int seed = 1000)
     {
         _hashFunctionCount = hashFunctionCount;
-        _hashFunctions = GenerateHashFunctions(hashFunctionCount, seed);
+        
+        var universeBitSize = BitsForUniverse(vocabularySize);
+        _hashFunctions = GenerateHashFunctions(hashFunctionCount, universeBitSize, seed);
+
     }
     
     
-    public int[] GenerateSignature(int[] oneHotVector) 
+    public uint[] GenerateSignature(int[] oneHotVector) 
     {
         int vectorLength = oneHotVector.Length;
 
-        var signature = Enumerable.Repeat(int.MaxValue, _hashFunctionCount).ToArray(); 
-        for (int i = 0; i < _hashFunctionCount; i++) 
+        var signature = Enumerable.Repeat(uint.MaxValue, _hashFunctionCount).ToArray();
+        for (int i = 0; i < vectorLength; i++)
         {
-            var hashFunction = _hashFunctions[i];
-            for (int j = 0; j < vectorLength; j++) 
+            if (oneHotVector[i] == 0)
+                continue;
+
+            for (int j = 0; j < _hashFunctionCount; j++)
             {
-                ref int segment = ref signature[i];
-                int hashValue = hashFunction(oneHotVector[j]); 
-                if (hashValue < segment) 
-                    segment = hashValue; 
+                ref uint segment = ref signature[j];
+                var hashValue = _hashFunctions[j](oneHotVector[i]);
+                if (hashValue < segment)
+                    segment = hashValue;
             }
         }
 
         return signature; 
     }
-    
-    
-    private static List<Func<int, int>> GenerateHashFunctions(int numHashFunctions, int seed)
+
+
+    public int HashFunctionCount
+        => _hashFunctionCount;
+
+
+    private static int BitsForUniverse(int universeSize) 
+        => (int)Math.Truncate(Math.Log(universeSize, 2.0)) + 1;
+
+
+    private static List<Func<int, uint>> GenerateHashFunctions(int numHashFunctions, int universeBitSize, int seed)
     {
-        var hashFunctions = new List<Func<int, int>>(numHashFunctions);
+        var hashFunctions = new List<Func<int, uint>>(numHashFunctions);
         var rand = new Random(seed);
 
         for (int i = 0; i < numHashFunctions; i++)
         {
-            int a = rand.Next();
-            int b = rand.Next();
-            int c = rand.Next();
-            int d = rand.Next();
+            uint a = 0;
+            while (a % 2 == 0 || a <= 0)
+                a = (uint)rand.Next();
 
-            hashFunctions.Add(x => HashFunction(x, a, b, c, d));
+            var bMax = 1 << (32 - universeBitSize);
+            uint b = 0;
+            while (b <= 0)
+                b = (uint)rand.Next(bMax);
+
+            hashFunctions.Add(x => HashFunction(x, a, b, universeBitSize));
         }
 
         return hashFunctions;
     }
     
     
-    private static int HashFunction(int value, int a, int b, int c, int d) 
-    {
-        int hash = a * value.GetHashCode() + b;
-        hash ^= hash << c;
-        hash ^= hash >> d;
-
-        return Math.Abs(hash);
-    }
+    private static uint HashFunction(int value, uint a, uint b, int universeBitSize) 
+        => (a * (uint)value + b) >> (32 - universeBitSize);
 
     
     private readonly int _hashFunctionCount; 
-    private readonly List<Func<int, int>> _hashFunctions; 
+    private readonly List<Func<int, uint>> _hashFunctions; 
 }
