@@ -12,7 +12,7 @@ public sealed class LocalitySensitiveHashCalculator
     }
     
 
-    public void Add(long itemId, uint[] signature)
+    public void Add(long itemId, ReadOnlySpan<uint> signature)
     {
         for (int i = 0; i < _hashTableCount; i++)
         {
@@ -25,7 +25,7 @@ public sealed class LocalitySensitiveHashCalculator
     }
     
     
-    public List<long> Query(uint[] signature)
+    public List<long> Query(ReadOnlySpan<uint> signature)
     {
         var candidates = new HashSet<long>();
         for (int i = 0; i < _hashTableCount; i++)
@@ -39,7 +39,7 @@ public sealed class LocalitySensitiveHashCalculator
     }
     
     
-    private static uint ComputeHash(uint[] signature, int tableIndex)
+    private static uint ComputeHash(ReadOnlySpan<uint> signature, int tableIndex)
     {
         uint hash = 0;
         for (int i = 0; i < signature.Length; i++)

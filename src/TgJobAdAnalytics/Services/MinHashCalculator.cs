@@ -12,7 +12,7 @@ public sealed class MinHashCalculator
     }
     
     
-    public uint[] GenerateSignature(int[] oneHotVector) 
+    public ReadOnlySpan<uint> GenerateSignature(int[] oneHotVector) 
     {
         int vectorLength = oneHotVector.Length;
 
@@ -67,8 +67,20 @@ public sealed class MinHashCalculator
     
     
     private static uint HashFunction(int value, uint a, uint b, int universeBitSize) 
-        => (a * (uint)value + b) >> (32 - universeBitSize);
-
+    {
+        // FNV-1a hash
+        const uint FNV_PRIME = 16777619;
+        const uint FNV_OFFSET = 2166136261;
+        
+        uint hash = FNV_OFFSET;
+        hash ^= (uint)value;
+        hash *= FNV_PRIME;
+        hash ^= a;
+        hash *= FNV_PRIME;
+        hash ^= b;
+        
+        return hash >> (32 - universeBitSize);
+    }
     
     private readonly int _hashFunctionCount; 
     private readonly List<Func<int, uint>> _hashFunctions; 

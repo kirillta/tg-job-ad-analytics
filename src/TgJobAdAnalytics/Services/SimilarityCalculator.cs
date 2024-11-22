@@ -22,21 +22,21 @@ public sealed class SimilarityCalculator
 
         var minHashCalculator = new MinHashCalculator(100, vocabularyList.Count);
         var lshCalculator = new LocalitySensitiveHashCalculator();
-        var minHashes = new ConcurrentBag<uint[]>();
-        //Parallel.ForEach(messages, message =>
-        foreach (var message in messages)
+        Parallel.ForEach(messages, message =>
+        //foreach (var message in messages)
         {
             var vector = ArrayPool<int>.Shared.Rent(vacabulary.Count);
             OneHotEncode(adShingles[message], vocabularyList, ref vector);
             var hash = minHashCalculator.GenerateSignature(vector);
 
-            lshCalculator.Add(message.Id, hash);
+            //if (lshCalculator.Query(hash).Count > 0)
+            //    return messages;
 
-            minHashes.Add(hash);
+            lshCalculator.Add(message.Id, hash);
 
             Array.Clear(vector, 0, vector.Length);
             ArrayPool<int>.Shared.Return(vector);
-        }//);
+        });
 
         // Further processing to determine distinct messages based on minHashes
 
