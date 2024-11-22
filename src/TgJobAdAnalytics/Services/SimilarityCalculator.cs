@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using TgJobAdAnalytics.Models.Analytics;
 
 namespace TgJobAdAnalytics.Services;
@@ -9,63 +8,34 @@ public sealed class SimilarityCalculator
     public static List<Message> Distinct(List<Message> messages)
     {
         var vacabulary = new HashSet<string>();
-        var adShingles = new Dictionary<Message, HashSet<string>>();
+        var messageShingles = new Dictionary<Message, HashSet<string>>();
 
         foreach (var message in messages)
         {
             var shingles = GetShingles(message.Text);
-            adShingles.Add(message, shingles);
+            messageShingles.Add(message, shingles);
             vacabulary.UnionWith(shingles);
         }
 
         var vocabularyList = vacabulary.ToList();
 
         var minHashCalculator = new MinHashCalculator(100, vocabularyList.Count);
-        var lshCalculator = new LocalitySensitiveHashCalculator();
-        Parallel.ForEach(messages, message =>
-        //foreach (var message in messages)
+        var lshCalculator = new LocalitySensitiveHashCalculator(minHashCalculator.HashFunctionCount);
+        var distinctMessages = new ConcurrentBag<Message>();
+        //Parallel.ForEach(messages, message =>
+        foreach (var message in messages)
         {
-            var vector = ArrayPool<int>.Shared.Rent(vacabulary.Count);
-            OneHotEncode(adShingles[message], vocabularyList, ref vector);
-            var hash = minHashCalculator.GenerateSignature(vector);
+            var hash = minHashCalculator.GenerateSignature(messageShingles[message]);
 
-            //if (lshCalculator.Query(hash).Count > 0)
-            //    return messages;
-
-            lshCalculator.Add(message.Id, hash);
-
-            Array.Clear(vector, 0, vector.Length);
-            ArrayPool<int>.Shared.Return(vector);
-        });
-
-        // Further processing to determine distinct messages based on minHashes
-
-        return messages;
-    }
-
-
-    private static int[] CalculateMinHash(int[] oneHotVector, int numHashFunctions = 100)
-    {
-        var minHash = new int[numHashFunctions];
-        var random = new Random();
-
-        for (int i = 0; i < numHashFunctions; i++)
-        {
-            minHash[i] = int.MaxValue;
-            for (int j = 0; j < oneHotVector.Length; j++)
+            var similarMessages = lshCalculator.GetMatches(hash);
+            if (similarMessages.Count == 0)
             {
-                if (oneHotVector[j] == 1)
-                {
-                    var hashValue = random.Next();
-                    if (hashValue < minHash[i])
-                    {
-                        minHash[i] = hashValue;
-                    }
-                }
+                lshCalculator.Add(message.Id, hash);
+                distinctMessages.Add(message);
             }
-        }
+        }//);
 
-        return minHash;
+        return [.. distinctMessages];
     }
 
 
@@ -79,17 +49,5 @@ public sealed class SimilarityCalculator
             shingles.Add(text.Substring(i, shingleSize));
 
         return shingles;
-    }
-
-
-    private static void OneHotEncode(HashSet<string> textShingles, List<string> vocabulary, ref int[] oneHotVector)
-    {
-        for (int i = 0; i < vocabulary.Count; i++)
-        {
-            if (textShingles.Contains(vocabulary[i]))
-                oneHotVector[i] = 1;
-            else
-                oneHotVector[i] = 0;
-        }
     }
 }

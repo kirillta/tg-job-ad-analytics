@@ -1,9 +1,14 @@
-﻿namespace TgJobAdAnalytics.Services;
+﻿using System.Diagnostics;
+
+namespace TgJobAdAnalytics.Services;
 
 public sealed class MinHashCalculator 
 {
     public MinHashCalculator(int hashFunctionCount, int vocabularySize, int seed = 1000)
     {
+        Debug.Assert(hashFunctionCount > 0, "Hash function count must be positive");
+        Debug.Assert(vocabularySize > 0, "Vocabulary size must be positive");
+
         _hashFunctionCount = hashFunctionCount;
         
         var universeBitSize = BitsForUniverse(vocabularySize);
@@ -12,26 +17,23 @@ public sealed class MinHashCalculator
     }
     
     
-    public ReadOnlySpan<uint> GenerateSignature(int[] oneHotVector) 
+    public ReadOnlySpan<uint> GenerateSignature(HashSet<string> shingles) 
     {
-        int vectorLength = oneHotVector.Length;
-
-        var signature = Enumerable.Repeat(uint.MaxValue, _hashFunctionCount).ToArray();
-        for (int i = 0; i < vectorLength; i++)
+        var signature = new uint[_hashFunctionCount];
+        Array.Fill(signature, uint.MaxValue);
+    
+        foreach (string shingle in shingles)
         {
-            if (oneHotVector[i] == 0)
-                continue;
-
-            for (int j = 0; j < _hashFunctionCount; j++)
+            var shingleHash = shingle.GetHashCode();
+            for (int i = 0; i < _hashFunctionCount; i++)
             {
-                ref uint segment = ref signature[j];
-                var hashValue = _hashFunctions[j](oneHotVector[i]);
-                if (hashValue < segment)
-                    segment = hashValue;
+                var hashValue = _hashFunctions[i](shingleHash);
+                if (hashValue < signature[i])
+                    signature[i] = hashValue;
             }
         }
-
-        return signature; 
+    
+        return signature;
     }
 
 
@@ -66,9 +68,9 @@ public sealed class MinHashCalculator
     }
     
     
+    // FNV-1a hash
     private static uint HashFunction(int value, uint a, uint b, int universeBitSize) 
     {
-        // FNV-1a hash
         const uint FNV_PRIME = 16777619;
         const uint FNV_OFFSET = 2166136261;
         
@@ -82,6 +84,7 @@ public sealed class MinHashCalculator
         return hash >> (32 - universeBitSize);
     }
     
+
     private readonly int _hashFunctionCount; 
     private readonly List<Func<int, uint>> _hashFunctions; 
 }
