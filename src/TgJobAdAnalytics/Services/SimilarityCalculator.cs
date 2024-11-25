@@ -7,6 +7,9 @@ public sealed class SimilarityCalculator
 {
     public static List<Message> Distinct(List<Message> messages)
     {
+        if (messages.Count == 0)
+            return [];
+
         var vacabulary = new HashSet<string>();
         var messageShingles = new Dictionary<Message, HashSet<string>>();
 

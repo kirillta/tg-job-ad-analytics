@@ -40,6 +40,9 @@ public sealed class LocalitySensitiveHashCalculator
     
     public List<long> GetMatches(ReadOnlySpan<uint> signature)
     {
+        if (signature.Length == 0)
+            return [];
+
         var signatureLength = signature.Length;
 
         var candidates = new HashSet<long>();

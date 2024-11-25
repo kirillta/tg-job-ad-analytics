@@ -52,9 +52,12 @@ public class MinHashCalculatorTests
     [Fact]
     public void GenerateSignature_DifferentShingles_ReturnsDifferentSignatures()
     {
-        var calculator = new MinHashCalculator(hashFunctionCount: 10, vocabularySize: 100);
         var shingles1 = new HashSet<string> { "test1", "test2" };
         var shingles2 = new HashSet<string> { "test3", "test4" };
+
+        var vocabulary = shingles1.Union(shingles2);
+
+        var calculator = new MinHashCalculator(hashFunctionCount: 10, vocabulary.Count());
 
         var signature1 = calculator.GenerateSignature(shingles1).ToArray();
         var signature2 = calculator.GenerateSignature(shingles2).ToArray();
@@ -66,17 +69,19 @@ public class MinHashCalculatorTests
     [Fact]
     public void GenerateSignature_SimilarShingles_ReturnsSimilarSignatures()
     {
-        var calculator = new MinHashCalculator(hashFunctionCount: 100, vocabularySize: 1000);
         var shingles1 = new HashSet<string> { "test1", "test2", "test3" };
         var shingles2 = new HashSet<string> { "test1", "test2", "test4" }; // 66% similar
+
+        var vocabulary = shingles1.Union(shingles2);
+
+        var calculator = new MinHashCalculator(hashFunctionCount: 100, vocabulary.Count());
 
         var signature1 = calculator.GenerateSignature(shingles1).ToArray();
         var signature2 = calculator.GenerateSignature(shingles2).ToArray();
 
-        // Calculate Jaccard similarity of signatures
         double matchingHashes = signature1.Zip(signature2, (a, b) => a == b ? 1 : 0).Sum();
         double similarity = matchingHashes / calculator.HashFunctionCount;
 
-        Assert.True(similarity >= 0.5); // Should be close to actual Jaccard similarity
+        Assert.True(similarity >= 0.5);
     }
 }

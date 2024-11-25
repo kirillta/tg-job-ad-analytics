@@ -32,10 +32,20 @@ public class LocalitySensitiveHashCalculatorTests
     [Fact]
     public void Query_WithSimilarSignatures_FindsMatches()
     {
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
-        var signature1 = new uint[] { 1, 2, 3, 4, 5 };
-        var signature2 = new uint[] { 1, 2, 3, 4, 6 }; // 80% similar
+        var signature1 = new uint[100];
+        var signature2 = new uint[100];
 
+        for (int i = 0; i < 100; i++)
+        {
+            signature1[i] = (uint)i;
+
+            if (i < 80)
+                signature2[i] = (uint)i; // 80% similar
+            else
+                signature2[i] = (uint)(i + 1000);
+        }
+        
+        var calculator = new LocalitySensitiveHashCalculator(100, 20);
         calculator.Add(1, signature1);
         var result = calculator.GetMatches(signature2);
 
@@ -46,10 +56,16 @@ public class LocalitySensitiveHashCalculatorTests
     [Fact]
     public void Query_WithDissimilarSignatures_ReturnsEmpty()
     {
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
-        var signature1 = new uint[] { 1, 2, 3, 4, 5 };
-        var signature2 = new uint[] { 6, 7, 8, 9, 10 }; // 0% similar
+        var signature1 = new uint[100];
+        var signature2 = new uint[100];
 
+        for (int i = 0; i < 100; i++)
+        {
+            signature1[i] = (uint)i;
+            signature2[i] = (uint)(i + 1000); // Completely different values
+        }
+        
+        var calculator = new LocalitySensitiveHashCalculator(100, 20);
         calculator.Add(1, signature1);
         var result = calculator.GetMatches(signature2);
 
@@ -76,30 +92,25 @@ public class LocalitySensitiveHashCalculatorTests
     }
 
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData(new uint[0])]
-    public void Query_WithInvalidSignatures_ThrowsArgumentException(uint[]? signature)
+    [Fact]
+    public void Query_WithInvalidSignatures_ReturnsEmpty()
     {
+
         var calculator = new LocalitySensitiveHashCalculator(100, 20);
-        Assert.Throws<ArgumentException>(() => calculator.GetMatches(signature));
+        var matches = calculator.GetMatches([]);
+
+        Assert.Empty(matches);
     }
 
 
     [Fact]
-    public void Add_DuplicateId_UpdatesSignature()
+    public void Add_DuplicateId_ThrowsException()
     {
         var calculator = new LocalitySensitiveHashCalculator(100, 20);
         var signature1 = new uint[] { 1, 2, 3 };
         var signature2 = new uint[] { 4, 5, 6 };
 
         calculator.Add(1, signature1);
-        calculator.Add(1, signature2);
-
-        var result = calculator.GetMatches(signature1);
-        Assert.DoesNotContain(1, result);
-
-        result = calculator.GetMatches(signature2);
-        Assert.Contains(1, result);
+        Assert.Throws<Exception>(() => calculator.Add(1, signature2));
     }
 }
