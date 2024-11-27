@@ -1,4 +1,5 @@
-﻿using TgJobAdAnalytics.Models.Reports;
+﻿using System.Text;
+using TgJobAdAnalytics.Models.Reports;
 
 namespace TgJobAdAnalytics.Services;
 
@@ -6,6 +7,8 @@ public static class ConsoleReportPrinter
 {
     public static void Print(IEnumerable<ReportGroup> reportGroups)
     {
+        Console.OutputEncoding = Encoding.UTF8;
+
         foreach (var reportGroup in reportGroups)
         {
             Console.WriteLine($"** {reportGroup.Title} **");

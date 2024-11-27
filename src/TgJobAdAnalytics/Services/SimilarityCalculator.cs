@@ -24,9 +24,9 @@ public sealed class SimilarityCalculator
 
         var minHashCalculator = new MinHashCalculator(100, vocabularyList.Count);
         var lshCalculator = new LocalitySensitiveHashCalculator(minHashCalculator.HashFunctionCount);
+        
         var distinctMessages = new ConcurrentBag<Message>();
-        //Parallel.ForEach(messages, message =>
-        foreach (var message in messages)
+        Parallel.ForEach(messages, message =>
         {
             var hash = minHashCalculator.GenerateSignature(messageShingles[message]);
 
@@ -36,7 +36,7 @@ public sealed class SimilarityCalculator
                 lshCalculator.Add(message.Id, hash);
                 distinctMessages.Add(message);
             }
-        }//);
+        });
 
         return [.. distinctMessages];
     }

@@ -2,24 +2,19 @@
 using System.Text;
 using TgJobAdAnalytics.Models.Analytics;
 using TgJobAdAnalytics.Models.Telegram;
-using TgJobAdAnalytics.Services.Salaries;
 
 namespace TgJobAdAnalytics.Services;
 
 public sealed partial class MessageProcessor
 {
-    public MessageProcessor(SalaryService salaryService)
+    public List<Message> Get(TgChat tgChat)
     {
-        _salaryService = salaryService;
-    }
+        var chat = new ChatInfo(tgChat.Id, tgChat.Name);
 
-
-    public List<Message> Get(List<TgMessage> tgMessages)
-    {
         var adMessages = new ConcurrentBag<Message>();
-        Parallel.ForEach(tgMessages, new ParallelOptions { MaxDegreeOfParallelism = 1 }, tgMessage =>
+        Parallel.ForEach(tgChat.Messages, tgMessage =>
         {
-            var message = Get(tgMessage);
+            var message = Get(chat, tgMessage);
             if (message is not null)
                 adMessages.Add(message.Value);
         });
@@ -28,7 +23,7 @@ public sealed partial class MessageProcessor
     }
 
 
-    public Message? Get(TgMessage tgMessage)
+    private Message? Get(ChatInfo chatInfo, TgMessage tgMessage)
     {
         if (!IsAd())
             return null;
@@ -41,7 +36,7 @@ public sealed partial class MessageProcessor
             return null;
 
         var date = DateOnly.FromDateTime(tgMessage.Date);
-        return new Message(tgMessage.Id, date, text, Salary.Empty);
+        return new Message(GetSequentialId(), date, text, chatInfo, tgMessage.Id, Salary.Empty);
 
 
         bool IsAd()
@@ -74,6 +69,10 @@ public sealed partial class MessageProcessor
                     stringBuilder.Append(entity.Text);
             }
 
+            var text = stringBuilder.ToString();
+            if (text.Contains('$'))
+                Console.WriteLine(text);
+
             return ClearText(stringBuilder.ToString());
         }
 
@@ -86,6 +85,15 @@ public sealed partial class MessageProcessor
             clearedText = ReplaceMultipleSpacesWithOne(clearedText);
 
             return clearedText.Trim().ToString();
+        }
+    }
+
+
+    private long GetSequentialId()
+    {
+        lock (_lock)
+        {
+            return _id++;
         }
     }
 
@@ -140,6 +148,7 @@ public sealed partial class MessageProcessor
         return result[..index];
     }
 
-
-    private readonly SalaryService _salaryService;
+    
+    private int _id;
+    private readonly Lock _lock = new();
 }

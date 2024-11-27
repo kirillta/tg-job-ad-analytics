@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace TgJobAdAnalytics.Services;
 
@@ -13,31 +14,28 @@ public sealed class LocalitySensitiveHashCalculator
         _bandCount = bandCount;
         _rowCount = hashTableCount / bandCount;
 
-        _hashTables = new List<Dictionary<uint, List<long>>>(_bandCount);
+        _storedMessageIds = new ConcurrentDictionary<long, bool>();
+
+        _hashTables = new List<ConcurrentDictionary<uint, ConcurrentBag<long>>>(_bandCount);
         for (int i = 0; i < _bandCount; i++)
-            _hashTables.Add([]);
+            _hashTables.Add(new ConcurrentDictionary<uint, ConcurrentBag<long>>());
     }
-    
+
 
     public void Add(long itemId, ReadOnlySpan<uint> signature)
     {
-        if (_storedMessageIds.Contains(itemId))
+        if (!_storedMessageIds.TryAdd(itemId, true))
             throw new Exception($"Item with ID {itemId} is already stored");
 
         var signatureLength = signature.Length;
         for (var band = 0; band < _bandCount; band++)
         {
             var bandHash = ComputeBandHash(signature, band, _rowCount, signatureLength);
-            if (!_hashTables[band].ContainsKey(bandHash))
-                _hashTables[band][bandHash] = [];
-
-            _hashTables[band][bandHash].Add(itemId);
+            _hashTables[band].GetOrAdd(bandHash, _ => []).Add(itemId);
         }
-
-        _storedMessageIds.Add(itemId);
     }
-    
-    
+
+
     public List<long> GetMatches(ReadOnlySpan<uint> signature)
     {
         if (signature.Length == 0)
@@ -49,10 +47,10 @@ public sealed class LocalitySensitiveHashCalculator
         for (var band = 0; band < _bandCount; band++)
         {
             var bandHash = ComputeBandHash(signature, band, _rowCount, signatureLength);
-            if (_hashTables[band].TryGetValue(bandHash, out List<long>? value))
+            if (_hashTables[band].TryGetValue(bandHash, out ConcurrentBag<long>? value))
                 candidates.UnionWith(value);
         }
-        
+
         return [.. candidates];
     }
 
@@ -61,14 +59,12 @@ public sealed class LocalitySensitiveHashCalculator
     {
         var startIdx = bandIndex * rowsCount;
         var endIdx = Math.Min(startIdx + rowsCount, signatureLength);
-        
-        // FNV offset basis
-        uint hash = 2166136261; 
+
+        uint hash = 2166136261; // FNV offset basis
         for (var i = startIdx; i < endIdx; i++)
         {
             hash ^= signature[i];
-            // FNV prime
-            hash *= 16777619; 
+            hash *= 16777619; // FNV prime
         }
 
         return hash;
@@ -77,6 +73,6 @@ public sealed class LocalitySensitiveHashCalculator
 
     private readonly int _bandCount;
     private readonly int _rowCount;
-    private readonly List<Dictionary<uint, List<long>>> _hashTables;
-    private readonly HashSet<long> _storedMessageIds = [];
+    private readonly List<ConcurrentDictionary<uint, ConcurrentBag<long>>> _hashTables;
+    private readonly ConcurrentDictionary<long, bool> _storedMessageIds;
 }

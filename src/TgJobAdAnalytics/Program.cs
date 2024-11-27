@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using TgJobAdAnalytics.Models.Analytics;
 using TgJobAdAnalytics.Models.Reports;
@@ -6,40 +6,10 @@ using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Services;
 using TgJobAdAnalytics.Services.Salaries;
 
-Console.OutputEncoding = Encoding.UTF8;
-
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
 
-var rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.csv"));
-var rateApiClient = new RateApiClient();
-var rateService = new RateService(rateSourceManager, rateApiClient);
-
-var salaryService = new SalaryService(Currency.RUB, rateService);
-var messageProcessor = new MessageProcessor(salaryService);
-
-List<Message> adMessages = [];
-
-var fileNames = Directory.GetFiles(sourcePath);
-foreach (string fileName in fileNames)
-{
-    if (!fileName.EndsWith(".json"))
-        continue;
-
-    Console.WriteLine(fileName);
-    using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-    var buffer = new byte[json.Length];
-    await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));
-    var chat = JsonSerializer.Deserialize<TgChat>(buffer);
-
-    Console.WriteLine(chat.Name);
-
-    // TODO: add the chat ID to the message
-    var chatMessages = messageProcessor.Get(chat.Messages);
-    adMessages.AddRange(chatMessages);
-}
-
-var orderedAdMessages = adMessages.OrderByDescending(message => message.Date).ToList();
-var messages = SimilarityCalculator.Distinct(orderedAdMessages);
+List<Message> messages = await GetMessages(sourcePath);
+messages = TryAddSalaries(sourcePath, messages);
 
 List<ReportGroup> reports = [];
 
@@ -48,5 +18,50 @@ reports.Add(SalaryCalculator.CalculateAll(messages));
 
 ConsoleReportPrinter.Print(reports);
 
-
 Console.ReadKey();
+
+
+static async Task<List<Message>> GetMessages(string sourcePath)
+{
+    List<Message> adMessages = [];
+
+    var messageProcessor = new MessageProcessor();
+    var fileNames = Directory.GetFiles(sourcePath);
+    foreach (string fileName in fileNames)
+    {
+        if (!fileName.EndsWith(".json"))
+            continue;
+
+        using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+        var buffer = new byte[json.Length];
+        await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));
+        var chat = JsonSerializer.Deserialize<TgChat>(buffer);
+
+        var chatMessages = messageProcessor.Get(chat);
+        adMessages.AddRange(chatMessages);
+    }
+
+    var orderedAdMessages = adMessages.OrderByDescending(message => message.Date)
+        .ToList();
+
+    return SimilarityCalculator.Distinct(orderedAdMessages);
+}
+
+static List<Message> TryAddSalaries(string sourcePath, List<Message> messages)
+{
+    var rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.csv"));
+    var rateApiClient = new RateApiClient();
+    var rateService = new RateService(rateSourceManager, rateApiClient);
+    var salaryService = new SalaryService(Currency.RUB, rateService);
+
+    var results = new ConcurrentBag<Message>();
+    Parallel.ForEach(messages, async message =>
+    {
+        var salary = await salaryService.Get(message.Text, message.Date);
+        message = message with { Salary = salary };
+
+        results.Add(message);
+    });
+
+    return [.. results];
+}

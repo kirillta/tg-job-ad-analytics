@@ -74,24 +74,6 @@ public class SimilarityCalculatorTests
     }
 
 
-    //[Fact]
-    //public void Distinct_WithMultipleSimilarGroups_ReturnsOneFromEachGroup()
-    //{
-    //    var messages = new List<Message>
-    //    {
-    //        CreateMessage(1, "Java Developer position"),
-    //        CreateMessage(2, "Java Developer role"),
-    //        CreateMessage(3, "Python Developer needed"),
-    //        CreateMessage(4, "Python Developer position open"),
-    //        CreateMessage(5, "DevOps Engineer")
-    //    };
-
-    //    var distinct = SimilarityCalculator.Distinct(messages);
-
-    //    Assert.Equal(3, distinct.Count); // One from each group (Java, Python, DevOps)
-    //}
-
-
     [Fact]
     public void Distinct_WithMultipleSimilarGroups_ReturnsOneFromEachGroup()
     {
