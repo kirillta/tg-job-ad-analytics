@@ -6,10 +6,11 @@ using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Services;
 using TgJobAdAnalytics.Services.Salaries;
 
+var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
 
-List<Message> messages = await GetMessages(sourcePath);
-messages = TryAddSalaries(sourcePath, messages);
+List<Message> messages = await GetMessages(sourcePath, parallelOptions);
+messages = await TryAddSalaries(sourcePath, messages, parallelOptions);
 
 List<ReportGroup> reports = [];
 
@@ -21,11 +22,11 @@ ConsoleReportPrinter.Print(reports);
 Console.ReadKey();
 
 
-static async Task<List<Message>> GetMessages(string sourcePath)
+static async Task<List<Message>> GetMessages(string sourcePath, ParallelOptions parallelOptions)
 {
     List<Message> adMessages = [];
 
-    var messageProcessor = new MessageProcessor();
+    var messageProcessor = new MessageProcessor(parallelOptions);
     var fileNames = Directory.GetFiles(sourcePath);
     foreach (string fileName in fileNames)
     {
@@ -44,10 +45,12 @@ static async Task<List<Message>> GetMessages(string sourcePath)
     var orderedAdMessages = adMessages.OrderByDescending(message => message.Date)
         .ToList();
 
-    return SimilarityCalculator.Distinct(orderedAdMessages);
+    var similarityCalculator = new SimilarityCalculator(parallelOptions);
+    return similarityCalculator.Distinct(orderedAdMessages);
 }
 
-static List<Message> TryAddSalaries(string sourcePath, List<Message> messages)
+
+static async Task<List<Message>> TryAddSalaries(string sourcePath, List<Message> messages, ParallelOptions parallelOptions)
 {
     var rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.csv"));
     var rateApiClient = new RateApiClient();
@@ -55,7 +58,7 @@ static List<Message> TryAddSalaries(string sourcePath, List<Message> messages)
     var salaryService = new SalaryService(Currency.RUB, rateService);
 
     var results = new ConcurrentBag<Message>();
-    Parallel.ForEach(messages, async message =>
+    await Parallel.ForEachAsync(messages, parallelOptions, async (message, CancellationToken) =>
     {
         var salary = await salaryService.Get(message.Text, message.Date);
         message = message with { Salary = salary };
