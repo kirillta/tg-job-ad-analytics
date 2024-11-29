@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using TgJobAdAnalytics.Models.Analytics;
+using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Telegram;
 
 namespace TgJobAdAnalytics.Services;
@@ -84,6 +85,10 @@ public sealed partial class MessageProcessor
                 if (entity.Type is TgTextEntryType.PlainText)
                     stringBuilder.Append(entity.Text);
             }
+
+            // If the message is too short, it is not an ad
+            if (stringBuilder.Length < 150)
+                return string.Empty;
 
             return ClearText(stringBuilder.ToString());
         }

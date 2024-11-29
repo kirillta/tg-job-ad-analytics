@@ -1,5 +1,6 @@
 ﻿
 using System.Text.Json.Serialization;
+using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Models.Analytics;
 

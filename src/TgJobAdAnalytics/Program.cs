@@ -52,15 +52,17 @@ static async Task<List<Message>> GetMessages(string sourcePath, ParallelOptions 
 
 static async Task<List<Message>> TryAddSalaries(string sourcePath, List<Message> messages, ParallelOptions parallelOptions)
 {
-    var rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.csv"));
-    var rateApiClient = new RateApiClient();
-    var rateService = new RateService(rateSourceManager, rateApiClient);
+    var rateServiceFactory = new RateServiceFactory(sourcePath);
+
+    var initialDate = messages.Min(message => message.Date);
+    var rateService = await rateServiceFactory.Get(Currency.RUB, initialDate);
+
     var salaryService = new SalaryService(Currency.RUB, rateService);
 
     var results = new ConcurrentBag<Message>();
-    await Parallel.ForEachAsync(messages, parallelOptions, async (message, CancellationToken) =>
+    Parallel.ForEach(messages, parallelOptions, message =>
     {
-        var salary = await salaryService.Get(message.Text, message.Date);
+        var salary = salaryService.Get(message.Text, message.Date);
         message = message with { Salary = salary };
 
         results.Add(message);

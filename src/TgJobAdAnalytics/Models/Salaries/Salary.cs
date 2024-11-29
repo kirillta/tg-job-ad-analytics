@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Serialization;
+using TgJobAdAnalytics.Models.Analytics;
 
-namespace TgJobAdAnalytics.Models.Analytics;
+namespace TgJobAdAnalytics.Models.Salaries;
 
 public readonly record struct Salary
 {
@@ -16,7 +17,7 @@ public readonly record struct Salary
 
 
     public Salary(double lowerBound, double upperBound, Currency currency)
-        : this(lowerBound, double.NaN, upperBound, double.NaN, currency) 
+        : this(lowerBound, double.NaN, upperBound, double.NaN, currency)
     { }
 
 

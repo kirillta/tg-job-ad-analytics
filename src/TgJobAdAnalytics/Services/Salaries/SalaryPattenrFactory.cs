@@ -1,5 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using TgJobAdAnalytics.Models.Analytics;
+using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
@@ -9,15 +10,15 @@ internal sealed partial class SalaryPattenrFactory
     {
         return
         [
-            new SalaryPattern(Pattern1Regex(), Currency.RUB, "50k - 100k"),
-            new SalaryPattern(Pattern2Regex(), Currency.RUB, "от 70к до 150к рублей"),
-            new SalaryPattern(Pattern4Regex(), Currency.USD, "от 4000 до 5000$"),
-            new SalaryPattern(Pattern5Regex(), Currency.RUB, "110-160 тр/мес"),
-            new SalaryPattern(Pattern6Regex(), Currency.RUB, "300 000 - 420 000 gross"),
-            new SalaryPattern(Pattern7Regex(), Currency.RUB, "от 200 000 до 270 000 рублей"),
-            new SalaryPattern(Pattern8Regex(), Currency.USD, "до 4000$ gross"),
-            new SalaryPattern(Pattern9Regex(), Currency.RUB, "до 330 гросс"),
-            new SalaryPattern(Pattern10Regex(), Currency.USD, "$2500-$4500"),
+            new SalaryPattern(Pattern1Regex(), Currency.RUB, BoundaryType.Both, "50k - 100k"),
+            new SalaryPattern(Pattern2Regex(), Currency.RUB, BoundaryType.Both, "от 70к до 150к рублей"),
+            new SalaryPattern(Pattern4Regex(), Currency.USD, BoundaryType.Both, "от 4000 до 5000$"),
+            new SalaryPattern(Pattern5Regex(), Currency.RUB, BoundaryType.Both, "110-160 тр/мес"),
+            new SalaryPattern(Pattern6Regex(), Currency.RUB, BoundaryType.Both, "300 000 - 420 000 gross"),
+            new SalaryPattern(Pattern7Regex(), Currency.RUB, BoundaryType.Both, "от 200 000 до 270 000 рублей"),
+            new SalaryPattern(Pattern8Regex(), Currency.USD, BoundaryType.Upper, "до 4000$ gross"),
+            new SalaryPattern(Pattern9Regex(), Currency.RUB, BoundaryType.Upper, "до 330 гросс"),
+            new SalaryPattern(Pattern10Regex(), Currency.USD, BoundaryType.Both, "$2500-$4500"),
         ];
     }
 

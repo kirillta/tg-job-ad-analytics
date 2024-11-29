@@ -1,8 +1,9 @@
 ﻿using TgJobAdAnalytics.Models.Analytics;
+using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-public class RateSourceManager
+internal class RateSourceManager
 {
     public RateSourceManager(string rateSourcePath)
     {
@@ -12,27 +13,40 @@ public class RateSourceManager
     }
 
 
-    public async Task<Dictionary<(Currency, Currency, DateOnly), double>> Add(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate, double rate)
+    public async Task Add(List<Rate> rates)
     {
-        await _semaphore.WaitAsync();
-        try
+        using var writer = new StreamWriter(_rateSourcePath, true);
+        foreach (var rate in rates)
         {
-            using var writer = new StreamWriter(_rateSourcePath, true);
-            await writer.WriteLineAsync($"{baseCurrency},{targetCurrency},{targetDate},{rate}");
-            
-            _rates[(baseCurrency, targetCurrency, targetDate)] = rate;
+            if (_rates.ContainsKey((rate.TargetCurrency, rate.TargetDate)))
+                continue;
+
+            await writer.WriteLineAsync($"{rate.BaseCurrency},{rate.TargetCurrency},{rate.TargetDate},{rate.Value}");
+            _rates[(rate.TargetCurrency, rate.TargetDate)] = rate;
         }
-        finally
-        {
-            _semaphore.Release();
-        }
-        
-        return _rates;
     }
 
 
-    public Dictionary<(Currency, Currency, DateOnly), double> Get() 
+    public Dictionary<(Currency Target, DateOnly Date), Rate> Get() 
         => _rates;
+
+
+    public DateOnly GetMaximalDate()
+    {
+        if (_rates.Count == 0)
+            return DateOnly.FromDateTime(DateTime.Now);
+
+        return _rates.Keys.Select(x => x.Date).Max();
+    }
+
+
+    public DateOnly GetMinimalDate()
+    {
+        if (_rates.Count == 0)
+            return DateOnly.FromDateTime(DateTime.Now);
+
+        return _rates.Keys.Select(x => x.Date).Min();
+    }
 
 
     private void UploadFromFile()
@@ -51,12 +65,11 @@ public class RateSourceManager
             var date = DateOnly.Parse(parts[2]);
             var rate = double.Parse(parts[3]);
 
-            _rates[(baseCurrency, targetCurrency, date)] = rate;
+            _rates[(targetCurrency, date)] = new Rate(baseCurrency, targetCurrency, date, rate);
         }
     }
 
 
-    private readonly Dictionary<(Currency, Currency, DateOnly), double> _rates = [];
+    private readonly Dictionary<(Currency Target, DateOnly Date), Rate> _rates = [];
     private readonly string _rateSourcePath;
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
 }
