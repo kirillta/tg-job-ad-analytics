@@ -1,6 +1,4 @@
-﻿using TgJobAdAnalytics.Models.Analytics;
-
-namespace TgJobAdAnalytics.Models.Salaries;
+﻿namespace TgJobAdAnalytics.Models.Salaries;
 
 public readonly record struct Rate
 {

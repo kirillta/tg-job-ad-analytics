@@ -1,9 +1,12 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
-using TgJobAdAnalytics.Models.Analytics;
+using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Telegram;
-using TgJobAdAnalytics.Services;
+using TgJobAdAnalytics.Services.Analytics;
+using TgJobAdAnalytics.Services.Messages;
+using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Salaries;
 
 var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };

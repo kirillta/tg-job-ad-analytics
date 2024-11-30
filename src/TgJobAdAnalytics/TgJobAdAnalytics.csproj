@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Output\" />
     <Folder Include="Sources\" />
   </ItemGroup>
 

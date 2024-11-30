@@ -1,5 +1,4 @@
-﻿using TgJobAdAnalytics.Models.Analytics;
-using TgJobAdAnalytics.Models.Salaries;
+﻿using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 

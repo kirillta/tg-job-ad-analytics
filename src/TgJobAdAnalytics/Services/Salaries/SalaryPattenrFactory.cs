@@ -1,5 +1,4 @@
 ﻿using System.Text.RegularExpressions;
-using TgJobAdAnalytics.Models.Analytics;
 using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;

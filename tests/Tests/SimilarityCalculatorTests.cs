@@ -1,5 +1,5 @@
-﻿using TgJobAdAnalytics.Models.Analytics;
-using TgJobAdAnalytics.Services;
+﻿using TgJobAdAnalytics.Models.Messages;
+using TgJobAdAnalytics.Services.Messages;
 
 namespace Tests;
 
