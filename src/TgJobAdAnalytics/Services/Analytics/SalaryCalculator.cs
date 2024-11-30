@@ -33,7 +33,7 @@ internal class SalaryCalculator
                 MinimalSalary = group.Select(group => group.Salary.LowerBound).Minimum()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => FormatSalary(group.MinimalSalary))
+            .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary)
             .ToReport("Minimal Salary by Year");
 
 
@@ -47,7 +47,7 @@ internal class SalaryCalculator
                 MaximumSalary = group.Select(group => group.Salary.LowerBound).Maximum()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => FormatSalary(group.MaximumSalary))
+            .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary)
             .ToReport("Maximum Salary by Year");
 
 
@@ -63,7 +63,7 @@ internal class SalaryCalculator
                     .Mean()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => FormatSalary(group.MeanSalary))
+            .ToDictionary(group => group.Year.ToString(), group => group.MeanSalary)
             .ToReport("Average Salary by Year");
 
 
@@ -79,11 +79,8 @@ internal class SalaryCalculator
                     .Median()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => FormatSalary(group.MedianSalary))
+            .ToDictionary(group => group.Year.ToString(), group => group.MedianSalary)
             .ToReport("Median Salary by Year");
-
-
-    private static string FormatSalary(double salary) => salary.ToString("F2");
 
 
     private static double GetSalaryValue(Message message)

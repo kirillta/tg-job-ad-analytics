@@ -11,6 +11,7 @@ using TgJobAdAnalytics.Services.Salaries;
 
 var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
+var outputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
 
 List<Message> messages = await GetMessages(sourcePath, parallelOptions);
 messages = await TryAddSalaries(sourcePath, messages, parallelOptions);
@@ -20,9 +21,12 @@ List<ReportGroup> reports = [];
 reports.Add(AdStatsCalculator.CalculateAll(messages));
 reports.Add(SalaryCalculator.CalculateAll(messages));
 
-ConsoleReportPrinter.Print(reports);
+var printer = new HtmlReportPrinter(outputPath);
+printer.Print(reports);
+//ConsoleReportPrinter.Print(reports);
 
-Console.ReadKey();
+Console.WriteLine("Complete");
+//Console.ReadKey();
 
 
 static async Task<List<Message>> GetMessages(string sourcePath, ParallelOptions parallelOptions)

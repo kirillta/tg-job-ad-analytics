@@ -1,7 +1,9 @@
-﻿namespace TgJobAdAnalytics.Models.Reports;
+﻿using TgJobAdAnalytics.Services.Reports;
+
+namespace TgJobAdAnalytics.Models.Reports;
 
 public static class ReportExtensions
 { 
-    public static Report ToReport(this Dictionary<string, string> results, string title) 
-        => new (title, results);
+    public static Report ToReport(this Dictionary<string, double> results, string title, ChartType type = ChartType.Bar) 
+        => new (title, results, type);
 }

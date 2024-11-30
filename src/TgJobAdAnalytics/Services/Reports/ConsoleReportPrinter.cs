@@ -3,9 +3,9 @@ using TgJobAdAnalytics.Models.Reports;
 
 namespace TgJobAdAnalytics.Services.Reports;
 
-public static class ConsoleReportPrinter
+public sealed class ConsoleReportPrinter : IReportPrinter
 {
-    public static void Print(IEnumerable<ReportGroup> reportGroups)
+    public void Print(IEnumerable<ReportGroup> reportGroups)
     {
         Console.OutputEncoding = Encoding.UTF8;
 
@@ -18,14 +18,14 @@ public static class ConsoleReportPrinter
     }
 
 
-    public static void Print(IEnumerable<Report> reports)
+    public void Print(IEnumerable<Report> reports)
     {
         foreach (var report in reports)
             Print(report);
     }
 
 
-    public static void Print(Report report)
+    public void Print(Report report)
     {
         const int padding = 20;
 
@@ -34,7 +34,7 @@ public static class ConsoleReportPrinter
         foreach (var result in report.Results)
         {
             var key = result.Key.PadRight(padding);
-            var value = result.Value.PadRight(padding);
+            var value = result.Value.ToString().PadRight(padding);
             Console.WriteLine($"{key}: {value}");
         }
 
