@@ -1,12 +1,14 @@
 ﻿using System.Text;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Telegram;
 
 namespace TgJobAdAnalytics.Services.Reports;
 
 public sealed class HtmlReportPrinter : IReportPrinter
 {
-    public HtmlReportPrinter(string path)
+    public HtmlReportPrinter(string path, List<TgChat> dataSources)
     {
+        _dataSources = dataSources;
         _path = path;
     }
 
@@ -43,7 +45,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
 
     private void FinalizeReport(StringBuilder body)
     {
-        var html = GenerateBaseHtml(body);
+        var html = GenerateBaseHtml(body, _dataSources);
         WriteToFile(html);
     }
 
@@ -52,7 +54,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
         => value % 1 == 0 ? value.ToString("N0") : value.ToString("N2");
 
 
-    private static StringBuilder GenerateBaseHtml(StringBuilder body)
+    private static StringBuilder GenerateBaseHtml(StringBuilder body, List<TgChat> dataSources)
     {
         var html = new StringBuilder();
 
@@ -69,7 +71,13 @@ public sealed class HtmlReportPrinter : IReportPrinter
         html.AppendLine("<div class=\"container mx-auto mt-5\">");
         html.AppendLine("<h1 class=\"text-3xl font-bold text-center\">Аналитика вакансий в Telegram</h1>");
         html.Append(body);
+
+        var sources = GetSourcesSection(dataSources);
+        html.Append(sources);
         html.AppendLine("</div>");
+
+        var footer = GetFooter();
+        html.Append(footer);
 
         html.AppendLine("</body>");
         html.AppendLine("</html>");
@@ -78,17 +86,61 @@ public sealed class HtmlReportPrinter : IReportPrinter
     }
 
 
+    private static StringBuilder GetSourcesSection(List<TgChat> dataSources)
+    {
+        var sources = new StringBuilder();
+       
+        sources.AppendLine("<section class=\"mb-10\">");
+        sources.AppendLine("<h5>Источники данных</h5>");
+        sources.AppendLine("<ol>");
+        foreach (var dataSource in dataSources)
+        {
+            var minimalDate = dataSource.Messages.Min(m => m.Date).ToString("yyyy.MM.dd");
+            var maximalDate = dataSource.Messages.Max(m => m.Date).ToString("yyyy.MM.dd");
+            sources.AppendLine("<li>");
+            sources.AppendLine($"{dataSource.Name} ({dataSource.Id}), {minimalDate}–{maximalDate}.");
+            sources.AppendLine("</li>");
+        }
+        sources.AppendLine("</ol>");
+        sources.AppendLine("</section>");
+
+        return sources;
+    }
+
+
+    private static StringBuilder GetFooter()
+    {
+        var footer = new StringBuilder();
+
+        footer.AppendLine("<footer class=\"text-center text-sm font-light mb-10\">");
+
+        footer.AppendLine("<p class=\"mb-15\">");
+        footer.AppendLine("Автор: <a href=\"https://www.linkedin.com/in/kirillta/?locale=en_US\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">Kirill Taran</a>");
+        footer.AppendLine("<br />");
+        footer.AppendLine("Исходный код: <a href=\"https://github.com/kirillta/tg-job-ad-analytics\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">GitHub</a>");
+        footer.AppendLine("<br />");
+        footer.AppendLine($"Версия аналитики: {DateTime.UtcNow:yyyy-MM-dd}");
+        footer.AppendLine("<br />");
+        footer.AppendLine("Создано с использованием <a href=\"https://tailwindcss.com/\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">Tailwind CSS</a> и <a href=\"https://www.chartjs.org/\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">Chart.js</a>");
+        footer.AppendLine("</p>");
+
+        footer.AppendLine("</footer>");
+        
+        return footer;
+    }
+
+
     private static StringBuilder PrintGroupInternal(ReportGroup reportGroup)
     {
         var body = new StringBuilder();
 
-        body.AppendLine("<div class=\"mb-5\">");
+        body.AppendLine("<section class=\"mb-10\">");
         
         body.AppendLine($"<h2 class=\"text-2xl font-bold text-center\">{reportGroup.Title}</h2>");
         foreach (var report in reportGroup.Reports)
             body.Append(PrintInternal(report));
 
-        body.AppendLine("</div>");
+        body.AppendLine("</section>");
 
         return body;
     }
@@ -136,5 +188,6 @@ public sealed class HtmlReportPrinter : IReportPrinter
 
     private const string ResultsFileNameTemplate = "{0}-report.html";
 
+    private readonly List<TgChat> _dataSources;
     private readonly string _path;
 }

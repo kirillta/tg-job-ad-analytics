@@ -13,7 +13,8 @@ var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
 var outputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
 
-List<Message> messages = await GetMessages(sourcePath, parallelOptions);
+var chats = await GetChats(sourcePath);
+var messages = GetMessages(chats, parallelOptions);
 messages = await TryAddSalaries(sourcePath, messages, parallelOptions);
 
 List<ReportGroup> reports = [];
@@ -21,7 +22,7 @@ List<ReportGroup> reports = [];
 reports.Add(AdStatsCalculator.CalculateAll(messages));
 reports.Add(SalaryCalculator.CalculateAll(messages));
 
-var printer = new HtmlReportPrinter(outputPath);
+var printer = new HtmlReportPrinter(outputPath, chats);
 printer.Print(reports);
 //ConsoleReportPrinter.Print(reports);
 
@@ -29,22 +30,33 @@ Console.WriteLine("Complete");
 //Console.ReadKey();
 
 
-static async Task<List<Message>> GetMessages(string sourcePath, ParallelOptions parallelOptions)
+static async Task<List<TgChat>> GetChats(string sourcePath)
 {
-    List<Message> adMessages = [];
-
-    var messageProcessor = new MessageProcessor(parallelOptions);
+    var chats = new List<TgChat>();
     var fileNames = Directory.GetFiles(sourcePath);
     foreach (string fileName in fileNames)
     {
         if (!fileName.EndsWith(".json"))
             continue;
-
         using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
         var buffer = new byte[json.Length];
         await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));
         var chat = JsonSerializer.Deserialize<TgChat>(buffer);
+        
+        chats.Add(chat);
+    }
 
+    return chats;
+}
+
+
+static List<Message> GetMessages(List<TgChat> chats, ParallelOptions parallelOptions)
+{
+    List<Message> adMessages = [];
+
+    var messageProcessor = new MessageProcessor(parallelOptions);
+    foreach (var chat in chats)
+    {
         var chatMessages = messageProcessor.Get(chat);
         adMessages.AddRange(chatMessages);
     }
