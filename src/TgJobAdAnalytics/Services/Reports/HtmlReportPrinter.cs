@@ -91,7 +91,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
         var sources = new StringBuilder();
        
         sources.AppendLine("<section class=\"mb-10\">");
-        sources.AppendLine("<h5>Источники данных</h5>");
+        sources.AppendLine("<h5>Источники данных:</h5>");
         sources.AppendLine("<ol>");
         foreach (var dataSource in dataSources)
         {

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
@@ -8,6 +9,8 @@ using TgJobAdAnalytics.Services.Analytics;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Salaries;
+
+var startTime = Stopwatch.GetTimestamp();
 
 var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
@@ -26,7 +29,7 @@ var printer = new HtmlReportPrinter(outputPath, chats);
 printer.Print(reports);
 //ConsoleReportPrinter.Print(reports);
 
-Console.WriteLine("Complete");
+Console.WriteLine($"Completed in {Stopwatch.GetElapsedTime(startTime).TotalSeconds} seconds");
 //Console.ReadKey();
 
 
