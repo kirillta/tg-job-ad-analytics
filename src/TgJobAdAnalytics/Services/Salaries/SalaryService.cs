@@ -78,7 +78,8 @@ public class SalaryService
         {
             salaryString = salaryString.Replace("k", "000", StringComparison.OrdinalIgnoreCase)
                 .Replace("к", "000", StringComparison.OrdinalIgnoreCase)
-                .Replace("тр", "000", StringComparison.OrdinalIgnoreCase);
+                .Replace("тр", "000", StringComparison.OrdinalIgnoreCase)
+                .Replace("тыср", "000", StringComparison.OrdinalIgnoreCase);
 
             return double.TryParse(salaryString, out var result) ? result : double.NaN;
         }

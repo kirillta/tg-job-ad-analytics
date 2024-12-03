@@ -8,12 +8,14 @@ public static class TextNormalizer
     {
         var rentedArray = ArrayPool<char>.Shared.Rent(text.Length);
         var clearedText = rentedArray.AsSpan(0, text.Length);
-        text.AsSpan().ToLowerInvariant(clearedText);
+        text.Normalize().AsSpan().ToLowerInvariant(clearedText);
 
         clearedText = ReplaceDashesWithOne(clearedText);
         clearedText = ExcludeNonAlphabeticOrNumbers(clearedText);
         clearedText = ReplaceMultipleSpacesWithOne(clearedText);
         clearedText = ReplaceCurrencyNamesWithSymbols(clearedText);
+        clearedText = ReplaceMultipleSpacesWithOne(clearedText);
+        clearedText = RemoveThousandSeparators(clearedText);
         clearedText = RemoveSpaceBetweenDigitAndCurrencySign(clearedText);
         clearedText = RemoveSpaceBetweenSalaryRangeBounds(clearedText);
 
@@ -126,14 +128,31 @@ public static class TextNormalizer
                     text.Slice(index, nameSpan.Length).Fill(' ');
                     text[index] = symbol;
 
-                    index = MemoryExtensions.IndexOf(text[(index + nameSpan.Length)..], nameSpan, StringComparison.OrdinalIgnoreCase);
-                    if (index != -1)
-                        index += nameSpan.Length;
+                    var nextIndex = MemoryExtensions.IndexOf(text[(index + nameSpan.Length)..], nameSpan, StringComparison.OrdinalIgnoreCase);
+                    if (nextIndex == -1)
+                        break;
+
+                    index += nextIndex + nameSpan.Length;
                 }
             }
 
             return text;
         }
+    }
+
+
+    private static Span<char> RemoveThousandSeparators(Span<char> text)
+    {
+        int index = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == ' ' && i > 0 && i < text.Length - 1 && char.IsDigit(text[i - 1]) && char.IsDigit(text[i + 1]))
+                continue;
+
+            text[index++] = text[i];
+        }
+
+        return text[..index];
     }
 
 
@@ -179,24 +198,26 @@ public static class TextNormalizer
 
     private static readonly ReadOnlyMemory<string> UsdNames = new[]
     {
-        "usd",
-        "доллар",
         "долларов",
-        "$"
+        "доллар",
+        "usd"
     };
 
     private static readonly ReadOnlyMemory<string> RubNames = new[]
     {
-        "руб",
-        "рубль",
         "рублей",
-        "₽"
+        "рубль",
+        "рубли",
+        "руб",
+        " р ",
+        " р.",
+        " р,"
     };
 
     private static readonly ReadOnlyMemory<string> EuroNames = new[]
     {
         "euro",
         "евро",
-        "€"
+        "eur"
     };
 }

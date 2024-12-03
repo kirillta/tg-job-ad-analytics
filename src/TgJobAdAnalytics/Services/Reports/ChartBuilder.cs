@@ -74,7 +74,7 @@ public sealed class ChartBuilder
             dataset.AppendLine($"borderColor: '{_borderColors.First()}',");
             dataset.AppendLine("borderWidth: 1");
             dataset.AppendLine("}");
-            
+
             return dataset;
         }
 
@@ -168,9 +168,6 @@ public sealed class ChartBuilder
     {
         return @"
             {
-                layout: {
-                    padding: 50
-                },
                 maintainAspectRatio: true,
                 responsive: true,
                 scales: {

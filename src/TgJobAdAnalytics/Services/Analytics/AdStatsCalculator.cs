@@ -9,13 +9,13 @@ public sealed class AdStatsCalculator
     {
         var reports = new List<Report>
         {
+            PrintNumberOfAdsByYearAndMonth(messages),
             GetMaximumNumberOfAdsByMonthAndYear(messages),
             GetNumberOfAdsByMonth(messages),
             GetNumberOfAdsByYear(messages),
-            PrintNumberOfAdsByYearAndMonth(messages)
         };
 
-        return new ReportGroup("Ad Statistics", reports);
+        return new ReportGroup("Статистика по вакансиям", reports);
     }
 
 
