@@ -1,5 +1,8 @@
-﻿using System.Text;
+﻿using Scriban;
+using Scriban.Runtime;
+using System.Text;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Reports.Html;
 using TgJobAdAnalytics.Models.Telegram;
 
 namespace TgJobAdAnalytics.Services.Reports;
@@ -19,7 +22,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
         foreach (var reportGroup in reportGroups)
             body.Append(PrintGroupInternal(reportGroup));
 
-        FinalizeReport(body);
+        FinalizeReport(body.ToString());
     }
 
 
@@ -32,7 +35,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
             body.AppendLine("<hr>");
         }
 
-        FinalizeReport(body);
+        FinalizeReport(body.ToString());
     }
 
 
@@ -43,10 +46,41 @@ public sealed class HtmlReportPrinter : IReportPrinter
     }
 
 
-    private void FinalizeReport(StringBuilder body)
+    private void FinalizeReport(string body)
     {
-        var html = GenerateBaseHtml(body, _dataSources);
+        var templateContent = File.ReadAllText("Views/Reports/ReportTemplate.sbn");
+        var template = Template.Parse(templateContent);
+
+        var reportModel = BuildReportModel();
+
+        var scriptObject = new ScriptObject();
+        scriptObject.Import(reportModel);
+
+        var context = new TemplateContext();
+        context.TemplateLoader = new FileSystemLoader("");
+        context.PushGlobal(scriptObject);
+
+        var html = template.Render(context);
         WriteToFile(html);
+
+
+        List<DataSourceModel> BuildDataSourceModels()
+            => _dataSources.Select(source => new DataSourceModel
+            {
+                Id = source.Id,
+                Name = source.Name,
+                MinimalDate = source.Messages.Min(m => m.Date).ToString("yyyy.MM.dd"),
+                MaximalDate = source.Messages.Max(m => m.Date).ToString("yyyy.MM.dd")
+            }).ToList();
+
+
+        ReportModel BuildReportModel()
+            => new()
+            {
+                Body = body,
+                DataSources = BuildDataSourceModels(),
+                ReportDate = DateTime.UtcNow.ToString("yyyy.MM.dd")
+            };
     }
 
 
@@ -54,104 +88,25 @@ public sealed class HtmlReportPrinter : IReportPrinter
         => value % 1 == 0 ? value.ToString("N0") : value.ToString("N2");
 
 
-    private static StringBuilder GenerateBaseHtml(StringBuilder body, List<TgChat> dataSources)
-    {
-        var html = new StringBuilder();
-
-        html.AppendLine("<!DOCTYPE html>");
-        html.AppendLine("<html>");
-        html.AppendLine("<head>");
-        html.AppendLine("<meta charset=\"UTF-8\">");
-        html.AppendLine("<title>Аналитика вакансий в Telegram</title>");
-        html.AppendLine("<script src=\"https://cdn.tailwindcss.com\"></script>");
-        html.AppendLine("<script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>");
-        html.AppendLine("</head>");
-        html.AppendLine("<body>");
-
-        html.AppendLine("<div class=\"container mx-auto mt-5\">");
-        html.AppendLine("<h1 class=\"text-3xl font-bold text-center\">Аналитика вакансий в Telegram</h1>");
-        html.Append(body);
-
-        var sources = GetSourcesSection(dataSources);
-        html.Append(sources);
-        html.AppendLine("</div>");
-
-        var footer = GetFooter();
-        html.Append(footer);
-
-        html.AppendLine("</body>");
-        html.AppendLine("</html>");
-
-        return html;
-    }
-
-
-    private static StringBuilder GetSourcesSection(List<TgChat> dataSources)
-    {
-        var sources = new StringBuilder();
-       
-        sources.AppendLine("<section class=\"mb-10\">");
-        sources.AppendLine("<h5>Источники данных:</h5>");
-        sources.AppendLine("<ol>");
-        foreach (var dataSource in dataSources)
-        {
-            var minimalDate = dataSource.Messages.Min(m => m.Date).ToString("yyyy.MM.dd");
-            var maximalDate = dataSource.Messages.Max(m => m.Date).ToString("yyyy.MM.dd");
-            sources.AppendLine("<li>");
-            sources.AppendLine($"{dataSource.Name} ({dataSource.Id}), {minimalDate}–{maximalDate}.");
-            sources.AppendLine("</li>");
-        }
-        sources.AppendLine("</ol>");
-        sources.AppendLine("</section>");
-
-        return sources;
-    }
-
-
-    private static StringBuilder GetFooter()
-    {
-        var footer = new StringBuilder();
-
-        footer.AppendLine("<footer class=\"text-center text-sm font-light mb-10\">");
-
-        footer.AppendLine("<p class=\"mb-15\">");
-        footer.AppendLine("Автор: <a href=\"https://www.linkedin.com/in/kirillta/?locale=en_US\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">Kirill Taran</a>");
-        footer.AppendLine("<br />");
-        footer.AppendLine("Исходный код: <a href=\"https://github.com/kirillta/tg-job-ad-analytics\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">GitHub</a>");
-        footer.AppendLine("<br />");
-        footer.AppendLine($"Версия аналитики: {DateTime.UtcNow:yyyy-MM-dd}");
-        footer.AppendLine("<br />");
-        footer.AppendLine("Создано с использованием <a href=\"https://tailwindcss.com/\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">Tailwind CSS</a> и <a href=\"https://www.chartjs.org/\" class=\"text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800\">Chart.js</a>");
-        footer.AppendLine("</p>");
-
-        footer.AppendLine("</footer>");
-        
-        return footer;
-    }
-
-
-    private static StringBuilder PrintGroupInternal(ReportGroup reportGroup)
+    private static string PrintGroupInternal(ReportGroup reportGroup)
     {
         var body = new StringBuilder();
 
         body.AppendLine("<section class=\"mb-10\">");
-        
         body.AppendLine($"<h2 class=\"text-2xl font-bold text-center\">{reportGroup.Title}</h2>");
         foreach (var report in reportGroup.Reports)
             body.Append(PrintInternal(report));
-
         body.AppendLine("</section>");
 
-        return body;
+        return body.ToString();
     }
 
 
-    private static StringBuilder PrintInternal(Report report)
+    private static string PrintInternal(Report report)
     {
         var section = new StringBuilder();
 
         section.AppendLine("<div class=\"mb-5\">");
-
         section.AppendLine("<table class=\"min-w-80 table-auto border-collapse border border-gray-200\">");
         section.AppendLine($"<caption class=\"caption-top text-lg font-semibold mb-2\">{report.Title}</caption>");
         foreach (var result in report.Results)
@@ -165,14 +120,14 @@ public sealed class HtmlReportPrinter : IReportPrinter
 
         if (report.Type != ChartType.None)
             section.Append(ChartBuilder.Build(report));
-        
+
         section.AppendLine("</div>");
 
-        return section;
+        return section.ToString();
     }
 
 
-    private void WriteToFile(StringBuilder content)
+    private void WriteToFile(string content)
     {
         var fileName = string.Format(ResultsFileNameTemplate, DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
         var path = Path.Combine(_path, fileName);
@@ -182,7 +137,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
                 Directory.CreateDirectory(_path);
         }
 
-        File.WriteAllText(path, content.ToString());
+        File.WriteAllText(path, content);
     }
 
 

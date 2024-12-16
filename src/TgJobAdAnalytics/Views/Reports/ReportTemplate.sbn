@@ -1,0 +1,30 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Аналитика вакансий в Telegram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container mx-auto mt-5">
+        <h1 class="text-3xl font-bold text-center">Аналитика вакансий в Telegram</h1>
+        {{ body }}
+        {{ include "Views/Reports/DataSources.sbn" }}
+    </div>
+    <footer class="text-center text-sm font-light mb-10">
+        <p class="mb-15">
+            Автор: <a href="https://www.linkedin.com/in/kirillta/?locale=en_US" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Kirill Taran</a>
+            <br />
+            Исходный код: <a href="https://github.com/kirillta/tg-job-ad-analytics" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">GitHub</a>
+            <br />
+            Версия аналитики: {{ report_date }}
+            <br />
+            Создано с использованием 
+            <a href="https://tailwindcss.com/" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Tailwind CSS</a>, 
+            <a href="https://www.chartjs.org/" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Chart.js</a> и 
+            <a href="https://github.com/scriban/scriban" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Scriban</a>.
+        </p>
+    </footer>
+</body>
+</html>
