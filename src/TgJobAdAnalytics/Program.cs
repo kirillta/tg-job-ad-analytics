@@ -15,6 +15,7 @@ var startTime = Stopwatch.GetTimestamp();
 var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
 var outputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
+const string relativeTemplatePath = "Views/Reports";
 
 var chats = await GetChats(sourcePath);
 var messages = GetMessages(chats, parallelOptions);
@@ -25,7 +26,7 @@ List<ReportGroup> reports = [];
 reports.Add(AdStatsCalculator.CalculateAll(messages));
 reports.Add(SalaryCalculator.CalculateAll(messages));
 
-var printer = new HtmlReportPrinter(outputPath, chats);
+var printer = new HtmlReportPrinter(outputPath, relativeTemplatePath, chats);
 printer.Print(reports);
 //ConsoleReportPrinter.Print(reports);
 

@@ -6,11 +6,9 @@ namespace TgJobAdAnalytics.Services.Reports;
 
 public class FileSystemLoader : ITemplateLoader
 {
-    private readonly string _rootPath;
-
-    public FileSystemLoader(string rootPath)
+    public FileSystemLoader(string? rootPath = null)
     {
-        _rootPath = rootPath;
+        _rootPath = rootPath ?? string.Empty;
     }
 
 
@@ -22,14 +20,17 @@ public class FileSystemLoader : ITemplateLoader
 
     public string Load(TemplateContext context, SourceSpan callerSpan, string templatePath)
     {
-        var fullPath = Path.GetFullPath(Path.Combine(_rootPath, templatePath));
+        var fullPath = Path.GetFullPath(templatePath);
         return File.ReadAllText(fullPath);
     }
 
 
     public async ValueTask<string> LoadAsync(TemplateContext context, SourceSpan callerSpan, string templatePath)
     {
-        var fullPath = Path.GetFullPath(Path.Combine(_rootPath, templatePath));
+        var fullPath = Path.GetFullPath(templatePath);
         return await File.ReadAllTextAsync(fullPath);
     }
+
+
+    private readonly string _rootPath;
 }

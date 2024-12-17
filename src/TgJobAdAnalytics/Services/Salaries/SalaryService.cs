@@ -4,7 +4,7 @@ namespace TgJobAdAnalytics.Services.Salaries;
 
 public class SalaryService
 {
-    public SalaryService(Currency baseCurrency, RateService rateService)
+    public SalaryService(Currency baseCurrency, IRateService rateService)
     {
         _baseCyrrency = baseCurrency;
         _rateService = rateService;
@@ -87,5 +87,5 @@ public class SalaryService
 
 
     private readonly Currency _baseCyrrency;
-    private readonly RateService _rateService;
+    private readonly IRateService _rateService;
 }

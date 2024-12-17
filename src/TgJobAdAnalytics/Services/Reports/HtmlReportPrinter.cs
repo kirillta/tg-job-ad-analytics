@@ -9,10 +9,11 @@ namespace TgJobAdAnalytics.Services.Reports;
 
 public sealed class HtmlReportPrinter : IReportPrinter
 {
-    public HtmlReportPrinter(string path, List<TgChat> dataSources)
+    public HtmlReportPrinter(string outputPath, string templatesPath, List<TgChat> dataSources)
     {
         _dataSources = dataSources;
-        _path = path;
+        _outputPath = outputPath;
+        _templatesPath = templatesPath;
     }
 
 
@@ -22,33 +23,43 @@ public sealed class HtmlReportPrinter : IReportPrinter
         foreach (var reportGroup in reportGroups)
             body.Append(PrintGroupInternal(reportGroup));
 
-        FinalizeReport(body.ToString());
+        var reports = reportGroups.SelectMany(group => group.Reports)
+            .Select(r => new ReportItem
+            {
+                Title = r.Title,
+                Results = r.Results
+                    .Select(kv => new KeyValuePair<string, string>(kv.Key, FormatNumericalValue(kv.Value)))
+                    .ToList()
+            }).ToList();
+
+        Finalize(reports);
     }
 
 
     public void Print(IEnumerable<Report> reports)
     {
-        var body = new StringBuilder();
-        foreach (Report report in reports) 
-        {
-            body.Append(PrintInternal(report));
-            body.AppendLine("<hr>");
-        }
+        //var body = new StringBuilder();
+        //foreach (Report report in reports) 
+        //{
+        //    body.Append(PrintInternal(report));
+        //    body.AppendLine("<hr>");
+        //}
 
-        FinalizeReport(body.ToString());
+        //Finalize(body.ToString());
     }
 
 
     public void Print(Report report)
     {
-        var body = PrintInternal(report);
-        FinalizeReport(body);
+        //var body = PrintInternal(report);
+        //Finalize(body);
     }
 
 
-    private void FinalizeReport(string body)
+    private void Finalize(List<ReportItem> reports)
     {
-        var templateContent = File.ReadAllText("Views/Reports/ReportTemplate.sbn");
+        var reportTemplatePath = Path.Combine(_templatesPath, "MainTemplate.sbn");
+        var templateContent = File.ReadAllText(reportTemplatePath);
         var template = Template.Parse(templateContent);
 
         var reportModel = BuildReportModel();
@@ -57,7 +68,8 @@ public sealed class HtmlReportPrinter : IReportPrinter
         scriptObject.Import(reportModel);
 
         var context = new TemplateContext();
-        context.TemplateLoader = new FileSystemLoader("");
+        context.TemplateLoader = new FileSystemLoader(_templatesPath);
+
         context.PushGlobal(scriptObject);
 
         var html = template.Render(context);
@@ -77,9 +89,10 @@ public sealed class HtmlReportPrinter : IReportPrinter
         ReportModel BuildReportModel()
             => new()
             {
-                Body = body,
+                Body = "",
                 DataSources = BuildDataSourceModels(),
-                ReportDate = DateTime.UtcNow.ToString("yyyy.MM.dd")
+                ReportDate = DateTime.UtcNow.ToString("yyyy.MM.dd"),
+                Reports = reports
             };
     }
 
@@ -130,11 +143,11 @@ public sealed class HtmlReportPrinter : IReportPrinter
     private void WriteToFile(string content)
     {
         var fileName = string.Format(ResultsFileNameTemplate, DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
-        var path = Path.Combine(_path, fileName);
+        var path = Path.Combine(_outputPath, fileName);
         if (!File.Exists(path))
         {
-            if (!string.IsNullOrEmpty(_path))
-                Directory.CreateDirectory(_path);
+            if (!string.IsNullOrEmpty(_outputPath))
+                Directory.CreateDirectory(_outputPath);
         }
 
         File.WriteAllText(path, content);
@@ -144,5 +157,6 @@ public sealed class HtmlReportPrinter : IReportPrinter
     private const string ResultsFileNameTemplate = "{0}-report.html";
 
     private readonly List<TgChat> _dataSources;
-    private readonly string _path;
+    private readonly string _outputPath;
+    private readonly string _templatesPath;
 }

@@ -2,13 +2,13 @@
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-public class RateService
+public class RateService : IRateService
 {
     public RateService(Dictionary<(Currency, DateOnly), Rate> rates)
     {
         _rates = rates;
     }
-    
+
 
     public double GetRate(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate)
     {
@@ -16,8 +16,8 @@ public class RateService
             return 1.0;
 
         if (_rates.TryGetValue((targetCurrency, targetDate), out var rate))
-        if (rate == default)
-            throw new Exception("Failed to get rate from API");
+            if (rate == default)
+                throw new Exception("Failed to get rate from API");
         return rate.Value;
     }
 

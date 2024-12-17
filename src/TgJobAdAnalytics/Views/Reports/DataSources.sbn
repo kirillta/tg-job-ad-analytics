@@ -1,4 +1,4 @@
-﻿<section class="mb-10 text-sm">
+﻿<div>
     <h5 class="text-lg">Источники данных:</h5>
     <ol>
         {{ for data_source in data_sources }}
@@ -7,4 +7,4 @@
         </li>
         {{ end }}
     </ol>
-</section>
+</div>
