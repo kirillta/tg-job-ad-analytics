@@ -21,7 +21,6 @@ public sealed class HtmlReportPrinter : IReportPrinter
     {
         var groups = reportGroups.Select(BuildReportItemGroup)
             .ToList();
-
         GenerateReport(groups);
     }
 
@@ -29,7 +28,6 @@ public sealed class HtmlReportPrinter : IReportPrinter
     public void Print(IEnumerable<Report> reports)
     {
         var group = new ReportItemGroup(string.Empty, reports.Select(BuildReportItem).ToList());
-
         GenerateReport([group]);
     }
 
@@ -58,6 +56,10 @@ public sealed class HtmlReportPrinter : IReportPrinter
         var html = _templateRenderer.Render(reportModel);
         WriteToFile(html);
     }
+
+
+    private static string FormatDate(DateTime date)
+        => date.ToString("yyyy.MM.dd");
 
 
     private static string FormatNumericalValue(double value)

@@ -21,9 +21,14 @@ public sealed partial class MessageProcessor
         var adMessages = new ConcurrentBag<Message>();
         Parallel.ForEach(tgChat.Messages, _parallelOptions, tgMessage =>
         {
+            if (!ShouldProcess(tgMessage))
+                return;
+            
             var message = Get(chat, tgMessage);
-            if (message is not null)
-                adMessages.Add(message.Value);
+            if (message is null)
+                return;
+
+            adMessages.Add(message.Value);
         });
 
         return [.. adMessages];
@@ -32,39 +37,12 @@ public sealed partial class MessageProcessor
 
     private Message? Get(ChatInfo chatInfo, TgMessage tgMessage)
     {
-        if (!IsAd())
-            return null;
-
-        if (IsCurrentMonth())
-            return null;
-
         var text = GetText();
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
         var date = DateOnly.FromDateTime(tgMessage.Date);
         return new Message(GetSequentialId(), date, text, chatInfo, tgMessage.Id, Salary.Empty);
-
-
-        bool IsAd()
-        {
-            var hashTags = tgMessage.TextEntities
-                .Where(entity => entity.Type is TgTextEntryType.HashTag)
-                .ToList();
-
-            if (hashTags.Count == 0)
-                return false;
-
-            if (!hashTags.Any(tag => AdTags.Contains(tag.Text)))
-                return false;
-
-            return true;
-        }
-
-
-        bool IsCurrentMonth()
-            => tgMessage.Date.Year == DateTime.Now.Year &&
-                tgMessage.Date.Month == DateTime.Now.Month;
 
 
         long GetSequentialId()
@@ -90,6 +68,39 @@ public sealed partial class MessageProcessor
 
             return TextNormalizer.Normalize(stringBuilder.ToString());
         }
+    }
+
+
+    private static bool ShouldProcess(TgMessage tgMessage)
+    {
+        if (!IsAd())
+            return false;
+
+        if (IsCurrentMonth())
+            return false;
+
+        return true;
+
+
+        bool IsAd()
+        {
+            var hashTags = tgMessage.TextEntities
+                .Where(entity => entity.Type is TgTextEntryType.HashTag)
+                .ToList();
+
+            if (hashTags.Count == 0)
+                return false;
+
+            if (!hashTags.Any(tag => AdTags.Contains(tag.Text)))
+                return false;
+
+            return true;
+        }
+
+
+        bool IsCurrentMonth()
+            => tgMessage.Date.Year == DateTime.Now.Year &&
+                tgMessage.Date.Month == DateTime.Now.Month;
     }
 
 
