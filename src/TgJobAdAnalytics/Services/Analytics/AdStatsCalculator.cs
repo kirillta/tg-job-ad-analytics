@@ -33,7 +33,7 @@ public sealed class AdStatsCalculator
             .Take(3)
             .ToDictionary(group => group.Year + " " + new DateTime(1, group.Month, 1).ToString("MMMM"), group => (double) group.Count);
 
-        return new Report("Топ-3 лучших месяца по предложениям за всё время", results, Reports.ChartType.None);
+        return new Report("Топ-3 лучших месяца по предложениям за всё время", results, ChartType.None);
     }
 
 
@@ -49,7 +49,7 @@ public sealed class AdStatsCalculator
             .OrderBy(group => group.Key)
             .ToDictionary(group => new DateTime(1, group.Key, 1).ToString("MMMM"), group => (double) group.Count);
 
-        return new Report("Общее количество вакансий по месяцам года", results, Reports.ChartType.PolarArea);
+        return new Report("Общее количество вакансий по месяцам года", results, ChartType.PolarArea);
     }
 
 

@@ -25,6 +25,9 @@
     <None Update="Views\Reports\MainTemplate.sbn">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Views\Reports\ReportGroupTemplate.sbn">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Views\Reports\ReportTemplate.sbn">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

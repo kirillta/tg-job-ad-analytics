@@ -1,7 +1,14 @@
 ﻿namespace TgJobAdAnalytics.Models.Reports.Html;
 
-internal class ReportItem
+internal readonly record struct ReportItem
 {
-    public string Title { get; set; }
-    public List<KeyValuePair<string, string>> Results { get; set; }
+    internal ReportItem(string title, List<KeyValuePair<string, string>> results)
+    {
+        Title = title;
+        Results = results;
+    }
+
+
+    public string Title { get; }
+    public List<KeyValuePair<string, string>> Results { get; }
 }

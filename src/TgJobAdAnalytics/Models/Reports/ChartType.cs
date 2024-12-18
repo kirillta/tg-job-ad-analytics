@@ -1,4 +1,4 @@
-﻿namespace TgJobAdAnalytics.Services.Reports;
+﻿namespace TgJobAdAnalytics.Models.Reports;
 
 public enum ChartType
 {

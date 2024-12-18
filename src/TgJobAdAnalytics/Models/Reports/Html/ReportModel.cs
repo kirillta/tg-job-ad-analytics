@@ -1,9 +1,16 @@
 ﻿namespace TgJobAdAnalytics.Models.Reports.Html;
 
-internal class ReportModel
+internal readonly record struct ReportModel
 {
-    public string Body { get; set; }
-    public List<DataSourceModel> DataSources { get; set; }
-    public string ReportDate { get; set; }
-    public List<ReportItem> Reports { get; set; }
+    internal ReportModel(List<ReportItemGroup> reportGroups, DateOnly reportDate, List<DataSourceModel> dataSources)
+    {
+        DataSources = dataSources;
+        ReportDate = reportDate;
+        ReportGroups = reportGroups;
+    }
+
+
+    public List<DataSourceModel> DataSources { get; }
+    public DateOnly ReportDate { get; }
+    public List<ReportItemGroup> ReportGroups { get; }
 }

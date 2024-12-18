@@ -1,9 +1,18 @@
 ﻿namespace TgJobAdAnalytics.Models.Reports.Html;
 
-internal class DataSourceModel
+internal readonly record struct DataSourceModel
 {
-    public long Id { get; set; }
-    public string Name { get; set; }
-    public string MinimalDate { get; set; }
-    public string MaximalDate { get; set; }
+    internal DataSourceModel(long id, string name, DateOnly minimalDate, DateOnly maximalDate)
+    {
+        Id = id;
+        Name = name;
+        MinimalDate = minimalDate;
+        MaximalDate = maximalDate;
+    }
+
+
+    public long Id { get; }
+    public string Name { get; }
+    public DateOnly MinimalDate { get; }
+    public DateOnly MaximalDate { get; }
 }

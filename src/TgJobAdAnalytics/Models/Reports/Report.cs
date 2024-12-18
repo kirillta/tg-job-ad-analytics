@@ -1,6 +1,4 @@
-﻿using TgJobAdAnalytics.Services.Reports;
-
-namespace TgJobAdAnalytics.Models.Reports;
+﻿namespace TgJobAdAnalytics.Models.Reports;
 
 public readonly record struct Report
 {

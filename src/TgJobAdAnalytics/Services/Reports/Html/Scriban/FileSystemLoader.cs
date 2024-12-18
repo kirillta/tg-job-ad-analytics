@@ -2,7 +2,7 @@
 using Scriban.Parsing;
 using Scriban.Runtime;
 
-namespace TgJobAdAnalytics.Services.Reports;
+namespace TgJobAdAnalytics.Services.Reports.Html.Scriban;
 
 public class FileSystemLoader : ITemplateLoader
 {

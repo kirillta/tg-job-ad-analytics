@@ -7,12 +7,12 @@ using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Services.Analytics;
 using TgJobAdAnalytics.Services.Messages;
-using TgJobAdAnalytics.Services.Reports;
+using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Salaries;
 
 var startTime = Stopwatch.GetTimestamp();
 
-var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 1 };
+var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
 var outputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
 const string relativeTemplatePath = "Views/Reports";
