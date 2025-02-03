@@ -3,7 +3,10 @@ using Scriban.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace TgJobAdAnalytics.Services.Reports.Html.Scriban;
@@ -45,9 +48,19 @@ internal class TemplateRenderer
             TemplateLoader = _loader,
             EnableRelaxedMemberAccess = true
         };
+
+        var scriptObjectWithFunctions = new ScriptObject();
+        scriptObjectWithFunctions.Import("dump", new Func<object, string>(DumpObject));
+        context.PushGlobal(scriptObjectWithFunctions);
+
         context.PushGlobal(scriptObject);
 
         return context;
+    }
+
+    private string DumpObject(object obj)
+    {
+        return JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
     }
 
 

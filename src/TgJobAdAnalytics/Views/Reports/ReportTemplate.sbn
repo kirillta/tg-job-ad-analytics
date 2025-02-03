@@ -1,17 +1,20 @@
 <div class="mb-5">
-    <table class="min-w-80 table-auto border-collapse border border-gray-200">
-        <caption class="caption-top text-lg font-semibold mb-2">{{ report.title }}</caption>
-        <tbody>
-            {{ for result in report.results }}
-            <tr>
-                <td class="border border-gray-300 px-4 py-2 min-w-[15vw]">
-                    {{ result.key }}
-                </td>
-                <td class="border border-gray-300 px-4 py-2 min-w-[15vw] text-right">
-                    {{ result.value }}
-                </td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
+		<table class="min-w-80 table-auto border-collapse border border-gray-200">
+				<caption class="caption-top text-lg font-semibold mb-2">{{ report.title }}</caption>
+				<tbody>
+						{{ for result in report.results }}
+						<tr>
+								<td class="border border-gray-300 px-4 py-2 min-w-[15vw]">
+										{{ result.key }}
+								</td>
+								<td class="border border-gray-300 px-4 py-2 min-w-[15vw] text-right">
+										{{ result.value }}
+								</td>
+						</tr>
+						{{ end }}
+						{{ if report.chart != null }}
+								{{ include "Chart.sbn" report.chart }}
+						{{ end }}
+				</tbody>
+		</table>
 </div>

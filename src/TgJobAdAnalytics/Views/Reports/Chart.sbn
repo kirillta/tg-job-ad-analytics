@@ -1,0 +1,31 @@
+<div style="max-width: 100vw; max-height: 75vh;">
+    <canvas id="{{ report.chart.id_token }}"></canvas>
+    <script>
+        var ctx = document.getElementById('{{ report.chart.id_token }}').getContext('2d');
+    
+        var chart = new Chart(ctx, {
+            type: '{{ report.chart.type }}',
+            data: {
+                labels: {{ report.chart.data.labels }},
+                datasets: [{
+                    label: '{{ report.chart.data.dataset.label }}',
+                    data: {{ report.chart.data.dataset.data }},
+                    backgroundColor: {{ report.chart.data.dataset.background_color }},
+                    borderColor: {{ report.chart.data.dataset.border_color }},
+                    borderWidth: {{ report.chart.data.dataset.border_width }},
+                    fill: {{ report.chart.data.dataset.fill }},
+                    tension: {{ report.chart.data.dataset.tension }}
+                }]
+            },
+            options: {
+                maintainAspectRatio: true,
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    },
+                },
+            }
+        });
+    </script>
+</div>

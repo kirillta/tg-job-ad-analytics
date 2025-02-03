@@ -42,6 +42,7 @@ static async Task<List<TgChat>> GetChats(string sourcePath)
     {
         if (!fileName.EndsWith(".json"))
             continue;
+
         using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
         var buffer = new byte[json.Length];
         await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));

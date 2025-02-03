@@ -39,10 +39,14 @@ public sealed class HtmlReportPrinter : IReportPrinter
     private static ReportItem BuildReportItem(Report report)
     {
         var results = report.Results
-                    .Select(kv => new KeyValuePair<string, string>(kv.Key, FormatNumericalValue(kv.Value)))
-                    .ToList();
+            .Select(kv => new KeyValuePair<string, string>(kv.Key, FormatNumericalValue(kv.Value)))
+            .ToList();
 
-        return new(report.Title, results);
+        ChartModel? chart = null;
+        if (report.Type is not ChartType.None)
+            chart = ChartBuilder.Build(report);
+
+        return new(report.Title, results, chart);
     }
 
 
@@ -56,10 +60,6 @@ public sealed class HtmlReportPrinter : IReportPrinter
         var html = _templateRenderer.Render(reportModel);
         WriteToFile(html);
     }
-
-
-    private static string FormatDate(DateTime date)
-        => date.ToString("yyyy.MM.dd");
 
 
     private static string FormatNumericalValue(double value)
