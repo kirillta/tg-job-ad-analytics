@@ -9,14 +9,14 @@ internal class SalaryCalculator
 {
     public static ReportGroup CalculateAll(List<Message> messages)
     {
-        var lowerBoundSalaries = messages.Select(message => message.Salary.LowerBound).ToArray();
+        var filteredMessages = FilterOutliners(messages);
 
         var reports = new List<Report>
         {
-            GetMinimalByYear(messages),
-            GetMaximumByYear(messages),
-            GetMeanByYear(messages),
-            GetMedianByYear(messages)
+            GetMinimalByYear(filteredMessages),
+            GetMaximumByYear(filteredMessages),
+            GetMeanByYear(filteredMessages),
+            GetMedianByYear(filteredMessages)
         };
 
         return new ReportGroup("Salary Statistics", reports);
@@ -96,5 +96,31 @@ internal class SalaryCalculator
             return message.Salary.LowerBound;
 
         return (message.Salary.LowerBound + message.Salary.UpperBound) / 2;
+    }
+
+
+    private static List<Message> FilterOutliners(List<Message> messages)
+    {
+        var validLowerBounds = messages
+            .Where(message => !double.IsNaN(message.Salary.LowerBound) && 0 < message.Salary.LowerBound)
+            .Select(message => message.Salary.LowerBound)
+            .ToArray();
+
+        var lowerThreshold = validLowerBounds.Quantile(0.1);
+
+        var validUpperBounds = messages
+            .Where(message => !double.IsNaN(message.Salary.UpperBound) && 0 < message.Salary.UpperBound)
+            .Select(message => message.Salary.UpperBound)
+            .ToArray();
+
+        var sortedUpperBounds = validUpperBounds.OrderBy(value => value).ToArray();
+
+        var upperThreshold = validUpperBounds.Quantile(0.95);
+
+        // TODO: exculde minimal outliners from upper bounds and visa versa
+        return messages.Where(message => 
+                (double.IsNaN(message.Salary.LowerBound) || message.Salary.LowerBound >= lowerThreshold) &&
+                (double.IsNaN(message.Salary.UpperBound) || message.Salary.UpperBound <= upperThreshold)
+            ).ToList();
     }
 }
