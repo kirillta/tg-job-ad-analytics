@@ -15,13 +15,46 @@ internal class RateSourceManager
     public async Task Add(List<Rate> rates)
     {
         using var writer = new StreamWriter(_rateSourcePath, true);
-        foreach (var rate in rates)
-        {
-            if (_rates.ContainsKey((rate.TargetCurrency, rate.TargetDate)))
-                continue;
 
-            await writer.WriteLineAsync($"{rate.BaseCurrency},{rate.TargetCurrency},{rate.TargetDate},{rate.Value}");
-            _rates[(rate.TargetCurrency, rate.TargetDate)] = rate;
+        var ratesByDate = rates.GroupBy(x => x.TargetDate)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var targetDate = ratesByDate.Keys.Min();
+        var lastDate = ratesByDate.Keys.Max();
+
+        while (targetDate <= lastDate)
+        {
+            if (ratesByDate.TryGetValue(targetDate, out var currentRates))
+            {
+                await WriteRates(writer, targetDate, currentRates!);
+            }
+            else
+            {
+                var previousDate = targetDate.AddDays(-1);
+                ratesByDate.TryGetValue(previousDate, out var previousRates);
+                while (previousRates is null && previousDate >= ratesByDate.Keys.Min())
+                {
+                    previousDate = previousDate.AddDays(-1);
+                    ratesByDate.TryGetValue(previousDate, out previousRates);
+                }
+
+                await WriteRates(writer, targetDate, previousRates!);
+            }
+
+            targetDate = targetDate.AddDays(1);
+        }
+
+
+        async Task WriteRates(StreamWriter writer, DateOnly targetDate, List<Rate> rates)
+        {
+            foreach (var rate in rates)
+            {
+                if (_rates.ContainsKey((rate.TargetCurrency, targetDate)))
+                    continue;
+
+                await writer.WriteLineAsync($"{rate.BaseCurrency},{rate.TargetCurrency},{targetDate},{rate.Value}");
+                _rates[(rate.TargetCurrency, targetDate)] = rate;
+            }
         }
     }
 

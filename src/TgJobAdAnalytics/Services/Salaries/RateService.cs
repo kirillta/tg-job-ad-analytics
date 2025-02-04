@@ -16,8 +16,11 @@ public class RateService : IRateService
             return 1.0;
 
         if (_rates.TryGetValue((targetCurrency, targetDate), out var rate))
+        {
             if (rate == default)
                 throw new Exception("Failed to get rate from API");
+        }
+
         return rate.Value;
     }
 

@@ -56,17 +56,21 @@ public class SalaryService
                 switch (pattern.BoundaryType)
                 {
                     case BoundaryType.Both:
-                        lowerBound = ParseSalary(match.Groups[1].Value);
-                        upperBound = ParseSalary(match.Groups[2].Value);
+                        var isThousandBoth = ContainsThousandSymbols(match.Groups[1].Value) || ContainsThousandSymbols(match.Groups[2].Value);
+
+                        lowerBound = ParseSalary(isThousandBoth, match.Groups[1].Value);
+                        upperBound = ParseSalary(isThousandBoth, match.Groups[2].Value);
                         break;
                     case BoundaryType.Lower:
-                        lowerBound = ParseSalary(match.Groups[1].Value);
+                        var isThousandLower = ContainsThousandSymbols(match.Groups[1].Value);
+                        lowerBound = ParseSalary(isThousandLower, match.Groups[1].Value);
                         break;
                     case BoundaryType.Upper:
-                        lowerBound = ParseSalary(match.Groups[1].Value);
+                        var isThousandUpper = ContainsThousandSymbols(match.Groups[1].Value);
+                        lowerBound = ParseSalary(isThousandUpper, match.Groups[1].Value);
                         break;
                 }
-                
+
                 return new Salary(lowerBound, upperBound, pattern.Currency);
             }
         }
@@ -74,17 +78,43 @@ public class SalaryService
         return new Salary(double.NaN, double.NaN, Currency.Unknown);
 
 
-        static double ParseSalary(string salaryString)
+        static bool ContainsThousandSymbols(string salaryString)
         {
-            salaryString = salaryString.Replace("k", "000", StringComparison.OrdinalIgnoreCase)
-                .Replace("к", "000", StringComparison.OrdinalIgnoreCase)
-                .Replace("тр", "000", StringComparison.OrdinalIgnoreCase)
-                .Replace("тыср", "000", StringComparison.OrdinalIgnoreCase);
+            foreach (var symbol in ThousandSymbols)
+            {
+                if (salaryString.Contains(symbol, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
 
-            return double.TryParse(salaryString, out var result) ? result : double.NaN;
+            return false;
+        }
+
+
+        static string RemoveThousandSymbols(string salaryString)
+        {
+            foreach (var symbol in ThousandSymbols)
+            {
+                salaryString = salaryString.Replace(symbol, string.Empty, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return salaryString;
+        }
+
+
+        static double ParseSalary(bool isThousand, string salaryString)
+        {
+            salaryString = RemoveThousandSymbols(salaryString);
+            var salary = double.TryParse(salaryString, out var result) ? result : double.NaN;
+
+            if (isThousand)
+                salary *= 1000;
+
+            return salary;
         }
     }
 
+
+    private static readonly List<string> ThousandSymbols = ["k", "к", "тр", "тыср"];
 
     private readonly Currency _baseCyrrency;
     private readonly IRateService _rateService;

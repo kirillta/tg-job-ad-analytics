@@ -8,19 +8,32 @@ public sealed class RateServiceFactory
     {
         _rateApiClient = new RateApiClient();
         _rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.csv"));
+
+        _rate = null;
     }
 
 
     public async ValueTask<RateService> Get(Currency baseCurrency, DateOnly initialDate)
     {
+        if (_rate is not null)
+            return _rate;
+
+        _rate = await GetRateService(baseCurrency, initialDate);
+        return _rate;
+    }
+
+
+    private async ValueTask<RateService> GetRateService(Currency baseCurrency, DateOnly initialDate)
+    {
         var rates = _rateSourceManager.Get();
 
         var searchDate = initialDate;
         var storedFinalDate = _rateSourceManager.GetMaximalDate();
-        if (storedFinalDate < DateOnly.FromDateTime(DateTime.Now))
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (storedFinalDate < today)
             searchDate = storedFinalDate;
 
-        if (_rateSourceManager.GetMinimalDate() <= searchDate)
+        if (_rateSourceManager.GetMinimalDate() <= searchDate && searchDate == today)
             return new RateService(rates);
 
         foreach (Currency currency in GetTargetCurrencies(baseCurrency))
@@ -46,6 +59,8 @@ public sealed class RateServiceFactory
         return currencies;
     }
 
+
+    private RateService? _rate;
 
     private readonly RateApiClient _rateApiClient;
     private readonly RateSourceManager _rateSourceManager;
