@@ -9,7 +9,7 @@ internal class SalaryCalculator
 {
     public static ReportGroup CalculateAll(List<Message> messages)
     {
-        var filteredMessages = FilterOutliners(messages);
+        var filteredMessages = FilterOutliers(messages);
 
         var reports = new List<Report>
         {
@@ -25,12 +25,12 @@ internal class SalaryCalculator
 
     private static Report GetMinimalByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.LowerBound)
+            .Where(message => 0 < message.Salary.LowerBoundNormalized)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
-                MinimalSalary = group.Select(group => group.Salary.LowerBound).Minimum()
+                MinimalSalary = group.Select(group => group.Salary.LowerBoundNormalized).Minimum()
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary)
@@ -39,12 +39,12 @@ internal class SalaryCalculator
 
     private static Report GetMaximumByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.UpperBound)
+            .Where(message => 0 < message.Salary.UpperBoundNormalized)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
-                MaximumSalary = group.Select(group => group.Salary.LowerBound).Maximum()
+                MaximumSalary = group.Select(group => group.Salary.UpperBoundNormalized).Maximum()
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary)
@@ -53,7 +53,7 @@ internal class SalaryCalculator
 
     private static Report GetMeanByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.LowerBound && 0 < message.Salary.UpperBound)
+            .Where(message => 0 < message.Salary.LowerBoundNormalized && 0 < message.Salary.UpperBoundNormalized)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
@@ -69,7 +69,7 @@ internal class SalaryCalculator
 
     private static Report GetMedianByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.LowerBound && 0 < message.Salary.UpperBound)
+            .Where(message => 0 < message.Salary.LowerBoundNormalized && 0 < message.Salary.UpperBoundNormalized)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
@@ -86,41 +86,65 @@ internal class SalaryCalculator
     private static double GetSalaryValue(Message message)
     {
         // No salary information
-        if (double.IsNaN(message.Salary.LowerBound) && double.IsNaN(message.Salary.UpperBound))
+        if (double.IsNaN(message.Salary.LowerBoundNormalized) && double.IsNaN(message.Salary.UpperBoundNormalized))
             return double.NaN;
 
-        if (double.IsNaN(message.Salary.LowerBound))
-            return message.Salary.UpperBound;
+        if (double.IsNaN(message.Salary.LowerBoundNormalized))
+            return message.Salary.UpperBoundNormalized;
 
-        if (double.IsNaN(message.Salary.UpperBound))
-            return message.Salary.LowerBound;
+        if (double.IsNaN(message.Salary.UpperBoundNormalized))
+            return message.Salary.LowerBoundNormalized;
 
-        return (message.Salary.LowerBound + message.Salary.UpperBound) / 2;
+        return (message.Salary.LowerBoundNormalized + message.Salary.UpperBoundNormalized) / 2;
     }
 
 
-    private static List<Message> FilterOutliners(List<Message> messages)
+    private static List<Message> FilterOutliers(List<Message> messages)
     {
-        var validLowerBounds = messages
-            .Where(message => !double.IsNaN(message.Salary.LowerBound) && 0 < message.Salary.LowerBound)
-            .Select(message => message.Salary.LowerBound)
-            .ToArray();
+        var excludedIds = GetExcludedIds(messages, message => message.Salary.LowerBoundNormalized)
+            .Concat(GetExcludedIds(messages, message => message.Salary.UpperBoundNormalized))
+            .ToHashSet();
 
-        var lowerThreshold = validLowerBounds.Quantile(0.1);
+        return messages
+            .Where(message => !excludedIds.Contains(message.Id))
+            .ToList();
 
-        var validUpperBounds = messages
-            .Where(message => !double.IsNaN(message.Salary.UpperBound) && 0 < message.Salary.UpperBound)
-            .Select(message => message.Salary.UpperBound)
-            .ToArray();
 
-        var sortedUpperBounds = validUpperBounds.OrderBy(value => value).ToArray();
+        IEnumerable<long> GetExcludedIds(List<Message> messages, Func<Message, double> salarySelector)
+        {
+            var validLogValues = messages
+                .Select(salarySelector)
+                .Where(salary => !double.IsNaN(salary) && 0 < salary)
+                .Select(salary => Math.Log(salary))
+                .ToArray();
 
-        var upperThreshold = validUpperBounds.Quantile(0.95);
+            var (lowerThreshold, upperThreshold) = GetThresholds(validLogValues);
 
-        // TODO: exculde minimal outliners from upper bounds and visa versa
-        return messages.Where(message => 
-                (double.IsNaN(message.Salary.LowerBound) || message.Salary.LowerBound >= lowerThreshold) &&
-                (double.IsNaN(message.Salary.UpperBound) || message.Salary.UpperBound <= upperThreshold)
-            ).ToList();
+            return messages.Where(message => IsOutlier(salarySelector(message), lowerThreshold, upperThreshold))
+                .Select(message => message.Id);
+        }
+
+
+        static (double, double) GetThresholds(double[] validLogLowerBounds)
+        {
+            var q1 = validLogLowerBounds.Quantile(0.25);
+            var q3 = validLogLowerBounds.Quantile(0.75);
+            var iqr = q3 - q1;
+
+            var lowerThreshold = q1 - 1.5 * iqr;
+            var upperThreshold = q3 + 1.5 * iqr;
+
+            return (lowerThreshold, upperThreshold);
+        }
+
+
+        static bool IsOutlier(double salary, double lowerThreshold, double upperThreshold)
+        {
+            if (double.IsNaN(salary))
+                return false;
+
+            var logSalary = Math.Log(salary);
+            return logSalary <= lowerThreshold || upperThreshold <= logSalary;
+        }
     }
 }
