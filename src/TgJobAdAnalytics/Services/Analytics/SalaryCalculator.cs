@@ -25,7 +25,7 @@ internal class SalaryCalculator
 
     private static Report GetMinimalByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.LowerBoundNormalized)
+            .Where(message => Math.Abs(message.Salary.LowerBoundNormalized) > Tolerance)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
@@ -39,7 +39,7 @@ internal class SalaryCalculator
 
     private static Report GetMaximumByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.UpperBoundNormalized)
+            .Where(message => Math.Abs(message.Salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
@@ -53,7 +53,7 @@ internal class SalaryCalculator
 
     private static Report GetMeanByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.LowerBoundNormalized && 0 < message.Salary.UpperBoundNormalized)
+            .Where(message => Math.Abs(message.Salary.LowerBoundNormalized) > Tolerance && Math.Abs(message.Salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
@@ -69,7 +69,7 @@ internal class SalaryCalculator
 
     private static Report GetMedianByYear(List<Message> messages)
         => messages
-            .Where(message => 0 < message.Salary.LowerBoundNormalized && 0 < message.Salary.UpperBoundNormalized)
+            .Where(message => Math.Abs(message.Salary.LowerBoundNormalized) > Tolerance && Math.Abs(message.Salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(message => message.Date.Year)
             .Select(group => new
             {
@@ -114,7 +114,7 @@ internal class SalaryCalculator
         {
             var validLogValues = messages
                 .Select(salarySelector)
-                .Where(salary => !double.IsNaN(salary) && 0 < salary)
+                .Where(salary => !double.IsNaN(salary) && Math.Abs(salary) > Tolerance)
                 .Select(salary => Math.Log(salary))
                 .ToArray();
 
@@ -147,4 +147,7 @@ internal class SalaryCalculator
             return logSalary <= lowerThreshold || upperThreshold <= logSalary;
         }
     }
+
+
+    private const double Tolerance = 1e-10;
 }
