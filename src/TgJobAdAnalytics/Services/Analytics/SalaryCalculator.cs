@@ -19,7 +19,7 @@ internal class SalaryCalculator
             GetMedianByYear(filteredMessages)
         };
 
-        return new ReportGroup("Salary Statistics", reports);
+        return new ReportGroup("Статистика по зарплатам", reports);
     }
 
 
@@ -34,7 +34,7 @@ internal class SalaryCalculator
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary)
-            .ToReport("Minimal Salary by Year");
+            .ToReport("Минимальная зарплата по годам");
 
 
     private static Report GetMaximumByYear(List<Message> messages)
@@ -48,7 +48,7 @@ internal class SalaryCalculator
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary)
-            .ToReport("Maximum Salary by Year");
+            .ToReport("Максимальная зарплата по годам");
 
 
     private static Report GetMeanByYear(List<Message> messages)
@@ -64,7 +64,7 @@ internal class SalaryCalculator
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MeanSalary)
-            .ToReport("Average Salary by Year");
+            .ToReport("Средняя зарплата по годам");
 
 
     private static Report GetMedianByYear(List<Message> messages)
@@ -80,7 +80,7 @@ internal class SalaryCalculator
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MedianSalary)
-            .ToReport("Median Salary by Year");
+            .ToReport("Медианная зарплата по годам");
 
 
     private static double GetSalaryValue(Message message)
