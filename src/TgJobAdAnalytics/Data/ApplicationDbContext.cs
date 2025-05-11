@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Messages.Converters;
@@ -22,7 +23,11 @@ namespace TgJobAdAnalytics.Data
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
             optionsBuilder.UseSqlite(connectionString);
-        }        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        }        
+        
+        
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ChatEntity>(entity =>
             {
@@ -41,22 +46,37 @@ namespace TgJobAdAnalytics.Data
                 entity.Property(e => e.TelegramMessageDate).IsRequired();
                 
                 entity.Property(e => e.TextEntries)
-                    .HasConversion(new TextEntriesConverter())
+                    .HasConversion(new TextEntriesConverter(JsonSerializerOptions))
                     .IsRequired();
                 entity.Property(e => e.Tags)
                     .HasConversion(
-                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                        v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>())
-                    .IsRequired();
-                
+                        v => JsonSerializer.Serialize(v, JsonSerializerOptions),
+                        v => JsonSerializer.Deserialize<List<string>>(v, JsonSerializerOptions) ?? new List<string>())
+                    .IsRequired();                
                 entity.HasIndex(e => new { e.TelegramChatId, e.TelegramMessageId }).IsUnique();
             });
-        }
 
-          public DbSet<ChatEntity> Chats { get; set; }
+            modelBuilder.Entity<AdEntity>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Date).IsRequired();
+                entity.Property(e => e.Text).IsRequired();
+                entity.Property(e => e.MessageId).IsRequired();
+                
+                entity.HasIndex(e => e.MessageId);
+            });
+        }public DbSet<ChatEntity> Chats { get; set; }
 
         public DbSet<MessageEntity> Messages { get; set; }
 
+        public DbSet<AdEntity> Ads { get; set; }
+
+
+        private static readonly JsonSerializerOptions JsonSerializerOptions = new()
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = false
+        };
 
         private readonly IConfiguration _configuration;
     }

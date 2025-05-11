@@ -22,7 +22,9 @@ var host = Host.CreateDefaultBuilder(args)    .ConfigureServices((context, servi
         //services.AddTransient<RateServiceFactory>();
         //services.AddTransient<SalaryService>();
         //services.AddTransient<HtmlReportPrinter>();
+        services.Configure<UploadOptions>(context.Configuration.GetSection("Upload"));
         services.AddTransient<UploadService>();
+        services.AddTransient<AdService>();
     })
     .Build();
 
