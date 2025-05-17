@@ -1,6 +1,7 @@
 using System;
+using TgJobAdAnalytics.Services.Uploads;
 
-namespace TgJobAdAnalytics.Services.Messages
+namespace TgJobAdAnalytics.Models.Uploads
 {
     /// <summary>
     /// Defines the mode of operation for the upload process.

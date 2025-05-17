@@ -8,9 +8,11 @@ using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Telegram;
+using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Salaries;
+using TgJobAdAnalytics.Services.Uploads;
 
 System.Console.OutputEncoding = Encoding.UTF8;
 
@@ -23,6 +25,8 @@ var host = Host.CreateDefaultBuilder(args)    .ConfigureServices((context, servi
         //services.AddTransient<SalaryService>();
         //services.AddTransient<HtmlReportPrinter>();
         services.Configure<UploadOptions>(context.Configuration.GetSection("Upload"));
+        services.AddTransient<ChatDataService>();
+        services.AddTransient<MessageDataService>();
         services.AddTransient<UploadService>();
         services.AddTransient<AdService>();
     })
