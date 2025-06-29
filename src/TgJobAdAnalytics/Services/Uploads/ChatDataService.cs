@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
@@ -8,18 +9,19 @@ namespace TgJobAdAnalytics.Services.Uploads;
 
 public class ChatDataService
 {
-    public ChatDataService(ApplicationDbContext dbContext)
+    public ChatDataService(ILogger<ChatDataService> logger, ApplicationDbContext dbContext)
     {
+        _logger = logger;
         _dbContext = dbContext;
     }
 
 
     public async Task CleanData()
     {
-        Console.WriteLine("Cleaning all chat data...");
+        _logger.LogInformation("Cleaning all chat data...");
         await _dbContext.Chats.ExecuteDeleteAsync();
         await _dbContext.SaveChangesAsync();
-        Console.WriteLine("All chat data has been removed.");
+        _logger.LogInformation("All chat data has been removed");
     }
 
 
@@ -64,7 +66,7 @@ public class ChatDataService
         };
 
         _dbContext.Chats.Add(chatEntity);
-        Console.WriteLine($"Added new chat: {chat.Name}");
+        _logger.LogInformation("Added new chat: {ChatName}", chat.Name);
     }
 
 
@@ -79,9 +81,10 @@ public class ChatDataService
         existingChat.UpdatedAt = timeStamp;
 
         _dbContext.Chats.Update(existingChat);
-        Console.WriteLine($"Updated existing chat: {chat.Name}");
+        _logger.LogInformation("Updated existing chat: {ChatName}", chat.Name);
     }
 
 
+    private readonly ILogger<ChatDataService> _logger;
     private readonly ApplicationDbContext _dbContext;
 }

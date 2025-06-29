@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
@@ -10,8 +11,9 @@ namespace TgJobAdAnalytics.Services.Uploads;
 
 public class MessageDataService
 {
-    public MessageDataService(ApplicationDbContext dbContext, IOptions<UploadOptions> options)
+    public MessageDataService(ILogger<MessageDataService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options)
     {
+        _logger = logger;
         _dbContext = dbContext;
         _options = options.Value;
     }
@@ -19,10 +21,10 @@ public class MessageDataService
 
     public async Task CleanData()
     {
-        Console.WriteLine("Cleaning all message data...");
+        _logger.LogInformation("Cleaning all message data...");
         await _dbContext.Messages.ExecuteDeleteAsync();
         await _dbContext.SaveChangesAsync();
-        Console.WriteLine("All message data has been removed.");
+        _logger.LogInformation("All message data has been removed");
     }
 
 
@@ -91,7 +93,7 @@ public class MessageDataService
             addedCount += currentBatchSize;
         }
             
-        Console.WriteLine($"Added {addedCount} messages to the database.");
+        _logger.LogInformation("Added {AddedCount} messages to the database", addedCount);
 
 
         static List<string> ToRawTags(List<TgTextEntry> entries)
@@ -126,6 +128,7 @@ public class MessageDataService
     }
 
 
+    private readonly ILogger<MessageDataService> _logger;
     private readonly ApplicationDbContext _dbContext;
     private readonly UploadOptions _options;
 }

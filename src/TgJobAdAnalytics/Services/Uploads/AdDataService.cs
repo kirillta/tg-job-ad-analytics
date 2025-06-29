@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Text;
@@ -13,8 +14,9 @@ namespace TgJobAdAnalytics.Services.Uploads;
 
 public class AdDataService
 {
-    public AdDataService(ApplicationDbContext dbContext, IOptions<ParallelOptions> parallelOptions, IOptions<UploadOptions> uploadOptions)
+    public AdDataService(ILogger<AdDataService> logger, ApplicationDbContext dbContext, IOptions<ParallelOptions> parallelOptions, IOptions<UploadOptions> uploadOptions)
     {
+        _logger = logger;
         _dbContext = dbContext;
         _parallelOptions = parallelOptions.Value;
         _uploadOptions = uploadOptions.Value;
@@ -23,10 +25,10 @@ public class AdDataService
 
     public async Task CleanData()
     {
-        Console.WriteLine("Cleaning all ad data...");
+        _logger.LogInformation("Cleaning all ad data...");
         await _dbContext.Ads.ExecuteDeleteAsync();
         await _dbContext.SaveChangesAsync();
-        Console.WriteLine("All ad data has been removed.");
+        _logger.LogInformation("All ad data has been removed.");
     }
 
 
@@ -114,7 +116,7 @@ public class AdDataService
             addedCount += currentBatchSize;
         }
 
-        Console.WriteLine($"Added {addedCount} ads to the database.");
+        _logger.LogInformation("Added {AddedCount} ads to the database", addedCount);
 
 
         string GetText(MessageEntity message)
@@ -205,6 +207,7 @@ public class AdDataService
 
     private const int MinimalValuebleMessageLength = 300;
 
+    private readonly ILogger<AdDataService> _logger;
     private readonly ApplicationDbContext _dbContext;
     private readonly ParallelOptions _parallelOptions;
     private readonly UploadOptions _uploadOptions;

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
@@ -13,15 +14,19 @@ namespace TgJobAdAnalytics.Services.Uploads
         /// <summary>
         /// Initializes a new instance of the <see cref="UploadService"/> class.
         /// </summary>
+        /// <param name="logger">The logger.</param>
         /// <param name="options">The upload options.</param>
+        /// <param name="adDataService">The ad data service.</param>
         /// <param name="chatDataService">The chat data service.</param>
         /// <param name="messageDataService">The message data service.</param>
         public UploadService(
+            ILogger<UploadService> logger,
             IOptions<UploadOptions> options, 
             AdDataService adDataService,
             ChatDataService chatDataService, 
             MessageDataService messageDataService)
         {
+            _logger = logger;
             _adDataService = adDataService;
             _chatDataService = chatDataService;
             _messageDataService = messageDataService;
@@ -37,7 +42,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         {
             if (_options.Mode == UploadMode.Skip)
             {
-                Console.WriteLine("Update skipped due to configuration settings.");
+                _logger.LogInformation("Update skipped due to configuration settings");
                 return;
             }
 
@@ -55,7 +60,7 @@ namespace TgJobAdAnalytics.Services.Uploads
                 if (!fileName.EndsWith(".json"))
                     continue;
 
-                Console.WriteLine($"Processing file: {Path.GetFileName(fileName)}");
+                _logger.LogInformation("Processing file: {FileName}", Path.GetFileName(fileName));
 
                 var chat = await GetChat(fileName);
 
@@ -65,7 +70,7 @@ namespace TgJobAdAnalytics.Services.Uploads
                 await _adDataService.Update(chat, chatState, timeStamp);
             }            
         
-            Console.WriteLine("Chat processing completed");
+            _logger.LogInformation("Chat processing completed");
             return;
 
 
@@ -80,6 +85,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         }
 
         
+        private readonly ILogger<UploadService> _logger;
         private readonly AdDataService _adDataService;
         private readonly ChatDataService _chatDataService;
         private readonly MessageDataService _messageDataService;

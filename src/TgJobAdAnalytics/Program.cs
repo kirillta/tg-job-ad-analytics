@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
@@ -16,7 +17,22 @@ using TgJobAdAnalytics.Services.Uploads;
 
 System.Console.OutputEncoding = Encoding.UTF8;
 
-var host = Host.CreateDefaultBuilder(args)    
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddConsole(options =>
+        {
+            options.FormatterName = "simple";
+        });
+        logging.AddSimpleConsole(options =>
+        {
+            options.SingleLine = true;
+            options.IncludeScopes = false;
+            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+            options.UseUtcTimestamp = true;
+        });
+    })
     .ConfigureServices((context, services) =>
     {
         services.AddDbContext<ApplicationDbContext>();
@@ -42,6 +58,7 @@ var host = Host.CreateDefaultBuilder(args)
 
 using var scope = host.Services.CreateScope();
 var services = scope.ServiceProvider;
+var logger = services.GetRequiredService<ILogger<Program>>();
 
 var startTime = Stopwatch.GetTimestamp();
 
@@ -68,7 +85,7 @@ await uploadService.UpdateFromJson(sourcePath);
 //printer.Print(reports);
 //ConsoleReportPrinter.Print(reports);
 
-Console.WriteLine($"Completed in {Stopwatch.GetElapsedTime(startTime).TotalSeconds} seconds");
+logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);
 //Console.ReadKey();
 
 
