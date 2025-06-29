@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 using System.Text.Json;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
@@ -60,7 +61,9 @@ namespace TgJobAdAnalytics.Services.Uploads
                 if (!fileName.EndsWith(".json"))
                     continue;
 
-                _logger.LogInformation("Processing file: {FileName}", Path.GetFileName(fileName));
+                var chatProcessingTime = Stopwatch.GetTimestamp();
+                var chatFileName = Path.GetFileName(fileName);
+                _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
                 var chat = await GetChat(fileName);
 
@@ -68,6 +71,8 @@ namespace TgJobAdAnalytics.Services.Uploads
                 await _chatDataService.Update(chat, chatState, timeStamp);
                 await _messageDataService.Update(chat, chatState, timeStamp);
                 await _adDataService.Update(chat, chatState, timeStamp);
+
+                _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
             }            
         
             _logger.LogInformation("Chat processing completed");
