@@ -18,9 +18,11 @@ namespace TgJobAdAnalytics.Services.Uploads
         /// <param name="messageDataService">The message data service.</param>
         public UploadService(
             IOptions<UploadOptions> options, 
+            AdDataService adDataService,
             ChatDataService chatDataService, 
             MessageDataService messageDataService)
         {
+            _adDataService = adDataService;
             _chatDataService = chatDataService;
             _messageDataService = messageDataService;
             _options = options.Value;
@@ -40,7 +42,10 @@ namespace TgJobAdAnalytics.Services.Uploads
             }
 
             if (_options.Mode == UploadMode.Clean)
+            {
                 await _messageDataService.CleanData();
+                await _adDataService.CleanData();
+            }
 
             var timeStamp = DateTime.UtcNow;
             var fileNames = Directory.GetFiles(sourcePath);
@@ -56,6 +61,7 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chatState = await _chatDataService.GetChatState(chat);
                 await _chatDataService.Update(chat, chatState, timeStamp);
                 await _messageDataService.Update(chat, chatState, timeStamp);
+                await _adDataService.Update(chat, chatState, timeStamp);
             }            
         
             Console.WriteLine("Chat processing completed");
@@ -73,6 +79,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         }
 
         
+        private readonly AdDataService _adDataService;
         private readonly ChatDataService _chatDataService;
         private readonly MessageDataService _messageDataService;
         private readonly UploadOptions _options;

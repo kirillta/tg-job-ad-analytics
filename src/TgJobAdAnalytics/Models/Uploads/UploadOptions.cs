@@ -22,7 +22,10 @@ namespace TgJobAdAnalytics.Models.Uploads
         /// Clean update with removal of all message data before updating.
         /// </summary>
         Clean
-    }    /// <summary>
+    }    
+    
+    
+    /// <summary>
     /// Configuration options for the <see cref="UploadService"/>.
     /// </summary>
     public class UploadOptions

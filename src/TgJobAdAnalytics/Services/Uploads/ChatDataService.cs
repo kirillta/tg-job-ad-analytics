@@ -31,10 +31,10 @@ public class ChatDataService
         switch (state)
         {
             case UploadedDataState.New:
-                ProcessNew(in chat, timestamp);
+                AddNew(in chat, timestamp);
                 break;
             case UploadedDataState.Existing:
-                await ProcessExisting(chat, timestamp);
+                await UpdateExisting(chat, timestamp);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
@@ -44,22 +44,7 @@ public class ChatDataService
     }
 
 
-    private async ValueTask ProcessExisting(TgChat chat, DateTime timeStamp)
-    {
-        var existingChat = await _dbContext.Chats
-            .FirstOrDefaultAsync(c => c.TelegramId == chat.Id);
-
-        ArgumentNullException.ThrowIfNull(existingChat, $"Chat with ID {chat.Id} not found in the database.");
-
-        existingChat.Name = chat.Name;
-        existingChat.UpdatedAt = timeStamp;
-
-        _dbContext.Chats.Update(existingChat);
-        Console.WriteLine($"Updated existing chat: {chat.Name}");
-    }
-
-
-    private void ProcessNew(in TgChat chat, in DateTime timeStamp)
+    private void AddNew(in TgChat chat, in DateTime timeStamp)
     {
         var chatEntity = new ChatEntity
         {
@@ -71,6 +56,21 @@ public class ChatDataService
 
         _dbContext.Chats.Add(chatEntity);
         Console.WriteLine($"Added new chat: {chat.Name}");
+    }
+
+
+    private async ValueTask UpdateExisting(TgChat chat, DateTime timeStamp)
+    {
+        var existingChat = await _dbContext.Chats
+            .FirstOrDefaultAsync(c => c.TelegramId == chat.Id);
+
+        ArgumentNullException.ThrowIfNull(existingChat, $"Chat with ID {chat.Id} not found in the database.");
+
+        existingChat.Name = chat.Name;
+        existingChat.UpdatedAt = timeStamp;
+
+        _dbContext.Chats.Update(existingChat);
+        Console.WriteLine($"Updated existing chat: {chat.Name}");
     }
 
 
