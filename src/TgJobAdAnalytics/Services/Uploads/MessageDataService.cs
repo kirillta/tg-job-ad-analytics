@@ -68,13 +68,21 @@ public class MessageDataService
         var entries = new List<MessageEntity>(messages.Count);
         foreach (var tgMessage in messages)
         {
+            var textEntries = ToRawEntries(tgMessage.TextEntities);
+            if (textEntries.Count == 0)
+                continue;
+
+            var tags = ToRawTags(tgMessage.TextEntities);
+            if (tags.Count == 0)
+                continue;
+
             entries.Add(new MessageEntity
             {
                 TelegramChatId = chat.Id,
                 TelegramMessageId = tgMessage.Id,
                 TelegramMessageDate = tgMessage.Date,
-                TextEntries = ToRawEntries(tgMessage.TextEntities),
-                Tags = ToRawTags(tgMessage.TextEntities),
+                TextEntries = textEntries,
+                Tags = tags,
                 CreatedAt = timeStamp,
                 UpdatedAt = timeStamp
             });
