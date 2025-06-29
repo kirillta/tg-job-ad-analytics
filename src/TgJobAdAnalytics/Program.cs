@@ -16,7 +16,8 @@ using TgJobAdAnalytics.Services.Uploads;
 
 System.Console.OutputEncoding = Encoding.UTF8;
 
-var host = Host.CreateDefaultBuilder(args)    .ConfigureServices((context, services) =>
+var host = Host.CreateDefaultBuilder(args)    
+    .ConfigureServices((context, services) =>
     {
         services.AddDbContext<ApplicationDbContext>();
         //services.AddTransient<MessageProcessor>();
@@ -25,8 +26,15 @@ var host = Host.CreateDefaultBuilder(args)    .ConfigureServices((context, servi
         //services.AddTransient<SalaryService>();
         //services.AddTransient<HtmlReportPrinter>();
         services.Configure<UploadOptions>(context.Configuration.GetSection("Upload"));
+
+        services.Configure<ParallelOptions>(options =>
+        {
+            options.MaxDegreeOfParallelism = Environment.ProcessorCount;
+        });
+
         services.AddTransient<ChatDataService>();
         services.AddTransient<MessageDataService>();
+        services.AddTransient<AdDataService>();
         services.AddTransient<UploadService>();
         services.AddTransient<AdService>();
     })

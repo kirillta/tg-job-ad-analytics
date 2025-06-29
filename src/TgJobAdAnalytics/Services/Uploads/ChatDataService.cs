@@ -14,6 +14,15 @@ public class ChatDataService
     }
 
 
+    public async Task CleanData()
+    {
+        Console.WriteLine("Cleaning all chat data...");
+        await _dbContext.Chats.ExecuteDeleteAsync();
+        await _dbContext.SaveChangesAsync();
+        Console.WriteLine("All chat data has been removed.");
+    }
+
+
     public async Task<UploadedDataState> GetChatState(TgChat chat)
     {
         var existingChat = await _dbContext.Chats

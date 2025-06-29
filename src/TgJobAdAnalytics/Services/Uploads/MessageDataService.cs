@@ -21,6 +21,7 @@ public class MessageDataService
     {
         Console.WriteLine("Cleaning all message data...");
         await _dbContext.Messages.ExecuteDeleteAsync();
+        await _dbContext.SaveChangesAsync();
         Console.WriteLine("All message data has been removed.");
     }
 

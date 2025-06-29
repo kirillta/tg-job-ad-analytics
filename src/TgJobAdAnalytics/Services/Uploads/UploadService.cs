@@ -43,6 +43,7 @@ namespace TgJobAdAnalytics.Services.Uploads
 
             if (_options.Mode == UploadMode.Clean)
             {
+                await _chatDataService.CleanData();
                 await _messageDataService.CleanData();
                 await _adDataService.CleanData();
             }

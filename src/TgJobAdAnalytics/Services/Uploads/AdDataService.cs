@@ -25,6 +25,7 @@ public class AdDataService
     {
         Console.WriteLine("Cleaning all ad data...");
         await _dbContext.Ads.ExecuteDeleteAsync();
+        await _dbContext.SaveChangesAsync();
         Console.WriteLine("All ad data has been removed.");
     }
 
@@ -140,6 +141,14 @@ public class AdDataService
             if (message.Tags.Count == 0)
                 return false;
 
+            var hashTags = message.TextEntries
+                .Where(entity => entity.Key is TgTextEntryType.HashTag)
+                .Select(entity => entity.Value)
+                .ToList();
+
+            if (IsJob())
+                return false;
+
             if (!IsAd())
                 return false;
 
@@ -149,23 +158,26 @@ public class AdDataService
             return true;
 
 
-            bool IsAd()
-            {
-                var hashTags = message.TextEntries
-                    .Where(entity => entity.Key is TgTextEntryType.HashTag)
-                    .Select(entity => entity.Value)
-                    .ToList();
-
-                return hashTags.Any(AdTags.Contains);
-            }
+            bool IsAd() 
+                => hashTags.Any(AdTags.Contains);
 
 
             bool IsCurrentMonth()
                 => message.TelegramMessageDate.Year == timeStamp.Year
                     && message.TelegramMessageDate.Month == timeStamp.Month;
+
+
+            bool IsJob() 
+                => hashTags.Any(JobTags.Contains);
         }
     }
 
+
+    private static readonly HashSet<string> JobTags = 
+    [
+        "#резюме",
+        "#ищу"
+    ];
 
     private static readonly HashSet<string> AdTags =
     [
@@ -173,6 +185,22 @@ public class AdDataService
         "#работа",
         "#job",
         "#vacancy",
+        "#fulltime",
+        "#удаленка",
+        "#офис",
+        "#remote",
+        "#удалёнка",
+        "#удаленно",
+        "#parttime",
+        "#гибрид",
+        "#work",
+        "#удаленнаяработа",
+        "#office",
+        "#релокация",
+        "#relocation",
+        "#relocate",
+        "#полная",
+        "#фуллтайм"
     ];
 
     private const int MinimalValuebleMessageLength = 300;
