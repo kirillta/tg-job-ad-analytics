@@ -125,13 +125,22 @@ public class AdDataService
             foreach (var entity in message.TextEntries)
             {
                 if (entity.Key is TgTextEntryType.PlainText)
+                { 
+                    var normalizedText = TextNormalizer.NormalizeTextEntry(entity.Value);
+                    stringBuilder.Append(normalizedText);
+                }
+                else
+                {
                     stringBuilder.Append(entity.Value);
+                }
+
+                stringBuilder.Append(' ');
             }
 
             if (stringBuilder.Length < MinimalValuebleMessageLength)
                 return string.Empty;
 
-            return TextNormalizer.Normalize(stringBuilder.ToString());
+            return TextNormalizer.NormalizeAd(stringBuilder.ToString());
         }
 
 
@@ -154,19 +163,11 @@ public class AdDataService
             if (!IsAd())
                 return false;
 
-            if (!IsCurrentMonth())
-                return false;
-
             return true;
 
 
             bool IsAd() 
                 => hashTags.Any(AdTags.Contains);
-
-
-            bool IsCurrentMonth()
-                => message.TelegramMessageDate.Year == timeStamp.Year
-                    && message.TelegramMessageDate.Month == timeStamp.Month;
 
 
             bool IsJob() 

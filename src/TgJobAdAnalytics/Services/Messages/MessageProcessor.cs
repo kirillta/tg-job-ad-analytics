@@ -66,7 +66,7 @@ public sealed partial class MessageProcessor
             if (stringBuilder.Length < MinimalValuebleMessageLength)
                 return string.Empty;
 
-            return TextNormalizer.Normalize(stringBuilder.ToString());
+            return TextNormalizer.NormalizeTextEntry(stringBuilder.ToString());
         }
     }
 

@@ -4,11 +4,11 @@ namespace TgJobAdAnalytics.Services.Messages;
 
 public static class TextNormalizer
 {
-    public static string Normalize(string text)
+    public static string NormalizeTextEntry(string text)
     {
         var rentedArray = ArrayPool<char>.Shared.Rent(text.Length);
         var clearedText = rentedArray.AsSpan(0, text.Length);
-        text.Normalize().AsSpan().ToLowerInvariant(clearedText);
+        text.Normalize().AsSpan().CopyTo(clearedText);
 
         clearedText = ReplaceDashesWithOne(clearedText);
         clearedText = ExcludeNonAlphabeticOrNumbers(clearedText);
@@ -18,6 +18,24 @@ public static class TextNormalizer
         clearedText = RemoveThousandSeparators(clearedText);
         clearedText = RemoveSpaceBetweenDigitAndCurrencySign(clearedText);
         clearedText = RemoveSpaceBetweenSalaryRangeBounds(clearedText);
+
+        var result = clearedText.Trim().ToString();
+
+        Array.Clear(rentedArray);
+        ArrayPool<char>.Shared.Return(rentedArray);
+
+        return result;
+    }
+
+
+    public static string NormalizeAd(string text)
+    {
+        var rentedArray = ArrayPool<char>.Shared.Rent(text.Length);
+        var clearedText = rentedArray.AsSpan(0, text.Length);
+        text.CopyTo(clearedText);
+
+        clearedText = RemoveSpaceBeforeSeparator(clearedText);
+        clearedText = ReplaceMultipleSpacesWithOne(clearedText);
 
         var result = clearedText.Trim().ToString();
 
@@ -57,7 +75,7 @@ public static class TextNormalizer
 
 
         static bool IsValidCharacter(char ch)
-            => char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch) || ch == '-' || IsCurrencySymbol(ch);
+            => char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch) || ch == '-' || ch == '#' || IsCurrencySymbol(ch);
     }
 
 
@@ -148,6 +166,24 @@ public static class TextNormalizer
         {
             if (text[i] == ' ' && i > 0 && i < text.Length - 1 && char.IsDigit(text[i - 1]) && char.IsDigit(text[i + 1]))
                 continue;
+
+            text[index++] = text[i];
+        }
+
+        return text[..index];
+    }
+
+
+    private static Span<char> RemoveSpaceBeforeSeparator(Span<char> text)
+    {
+        int index = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '.' || text[i] == ',' || text[i] == ';' || text[i] == ':')
+            {
+                if (i > 0 && text[i - 1] == ' ')
+                    continue;
+            }
 
             text[index++] = text[i];
         }

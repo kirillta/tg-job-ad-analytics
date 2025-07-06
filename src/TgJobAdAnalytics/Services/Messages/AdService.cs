@@ -69,7 +69,7 @@ public class AdService
             if (stringBuilder.Length < MinimalValuebleAdLength)
                 return string.Empty;
 
-            return TextNormalizer.Normalize(stringBuilder.ToString());
+            return TextNormalizer.NormalizeTextEntry(stringBuilder.ToString());
         }
     }
 
