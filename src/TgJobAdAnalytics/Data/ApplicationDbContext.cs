@@ -64,7 +64,10 @@ namespace TgJobAdAnalytics.Data
                 entity.Property(e => e.MessageId).IsRequired();
                 
                 entity.HasIndex(e => e.MessageId);
+                entity.HasIndex(e => e.IsUnique);
             });
+            modelBuilder.Entity<AdEntity>()
+                .HasQueryFilter(ad => ad.IsUnique);
         }public DbSet<ChatEntity> Chats { get; set; }
 
         public DbSet<MessageEntity> Messages { get; set; }

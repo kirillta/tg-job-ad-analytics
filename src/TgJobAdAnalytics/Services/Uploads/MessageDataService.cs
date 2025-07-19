@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
@@ -11,11 +12,12 @@ namespace TgJobAdAnalytics.Services.Uploads;
 
 public class MessageDataService
 {
-    public MessageDataService(ILogger<MessageDataService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options)
+    public MessageDataService(ILogger<MessageDataService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options, IOptions<ParallelOptions> parallelOptions)
     {
         _logger = logger;
         _dbContext = dbContext;
         _options = options.Value;
+        _parallelOptions = parallelOptions.Value;
     }
 
 
@@ -65,18 +67,17 @@ public class MessageDataService
 
     private async Task ProcessInternal(TgChat chat, List<TgMessage> messages, DateTime timeStamp)
     {
-        var entries = new List<MessageEntity>(messages.Count);
-        foreach (var tgMessage in messages)
+        var entryBag = new ConcurrentBag<MessageEntity>();
+        Parallel.ForEach(messages, _parallelOptions, tgMessage =>
         {
             var textEntries = ToRawEntries(tgMessage.TextEntities);
             if (textEntries.Count == 0)
-                continue;
-
+                return;
             var tags = ToRawTags(tgMessage.TextEntities);
             if (tags.Count == 0)
-                continue;
+                return;
 
-            entries.Add(new MessageEntity
+            entryBag.Add(new MessageEntity
             {
                 TelegramChatId = chat.Id,
                 TelegramMessageId = tgMessage.Id,
@@ -86,8 +87,9 @@ public class MessageDataService
                 CreatedAt = timeStamp,
                 UpdatedAt = timeStamp
             });
-        }
+        });
 
+        var entries = entryBag.ToList();
         var batchSize = _options.BatchSize;
         var addedCount = 0;
         for (int i = 0; i < entries.Count; i += batchSize)
@@ -139,4 +141,5 @@ public class MessageDataService
     private readonly ILogger<MessageDataService> _logger;
     private readonly ApplicationDbContext _dbContext;
     private readonly UploadOptions _options;
+    private readonly ParallelOptions _parallelOptions;
 }

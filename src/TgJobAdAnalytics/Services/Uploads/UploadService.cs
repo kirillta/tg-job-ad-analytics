@@ -1,9 +1,13 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Text.Json;
+using TgJobAdAnalytics.Data;
+using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
+using TgJobAdAnalytics.Services.Messages;
 
 namespace TgJobAdAnalytics.Services.Uploads
 {
@@ -22,16 +26,20 @@ namespace TgJobAdAnalytics.Services.Uploads
         /// <param name="messageDataService">The message data service.</param>
         public UploadService(
             ILogger<UploadService> logger,
+            ApplicationDbContext dbContext,
             IOptions<UploadOptions> options, 
             AdDataService adDataService,
             ChatDataService chatDataService, 
-            MessageDataService messageDataService)
+            MessageDataService messageDataService,
+            SimilarityCalculator similarityCalculator)
         {
+            _dbContext = dbContext;
             _logger = logger;
             _adDataService = adDataService;
             _chatDataService = chatDataService;
             _messageDataService = messageDataService;
             _options = options.Value;
+            _similarityCalculator = similarityCalculator;
         }
 
 
@@ -76,7 +84,7 @@ namespace TgJobAdAnalytics.Services.Uploads
             }            
         
             _logger.LogInformation("Chat processing completed");
-            return;
+            await FilterSimilarAds();
 
 
             static async Task<TgChat> GetChat(string name)
@@ -89,11 +97,35 @@ namespace TgJobAdAnalytics.Services.Uploads
             }
         }
 
-        
+
+        private async Task FilterSimilarAds()
+        {
+            var ads = await _dbContext.Ads
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .OrderByDescending(a => a.Date)
+                .ToListAsync();
+
+            var uniqueAds = _similarityCalculator.Distinct(ads);
+            _logger.LogInformation("Found {UniqueAdCount} unique ads out of {TotalAdCount}", uniqueAds.Count, ads.Count);
+
+            foreach (var batch in uniqueAds.Chunk(_options.BatchSize))
+            {
+                await _dbContext.Ads
+                    .Where(ad => batch.Select(b => b.Id).Contains(ad.Id))
+                    .ExecuteUpdateAsync(b => b
+                    .SetProperty(a => a.IsUnique, true)
+                    .SetProperty(a => a.UpdatedAt, DateTime.UtcNow));
+            }
+        }
+
+
+        private readonly ApplicationDbContext _dbContext;
         private readonly ILogger<UploadService> _logger;
         private readonly AdDataService _adDataService;
         private readonly ChatDataService _chatDataService;
         private readonly MessageDataService _messageDataService;
         private readonly UploadOptions _options;
+        private readonly SimilarityCalculator _similarityCalculator;
     }
 }

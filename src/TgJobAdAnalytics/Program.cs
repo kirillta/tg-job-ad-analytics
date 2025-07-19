@@ -37,7 +37,6 @@ var host = Host.CreateDefaultBuilder(args)
     {
         services.AddDbContext<ApplicationDbContext>();
         //services.AddTransient<MessageProcessor>();
-        //services.AddTransient<SimilarityCalculator>();
         //services.AddTransient<RateServiceFactory>();
         //services.AddTransient<SalaryService>();
         //services.AddTransient<HtmlReportPrinter>();
@@ -48,11 +47,16 @@ var host = Host.CreateDefaultBuilder(args)
             options.MaxDegreeOfParallelism = Environment.ProcessorCount;
         });
 
+        services.Configure<VectorizationOptions>(context.Configuration.GetSection("Vectorization"));
+
         services.AddTransient<ChatDataService>();
         services.AddTransient<MessageDataService>();
         services.AddTransient<AdDataService>();
         services.AddTransient<UploadService>();
-        services.AddTransient<AdService>();
+
+        services.AddTransient<SimilarityCalculator>();
+
+        //services.AddTransient<AdService>();
     })
     .Build();
 
@@ -72,6 +76,7 @@ await dbContext.Database.MigrateAsync();
 
 var uploadService = services.GetRequiredService<UploadService>();
 await uploadService.UpdateFromJson(sourcePath);
+
 //var messages = GetMessages(chats, parallelOptions);
 
 //messages = await TryAddSalaries(sourcePath, messages, parallelOptions, dbContext);

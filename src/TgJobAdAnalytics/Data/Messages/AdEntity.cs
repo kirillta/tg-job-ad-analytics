@@ -24,6 +24,11 @@ public class AdEntity
     public DateOnly Date { get; set; }
 
     /// <summary>
+    /// Indicates whether this advertisement is unique.
+    /// </summary>
+    public bool IsUnique { get; set; } = false;
+
+    /// <summary>
     /// Gets or sets the text content of the advertisement.
     /// </summary>
     public string Text { get; set; } = string.Empty;

@@ -26,7 +26,7 @@ public class AdDataService
     public async Task CleanData()
     {
         _logger.LogInformation("Cleaning all ad data...");
-        await _dbContext.Ads.ExecuteDeleteAsync();
+        await _dbContext.Ads.IgnoreQueryFilters().ExecuteDeleteAsync();
         await _dbContext.SaveChangesAsync();
         _logger.LogInformation("All ad data has been removed.");
     }
@@ -67,6 +67,7 @@ public class AdDataService
             .ToHashSetAsync();
 
         var existingAdMessageIds = await _dbContext.Ads
+            .IgnoreQueryFilters()
             .Where(a => existingMessageIds.Contains(a.MessageId))
             .Select(a => a.MessageId)
             .ToHashSetAsync();
