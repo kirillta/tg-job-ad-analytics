@@ -36,10 +36,6 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         services.AddDbContext<ApplicationDbContext>();
-        //services.AddTransient<MessageProcessor>();
-        //services.AddTransient<RateServiceFactory>();
-        //services.AddTransient<SalaryService>();
-        //services.AddTransient<HtmlReportPrinter>();
         services.Configure<UploadOptions>(context.Configuration.GetSection("Upload"));
 
         services.Configure<ParallelOptions>(options =>
@@ -49,14 +45,25 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.Configure<VectorizationOptions>(context.Configuration.GetSection("Vectorization"));
 
+        services.Configure<RateOptions>(options => 
+        { 
+            options.RateApiUrl = new Uri("https://www.cbr.ru/scripts/XML_dynamic.asp");
+            options.RateSourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources", "rates.csv");
+        });
+
         services.AddTransient<ChatDataService>();
         services.AddTransient<MessageDataService>();
         services.AddTransient<AdDataService>();
-        services.AddTransient<UploadService>();
-
         services.AddTransient<SimilarityCalculator>();
+        services.AddTransient<UploadService>();
+        
+        services.AddTransient<RateApiClient>();
+        services.AddSingleton<RateSourceManager>();
+        services.AddSingleton<RateServiceFactory>();
 
-        //services.AddTransient<AdService>();
+        services.AddSingleton<SalaryPattenrFactory>();
+        
+        //services.AddTransient<HtmlReportPrinter>();
     })
     .Build();
 
@@ -77,8 +84,6 @@ await dbContext.Database.MigrateAsync();
 var uploadService = services.GetRequiredService<UploadService>();
 await uploadService.UpdateFromJson(sourcePath);
 
-//var messages = GetMessages(chats, parallelOptions);
-
 //messages = await TryAddSalaries(sourcePath, messages, parallelOptions, dbContext);
 
 //List<ReportGroup> reports = [];
@@ -92,60 +97,3 @@ await uploadService.UpdateFromJson(sourcePath);
 
 logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);
 //Console.ReadKey();
-
-
-//static List<Message> GetMessages(List<TgChat> chats, ParallelOptions parallelOptions)
-//{
-//    List<Message> adMessages = [];
-
-//    var messageProcessor = new MessageProcessor(parallelOptions);
-//    foreach (var chat in chats)
-//    {
-//        var chatMessages = messageProcessor.Get(chat);
-//        adMessages.AddRange(chatMessages);
-//    }
-
-//    var orderedAdMessages = adMessages.OrderByDescending(message => message.Date)
-//        .ToList();
-
-//    var similarityCalculator = new SimilarityCalculator(parallelOptions);
-//    return similarityCalculator.Distinct(orderedAdMessages);
-//}
-
-
-//static async Task<List<Message>> TryAddSalaries(string sourcePath, List<Message> messages, ParallelOptions parallelOptions, ApplicationDbContext dbContext)
-//{
-//    var rateServiceFactory = new RateServiceFactory(sourcePath);
-
-//    var initialDate = messages.Min(message => message.Date);
-//    var rateService = await rateServiceFactory.Get(Currency.RUB, initialDate);
-
-//    var salaryService = new SalaryService(Currency.RUB, rateService);
-
-//    var results = new ConcurrentBag<Message>();
-//    Parallel.ForEach(messages, parallelOptions, message =>
-//    {
-//        var salary = salaryService.Get(message.Text, message.Date);
-//        var updatedMessage = message with { Salary = salary };
-//        results.Add(updatedMessage);
-
-//        // Optionally update the database
-//        var messageEntity = dbContext.TgMessages.Find(message.Id);
-//        if (messageEntity != null)
-//        {
-//            messageEntity.Salary = new SalaryEntity
-//            {
-//                LowerBound = salary.LowerBound,
-//                LowerBoundNormalized = salary.LowerBoundNormalized,
-//                UpperBound = salary.UpperBound,
-//                UpperBoundNormalized = salary.UpperBoundNormalized,
-//                Currency = salary.Currency,
-//                MessageId = message.Id
-//            };
-//        }
-//    });
-
-//    await dbContext.SaveChangesAsync();
-
-//    return [.. results];
-//}
