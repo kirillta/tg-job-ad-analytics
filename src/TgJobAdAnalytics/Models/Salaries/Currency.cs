@@ -3,8 +3,8 @@
     public enum Currency
     {
         Unknown = 0,
-        USD,
-        EUR,
-        RUB
+        USD = 1,
+        EUR = 2,
+        RUB = 3
     }
 }

@@ -112,6 +112,8 @@ namespace TgJobAdAnalytics.Services.Uploads
             foreach (var batch in uniqueAds.Chunk(_options.BatchSize))
             {
                 await _dbContext.Ads
+                    .AsNoTracking()
+                    .IgnoreQueryFilters()
                     .Where(ad => batch.Select(b => b.Id).Contains(ad.Id))
                     .ExecuteUpdateAsync(b => b
                     .SetProperty(a => a.IsUnique, true)

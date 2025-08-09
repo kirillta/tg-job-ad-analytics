@@ -2,6 +2,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenAI.Chat;
+using System.ClientModel;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
@@ -51,18 +53,34 @@ var host = Host.CreateDefaultBuilder(args)
             options.RateSourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources", "rates.csv");
         });
 
+        services.AddSingleton(_ => 
+        { 
+            var credentials = new ApiKeyCredential(Environment.GetEnvironmentVariable("PNKL_OPEN_AI_KEY")!);
+
+            var options = new OpenAI.OpenAIClientOptions
+            {
+                UserAgentApplicationId = "TgJobAdAnalytics",
+                RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(maxRetries: 3)
+            };
+
+            return new ChatClient("gpt-5-nano", credentials, options);
+        });
+        
+        services.AddSingleton<RateSourceManager>();
+        services.AddSingleton<RateServiceFactory>();
+
+        services.AddSingleton<SalaryPattenrFactory>();
+        services.AddSingleton<RateApiClient>();
+
         services.AddTransient<ChatDataService>();
         services.AddTransient<MessageDataService>();
         services.AddTransient<AdDataService>();
         services.AddTransient<SimilarityCalculator>();
         services.AddTransient<UploadService>();
         
-        services.AddTransient<RateApiClient>();
-        services.AddSingleton<RateSourceManager>();
-        services.AddSingleton<RateServiceFactory>();
+        services.AddTransient<SalaryServiceFactory>();
+        services.AddTransient<AdProcessor>();
 
-        services.AddSingleton<SalaryPattenrFactory>();
-        
         //services.AddTransient<HtmlReportPrinter>();
     })
     .Build();
@@ -83,6 +101,9 @@ await dbContext.Database.MigrateAsync();
 
 var uploadService = services.GetRequiredService<UploadService>();
 await uploadService.UpdateFromJson(sourcePath);
+
+var adProcessor = services.GetRequiredService<AdProcessor>();
+await adProcessor.Process();
 
 //messages = await TryAddSalaries(sourcePath, messages, parallelOptions, dbContext);
 
