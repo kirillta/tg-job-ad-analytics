@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Messages.Converters;
+using TgJobAdAnalytics.Data.Salaries;
 
 namespace TgJobAdAnalytics.Data
 {
@@ -68,6 +69,23 @@ namespace TgJobAdAnalytics.Data
             });
             modelBuilder.Entity<AdEntity>()
                 .HasQueryFilter(ad => ad.IsUnique);
+
+            modelBuilder.Entity<SalaryEntity>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.AdId).IsRequired();
+                entity.Property(e => e.Date).IsRequired();
+                entity.Property(e => e.Currency);
+                entity.Property(e => e.CurrencyNormalized);
+                entity.Property(e => e.LowerBound)
+                    .HasConversion<DoubleToNullableDoubleConverter>();
+                entity.Property(e => e.LowerBoundNormalized);
+                entity.Property(e => e.UpperBound)
+                    .HasConversion<DoubleToNullableDoubleConverter>();
+                entity.Property(e => e.UpperBoundNormalized);
+
+                entity.HasIndex(e => e.AdId);
+            });
         }
         
         
@@ -76,6 +94,8 @@ namespace TgJobAdAnalytics.Data
         public DbSet<MessageEntity> Messages { get; set; }
 
         public DbSet<AdEntity> Ads { get; set; }
+
+        public DbSet<SalaryEntity> Salaries { get; set; }
 
 
         private static readonly JsonSerializerOptions JsonSerializerOptions = new()

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TgJobAdAnalytics.Data;
 
@@ -10,9 +11,11 @@ using TgJobAdAnalytics.Data;
 namespace TgJobAdAnalytics.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250810003809_AddSalaryEntity")]
+    partial class AddSalaryEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.8");
@@ -123,28 +126,22 @@ namespace TgJobAdAnalytics.Migrations
                     b.Property<Guid>("AdId")
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("Currency")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("CurrencyNormalized")
+                    b.Property<int>("Currency")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
-                    b.Property<double?>("LowerBound")
+                    b.Property<double>("LowerBound")
                         .HasColumnType("REAL");
 
                     b.Property<double>("LowerBoundNormalized")
                         .HasColumnType("REAL");
 
-                    b.Property<int?>("Period")
+                    b.Property<int>("OriginalCurrency")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("UpperBound")
+                    b.Property<double>("UpperBound")
                         .HasColumnType("REAL");
 
                     b.Property<double>("UpperBoundNormalized")

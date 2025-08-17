@@ -15,18 +15,18 @@ public readonly record struct ChatGptSalaryResponse
     }
 
 
-    [JsonPropertyName("salary_present")]
-    public bool IsSalaryPresent { get; }
+    [JsonPropertyName("p")]
+    public bool IsSalaryPresent { get; init; }
 
-    [JsonPropertyName("lower_bound")]
-    public double? LowerBound { get; }
+    [JsonPropertyName("lb")]
+    public double? LowerBound { get; init; }
 
-    [JsonPropertyName("upper_bound")]
-    public double? UpperBound { get; }
+    [JsonPropertyName("ub")]
+    public double? UpperBound { get; init; }
 
-    [JsonPropertyName("currency")]
+    [JsonPropertyName("prd")]
+    public Period? Period { get; init; }
+
+    [JsonPropertyName("cur")]
     public Currency? Currency { get; }
-
-    [JsonPropertyName("period")]
-    public Period? Period { get; }
 }

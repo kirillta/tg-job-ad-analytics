@@ -66,11 +66,11 @@ var host = Host.CreateDefaultBuilder(args)
             return new ChatClient("gpt-5-nano", credentials, options);
         });
         
+        services.AddSingleton<RateApiClient>();
         services.AddSingleton<RateSourceManager>();
         services.AddSingleton<RateServiceFactory>();
 
         services.AddSingleton<SalaryPattenrFactory>();
-        services.AddSingleton<RateApiClient>();
 
         services.AddTransient<ChatDataService>();
         services.AddTransient<MessageDataService>();
@@ -78,7 +78,16 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddTransient<SimilarityCalculator>();
         services.AddTransient<UploadService>();
         
-        services.AddTransient<SalaryServiceFactory>();
+        services.AddTransient(serviceProvider => 
+        {
+            var dbContext = serviceProvider.GetRequiredService<ApplicationDbContext>();
+            var rateServiceFactory = serviceProvider.GetRequiredService<RateServiceFactory>();
+
+            return new SalaryProcessingServiceFactory(dbContext, rateServiceFactory);    
+        });
+
+        services.AddSingleton<SalaryExtractionService>();
+        services.AddSingleton<SalaryPersistenceService>();
         services.AddTransient<AdProcessor>();
 
         //services.AddTransient<HtmlReportPrinter>();
