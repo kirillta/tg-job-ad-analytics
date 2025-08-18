@@ -44,23 +44,21 @@ public sealed class HtmlReportExporter : IReportExporter
             .Select(g => new
             {
                 ChatId = g.Key,
-                MinDate = g.Min(m => m.TelegramMessageDate),
-                MaxDate = g.Max(m => m.TelegramMessageDate)
+                MinDate = g.Min(m => m.TelegramMessageDate)
             })
-            .ToDictionary(x => x.ChatId, x => (x.MinDate, x.MaxDate));
+            .ToDictionary(x => x.ChatId, x => x.MinDate);
 
         var chats = _dbContext.Chats
             .ToList();
 
+        var lastDayOfThePreviousMonth = new DateOnly(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
         List<DataSourceModel> results = [];
         foreach (var chat in chats) {
-            if (!dates.TryGetValue(chat.TelegramId, out var dateRange))
+            if (!dates.TryGetValue(chat.TelegramId, out var minDate))
                 continue;
 
-            var minDate = DateOnly.FromDateTime(dateRange.MinDate);
-            var maxDate = DateOnly.FromDateTime(dateRange.MaxDate);
-
-            results.Add(new DataSourceModel(chat.TelegramId, chat.Name, minDate, maxDate));
+            // Because we trim dates to the last day of the previous month to avoid showing incomplete data intervals
+            results.Add(new DataSourceModel(chat.TelegramId, chat.Name, DateOnly.FromDateTime(minDate), lastDayOfThePreviousMonth));
         }
 
         return results;
