@@ -10,7 +10,7 @@ public class RateService : IRateService
     }
 
 
-    public double GetRate(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate)
+    public double Get(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate)
     {
         if (baseCurrency == targetCurrency)
             return 1.0;

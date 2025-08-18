@@ -6,9 +6,9 @@ using TgJobAdAnalytics.Data.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-public sealed class AdProcessor
+public sealed class SalaryExtractionProcessor
 {
-    public AdProcessor(ApplicationDbContext dbContext, SalaryExtractionService salaryExtractionService, SalaryPersistenceService salaryPersistenceService)
+    public SalaryExtractionProcessor(ApplicationDbContext dbContext, SalaryExtractionService salaryExtractionService, SalaryPersistenceService salaryPersistenceService)
     {
         _dbContext = dbContext;
         _salaryExtractionService = salaryExtractionService;
@@ -16,12 +16,12 @@ public sealed class AdProcessor
     }
 
 
-    public async Task Process()
+    public async Task ExtractAndPersist()
     {
         var channel = Channel.CreateUnbounded<(AdEntity Ad, SalaryEntity? Salary)>();
         var persistenceTask = ConsumeAndPersist(channel.Reader);
         
-        var ads = await GetAds();
+        var ads = await GetAdsWithoutSalaries();
         foreach (var ad in ads)
         {
             var salaryEntry = await _salaryExtractionService.Process(ad);
@@ -41,12 +41,12 @@ public sealed class AdProcessor
     }
 
 
-    private async Task<List<AdEntity>> GetAds()
+    private async Task<List<AdEntity>> GetAdsWithoutSalaries()
     {
         var existingSalaryAdIds = await _dbContext.Salaries
-        .AsNoTracking()
-        .Select(s => s.AdId)
-        .ToHashSetAsync();
+            .AsNoTracking()
+            .Select(s => s.AdId)
+            .ToHashSetAsync();
 
         return await _dbContext.Ads
             .AsNoTracking()

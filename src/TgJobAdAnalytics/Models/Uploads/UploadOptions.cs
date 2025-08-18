@@ -26,7 +26,7 @@ namespace TgJobAdAnalytics.Models.Uploads
     
     
     /// <summary>
-    /// Configuration options for the <see cref="UploadService"/>.
+    /// Configuration options for the <see cref="TelegramChatImportService"/>.
     /// </summary>
     public class UploadOptions
     {

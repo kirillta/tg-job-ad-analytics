@@ -78,7 +78,7 @@ public class SalaryProcessingService
             if (double.IsNaN(value) || value == 0)
                 return value;
 
-            var rate = _rateService.GetRate(_baseCyrrency, salary.Currency!.Value, salary.Date);
+            var rate = _rateService.Get(_baseCyrrency, salary.Currency!.Value, salary.Date);
             var amount = value * rate;
 
             return Round(amount);

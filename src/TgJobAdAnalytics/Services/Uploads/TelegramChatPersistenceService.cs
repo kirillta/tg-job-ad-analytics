@@ -7,16 +7,16 @@ using TgJobAdAnalytics.Models.Uploads.Enums;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
-public class ChatDataService
+public class TelegramChatPersistenceService
 {
-    public ChatDataService(ILogger<ChatDataService> logger, ApplicationDbContext dbContext)
+    public TelegramChatPersistenceService(ILogger<TelegramChatPersistenceService> logger, ApplicationDbContext dbContext)
     {
         _logger = logger;
         _dbContext = dbContext;
     }
 
 
-    public async Task CleanData()
+    public async Task RemoveAll()
     {
         _logger.LogInformation("Cleaning all chat data...");
         await _dbContext.Chats.ExecuteDeleteAsync();
@@ -25,7 +25,7 @@ public class ChatDataService
     }
 
 
-    public async Task<UploadedDataState> GetChatState(TgChat chat)
+    public async Task<UploadedDataState> DetermineState(TgChat chat)
     {
         var existingChat = await _dbContext.Chats
             .AnyAsync(c => c.TelegramId == chat.Id);
@@ -37,15 +37,15 @@ public class ChatDataService
     }
 
 
-    public async ValueTask Update(TgChat chat, UploadedDataState state, DateTime timestamp)
+    public async ValueTask Upsert(TgChat chat, UploadedDataState state, DateTime timestamp)
     {
         switch (state)
         {
             case UploadedDataState.New:
-                AddNew(in chat, timestamp);
+                Add(in chat, timestamp);
                 break;
             case UploadedDataState.Existing:
-                await UpdateExisting(chat, timestamp);
+                await Update(chat, timestamp);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
@@ -55,7 +55,7 @@ public class ChatDataService
     }
 
 
-    private void AddNew(in TgChat chat, in DateTime timeStamp)
+    private void Add(in TgChat chat, in DateTime timeStamp)
     {
         var chatEntity = new ChatEntity
         {
@@ -70,7 +70,7 @@ public class ChatDataService
     }
 
 
-    private async ValueTask UpdateExisting(TgChat chat, DateTime timeStamp)
+    private async ValueTask Update(TgChat chat, DateTime timeStamp)
     {
         var existingChat = await _dbContext.Chats
             .FirstOrDefaultAsync(c => c.TelegramId == chat.Id);
@@ -85,6 +85,6 @@ public class ChatDataService
     }
 
 
-    private readonly ILogger<ChatDataService> _logger;
+    private readonly ILogger<TelegramChatPersistenceService> _logger;
     private readonly ApplicationDbContext _dbContext;
 }

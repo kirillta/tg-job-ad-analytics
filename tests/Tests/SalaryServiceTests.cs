@@ -9,7 +9,7 @@ public class SalaryServiceTests
     public SalaryServiceTests()
     {
         _rateService = Substitute.For<IRateService>();
-        _rateService.GetRate(Arg.Any<Currency>(), Arg.Any<Currency>(), Arg.Any<DateOnly>()).Returns(1.1);
+        _rateService.Get(Arg.Any<Currency>(), Arg.Any<Currency>(), Arg.Any<DateOnly>()).Returns(1.1);
 
         _service = new SalaryProcessingService(Currency.USD, _rateService);
     }

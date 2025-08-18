@@ -1,6 +1,4 @@
-﻿using TgJobAdAnalytics.Models.Reports;
-
-namespace TgJobAdAnalytics.Services.Reports;
+﻿namespace TgJobAdAnalytics.Models.Reports;
 
 public static class ChartTypeExtensions
 {

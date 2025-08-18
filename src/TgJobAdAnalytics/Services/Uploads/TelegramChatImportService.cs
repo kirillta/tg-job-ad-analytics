@@ -4,50 +4,34 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Text.Json;
 using TgJobAdAnalytics.Data;
-using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Services.Messages;
 
 namespace TgJobAdAnalytics.Services.Uploads
 {
-    /// <summary>
-    /// Service responsible for uploading and updating Telegram chat messages from JSON files.
-    /// </summary>
-    public class UploadService
+    public class TelegramChatImportService
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="UploadService"/> class.
-        /// </summary>
-        /// <param name="logger">The logger.</param>
-        /// <param name="options">The upload options.</param>
-        /// <param name="adDataService">The ad data service.</param>
-        /// <param name="chatDataService">The chat data service.</param>
-        /// <param name="messageDataService">The message data service.</param>
-        public UploadService(
-            ILogger<UploadService> logger,
+        public TelegramChatImportService(
+            ILogger<TelegramChatImportService> logger,
             ApplicationDbContext dbContext,
             IOptions<UploadOptions> options, 
-            AdDataService adDataService,
-            ChatDataService chatDataService, 
-            MessageDataService messageDataService,
+            TelegramAdPersistenceService adDataService,
+            TelegramChatPersistenceService telegramChatPersistenceService, 
+            TelegramMessagePersistenceService telegramMessagePersistenceService,
             SimilarityCalculator similarityCalculator)
         {
             _dbContext = dbContext;
             _logger = logger;
             _adDataService = adDataService;
-            _chatDataService = chatDataService;
-            _messageDataService = messageDataService;
+            _telegramChatPersistenceService = telegramChatPersistenceService;
+            _telegramMessagePersistenceService = telegramMessagePersistenceService;
             _options = options.Value;
             _similarityCalculator = similarityCalculator;
         }
 
 
-        /// <summary>
-        /// Updates the database with chat and message data from JSON files in the specified directory.
-        /// </summary>
-        /// <param name="sourcePath">The directory path containing JSON files to process.</param>
-        public async Task UpdateFromJson(string sourcePath)
+        public async Task ImportFromJson(string sourcePath)
         {
             if (_options.Mode == UploadMode.Skip)
             {
@@ -57,9 +41,9 @@ namespace TgJobAdAnalytics.Services.Uploads
 
             if (_options.Mode == UploadMode.Clean)
             {
-                await _chatDataService.CleanData();
-                await _messageDataService.CleanData();
-                await _adDataService.CleanData();
+                await _telegramChatPersistenceService.RemoveAll();
+                await _telegramMessagePersistenceService.RemoveAll();
+                await _adDataService.RemoveAll();
             }
 
             var timeStamp = DateTime.UtcNow;
@@ -73,21 +57,21 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chatFileName = Path.GetFileName(fileName);
                 _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
-                var chat = await GetChat(fileName);
+                var chat = await ReadChatFromFile(fileName);
 
-                var chatState = await _chatDataService.GetChatState(chat);
-                await _chatDataService.Update(chat, chatState, timeStamp);
-                await _messageDataService.Update(chat, chatState, timeStamp);
-                await _adDataService.Update(chat, chatState, timeStamp);
+                var chatState = await _telegramChatPersistenceService.DetermineState(chat);
+                await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp);
+                await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp);
+                await _adDataService.Upsert(chat, chatState, timeStamp);
 
                 _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
             }            
         
             _logger.LogInformation("Chat processing completed");
-            await FilterSimilarAds();
+            await DeduplicateAds();
 
 
-            static async Task<TgChat> GetChat(string name)
+            static async Task<TgChat> ReadChatFromFile(string name)
             {
                 using var json = new FileStream(name, FileMode.Open, FileAccess.Read);
                 var buffer = new byte[json.Length];
@@ -98,7 +82,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         }
 
 
-        private async Task FilterSimilarAds()
+        private async Task DeduplicateAds()
         {
             var ads = await _dbContext.Ads
                 .AsNoTracking()
@@ -123,10 +107,10 @@ namespace TgJobAdAnalytics.Services.Uploads
 
 
         private readonly ApplicationDbContext _dbContext;
-        private readonly ILogger<UploadService> _logger;
-        private readonly AdDataService _adDataService;
-        private readonly ChatDataService _chatDataService;
-        private readonly MessageDataService _messageDataService;
+        private readonly ILogger<TelegramChatImportService> _logger;
+        private readonly TelegramAdPersistenceService _adDataService;
+        private readonly TelegramChatPersistenceService _telegramChatPersistenceService;
+        private readonly TelegramMessagePersistenceService _telegramMessagePersistenceService;
         private readonly UploadOptions _options;
         private readonly SimilarityCalculator _similarityCalculator;
     }

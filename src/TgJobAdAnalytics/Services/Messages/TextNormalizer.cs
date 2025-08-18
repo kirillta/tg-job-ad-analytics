@@ -28,7 +28,7 @@ public static class TextNormalizer
     }
 
 
-    public static string NormalizeAd(string text)
+    public static string NormalizeAdText(string text)
     {
         var rentedArray = ArrayPool<char>.Shared.Rent(text.Length);
         var clearedText = rentedArray.AsSpan(0, text.Length);

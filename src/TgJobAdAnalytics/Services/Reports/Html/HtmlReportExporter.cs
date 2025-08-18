@@ -1,16 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Html;
-using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Services.Reports.Html.Scriban;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
-public sealed class HtmlReportPrinter : IReportPrinter
+public sealed class HtmlReportExporter : IReportExporter
 {
-    public HtmlReportPrinter(ApplicationDbContext dbContext, IOptions<ReportPrinterOptions> options)
+    public HtmlReportExporter(ApplicationDbContext dbContext, IOptions<ReportPrinterOptions> options)
     {
         _dbContext = dbContext;
         _options = options.Value;
@@ -19,7 +17,7 @@ public sealed class HtmlReportPrinter : IReportPrinter
     }
 
 
-    public void Print(IEnumerable<ReportGroup> reportGroups)
+    public void Write(IEnumerable<ReportGroup> reportGroups)
     {
         var groups = reportGroups.Select(BuildReportItemGroup)
             .ToList();
@@ -28,20 +26,19 @@ public sealed class HtmlReportPrinter : IReportPrinter
     }
 
 
-    public void Print(IEnumerable<Report> reports)
+    public void Write(IEnumerable<Report> reports)
     {
         var group = new ReportItemGroup(string.Empty, reports.Select(BuildReportItem).ToList());
         GenerateReport([group]);
     }
 
 
-    public void Print(Report report) 
-        => Print([report]);
+    public void Write(Report report) 
+        => Write([report]);
 
 
     private List<DataSourceModel> BuildDataSourceModels()
     {
-        // get min and max dates for each chat from Messages table as a dictionary <chatId, (minDate, maxDate)>
         var dates = _dbContext.Messages
             .GroupBy(m => m.TelegramChatId)
             .Select(g => new

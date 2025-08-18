@@ -10,9 +10,9 @@ using TgJobAdAnalytics.Models.Uploads.Enums;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
-public class MessageDataService
+public class TelegramMessagePersistenceService
 {
-    public MessageDataService(ILogger<MessageDataService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options, IOptions<ParallelOptions> parallelOptions)
+    public TelegramMessagePersistenceService(ILogger<TelegramMessagePersistenceService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options, IOptions<ParallelOptions> parallelOptions)
     {
         _logger = logger;
         _dbContext = dbContext;
@@ -21,7 +21,7 @@ public class MessageDataService
     }
 
 
-    public async Task CleanData()
+    public async Task RemoveAll()
     {
         _logger.LogInformation("Cleaning all message data...");
         await _dbContext.Messages.ExecuteDeleteAsync();
@@ -30,12 +30,12 @@ public class MessageDataService
     }
 
 
-    public async Task Update(TgChat chat, UploadedDataState state, DateTime timeStamp)
+    public async Task Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp)
     {
         switch (state)
         {
             case UploadedDataState.New:
-                await Add(chat, timeStamp);
+                await AddAll(chat, timeStamp);
                 break;
             case UploadedDataState.Existing:
                 await AddOnlyNew(chat, timeStamp);
@@ -46,8 +46,8 @@ public class MessageDataService
     }
 
 
-    private Task Add(TgChat chat, DateTime timeStamp) 
-        => ProcessInternal(chat, chat.Messages, timeStamp);
+    private Task AddAll(TgChat chat, DateTime timeStamp) 
+        => ProcessAndInsert(chat, chat.Messages, timeStamp);
 
 
     private async Task AddOnlyNew(TgChat chat, DateTime timeStamp)
@@ -61,11 +61,11 @@ public class MessageDataService
             .Where(m => !existingMessageTelegramIds.Contains(m.Id))
             .ToList();            
             
-        await ProcessInternal(chat, targetMessages, timeStamp);
+        await ProcessAndInsert(chat, targetMessages, timeStamp);
     }
 
 
-    private async Task ProcessInternal(TgChat chat, List<TgMessage> messages, DateTime timeStamp)
+    private async Task ProcessAndInsert(TgChat chat, List<TgMessage> messages, DateTime timeStamp)
     {
         var entryBag = new ConcurrentBag<MessageEntity>();
         Parallel.ForEach(messages, _parallelOptions, tgMessage =>
@@ -138,7 +138,7 @@ public class MessageDataService
     }
 
 
-    private readonly ILogger<MessageDataService> _logger;
+    private readonly ILogger<TelegramMessagePersistenceService> _logger;
     private readonly ApplicationDbContext _dbContext;
     private readonly UploadOptions _options;
     private readonly ParallelOptions _parallelOptions;

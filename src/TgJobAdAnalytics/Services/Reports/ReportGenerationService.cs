@@ -1,11 +1,12 @@
 ﻿using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Services.Analytics;
 
-namespace TgJobAdAnalytics.Services.Analytics;
+namespace TgJobAdAnalytics.Services.Reports;
 
-public class AnalyticsService
+public class ReportGenerationService
 {
-    public AnalyticsService(ApplicationDbContext dbContext)
+    public ReportGenerationService(ApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -20,8 +21,8 @@ public class AnalyticsService
 
         return
         [
-            AdStatsCalculator.CalculateAll(salaries),
-            SalaryCalculator.CalculateAll(salaries)
+            AdStatsCalculator.GenerateAll(salaries),
+            SalaryStatisticsCalculator.GenerateAll(salaries)
         ];
     }
 

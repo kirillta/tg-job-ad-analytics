@@ -12,9 +12,9 @@ using TgJobAdAnalytics.Services.Messages;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
-public class AdDataService
+public class TelegramAdPersistenceService
 {
-    public AdDataService(ILogger<AdDataService> logger, ApplicationDbContext dbContext, IOptions<ParallelOptions> parallelOptions, IOptions<UploadOptions> uploadOptions)
+    public TelegramAdPersistenceService(ILogger<TelegramAdPersistenceService> logger, ApplicationDbContext dbContext, IOptions<ParallelOptions> parallelOptions, IOptions<UploadOptions> uploadOptions)
     {
         _logger = logger;
         _dbContext = dbContext;
@@ -23,7 +23,7 @@ public class AdDataService
     }
 
 
-    public async Task CleanData()
+    public async Task RemoveAll()
     {
         _logger.LogInformation("Cleaning all ad data...");
         await _dbContext.Ads.IgnoreQueryFilters().ExecuteDeleteAsync();
@@ -32,12 +32,12 @@ public class AdDataService
     }
 
 
-    public async Task Update(TgChat chat, UploadedDataState state, DateTime timeStamp)
+    public async Task Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp)
     {
         switch (state)
         {
             case UploadedDataState.New:
-                await Add(chat, timeStamp);
+                await AddAll(chat, timeStamp);
                 break;
             case UploadedDataState.Existing:
                 await AddOnlyNew(chat, timeStamp);
@@ -49,13 +49,13 @@ public class AdDataService
     }
 
 
-    private async Task Add(TgChat chat, DateTime timeStamp)
+    private async Task AddAll(TgChat chat, DateTime timeStamp)
     {
         var messages = await _dbContext.Messages
             .Where(m => m.TelegramChatId == chat.Id)
             .ToListAsync();
 
-        await ProcessInternal(messages, timeStamp);
+        await ProcessAndInsert(messages, timeStamp);
     }
 
 
@@ -77,11 +77,11 @@ public class AdDataService
             .Where(m => m.TelegramChatId == chat.Id && diff.Contains(m.Id))
             .ToListAsync();
 
-        await ProcessInternal(messages, timeStamp);
+        await ProcessAndInsert(messages, timeStamp);
     }
 
 
-    private async Task ProcessInternal(List<MessageEntity> messages, DateTime timeStamp)
+    private async Task ProcessAndInsert(List<MessageEntity> messages, DateTime timeStamp)
     {
         var entryBag = new ConcurrentBag<AdEntity>();
         Parallel.ForEach(messages, _parallelOptions, message =>
@@ -141,7 +141,7 @@ public class AdDataService
             if (stringBuilder.Length < MinimalValuebleMessageLength)
                 return string.Empty;
 
-            return TextNormalizer.NormalizeAd(stringBuilder.ToString());
+            return TextNormalizer.NormalizeAdText(stringBuilder.ToString());
         }
 
 
@@ -209,7 +209,7 @@ public class AdDataService
 
     private const int MinimalValuebleMessageLength = 300;
 
-    private readonly ILogger<AdDataService> _logger;
+    private readonly ILogger<TelegramAdPersistenceService> _logger;
     private readonly ApplicationDbContext _dbContext;
     private readonly ParallelOptions _parallelOptions;
     private readonly UploadOptions _uploadOptions;

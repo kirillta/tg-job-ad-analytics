@@ -5,17 +5,17 @@ using TgJobAdAnalytics.Models.Reports;
 
 namespace TgJobAdAnalytics.Services.Analytics;
 
-internal class SalaryCalculator
+internal class SalaryStatisticsCalculator
 {
-    public static ReportGroup CalculateAll(List<SalaryEntity> salaries)
+    public static ReportGroup GenerateAll(List<SalaryEntity> salaries)
     {
-        var filteredSalaries = FilterOutliers(salaries);
+        var filteredSalaries = RemoveOutliers(salaries);
 
         var reports = new List<Report>
         {
-            GetMinimalByYear(filteredSalaries),
+            GetMinimumByYear(filteredSalaries),
             GetMaximumByYear(filteredSalaries),
-            GetMeanByYear(filteredSalaries),
+            GetAverageByYear(filteredSalaries),
             GetMedianByYear(filteredSalaries)
         };
 
@@ -23,7 +23,7 @@ internal class SalaryCalculator
     }
 
 
-    private static Report GetMinimalByYear(List<SalaryEntity> salaries)
+    private static Report GetMinimumByYear(List<SalaryEntity> salaries)
         => salaries
             .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance)
             .GroupBy(salary => salary.Date.Year)
@@ -51,14 +51,14 @@ internal class SalaryCalculator
             .ToReport("Максимальная зарплата по годам");
 
 
-    private static Report GetMeanByYear(List<SalaryEntity> salaries)
+    private static Report GetAverageByYear(List<SalaryEntity> salaries)
         => salaries
             .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance && Math.Abs(salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(salary => salary.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
-                MeanSalary = group.Select(GetSalaryValue)
+                MeanSalary = group.Select(GetNormalizedSalaryValue)
                     .Where(salary => !double.IsNaN(salary))
                     .Mean()
             })
@@ -74,7 +74,7 @@ internal class SalaryCalculator
             .Select(group => new
             {
                 Year = group.Key,
-                MedianSalary = group.Select(GetSalaryValue)
+                MedianSalary = group.Select(GetNormalizedSalaryValue)
                     .Where(salary => !double.IsNaN(salary))
                     .Median()
             })
@@ -83,7 +83,7 @@ internal class SalaryCalculator
             .ToReport("Медианная зарплата по годам");
 
 
-    private static double GetSalaryValue(SalaryEntity salary)
+    private static double GetNormalizedSalaryValue(SalaryEntity salary)
     {
         // No salary information
         if (double.IsNaN(salary.LowerBoundNormalized) && double.IsNaN(salary.UpperBoundNormalized))
@@ -99,7 +99,7 @@ internal class SalaryCalculator
     }
 
 
-    private static List<SalaryEntity> FilterOutliers(List<SalaryEntity> salaries)
+    private static List<SalaryEntity> RemoveOutliers(List<SalaryEntity> salaries)
     {
         var excludedIds = GetExcludedIds(salaries, salary => salary.LowerBoundNormalized)
             .Concat(GetExcludedIds(salaries, salary => salary.UpperBoundNormalized))

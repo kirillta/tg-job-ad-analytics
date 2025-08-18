@@ -4,16 +4,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using System.ClientModel;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Salaries;
-using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
-using TgJobAdAnalytics.Services.Analytics;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
@@ -79,13 +76,11 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<RateSourceManager>();
         services.AddSingleton<RateServiceFactory>();
 
-        services.AddSingleton<SalaryPattenrFactory>();
-
-        services.AddTransient<ChatDataService>();
-        services.AddTransient<MessageDataService>();
-        services.AddTransient<AdDataService>();
+        services.AddTransient<TelegramChatPersistenceService>();
+        services.AddTransient<TelegramMessagePersistenceService>();
+        services.AddTransient<TelegramAdPersistenceService>();
         services.AddTransient<SimilarityCalculator>();
-        services.AddTransient<UploadService>();
+        services.AddTransient<TelegramChatImportService>();
         
         services.AddTransient(serviceProvider => 
         {
@@ -97,10 +92,10 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<SalaryExtractionService>();
         services.AddSingleton<SalaryPersistenceService>();
-        services.AddTransient<AdProcessor>();
+        services.AddTransient<SalaryExtractionProcessor>();
 
-        services.AddTransient<AnalyticsService>();
-        services.AddTransient<IReportPrinter, HtmlReportPrinter>();
+        services.AddTransient<ReportGenerationService>();
+        services.AddTransient<IReportExporter, HtmlReportExporter>();
     })
     .Build();
 
@@ -108,23 +103,22 @@ using var scope = host.Services.CreateScope();
 var services = scope.ServiceProvider;
 var logger = services.GetRequiredService<ILogger<Program>>();
 
-var startTime = Stopwatch.GetTimestamp();
-
 using var dbContext = services.GetRequiredService<ApplicationDbContext>();
 await dbContext.Database.MigrateAsync();
 
-//var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
-//var uploadService = services.GetRequiredService<UploadService>();
-//await uploadService.UpdateFromJson(sourcePath);
+var startTime = Stopwatch.GetTimestamp();
 
-//var adProcessor = services.GetRequiredService<AdProcessor>();
-//await adProcessor.Process();
+var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
+var telegramChatImportService = services.GetRequiredService<TelegramChatImportService>();
+await telegramChatImportService.ImportFromJson(sourcePath);
 
-var analyticsService = services.GetRequiredService<AnalyticsService>();
-var reports = analyticsService.Generate();
+var salaryExtractionProcessor = services.GetRequiredService<SalaryExtractionProcessor>();
+await salaryExtractionProcessor.ExtractAndPersist();
 
-var printer = services.GetRequiredService<IReportPrinter>();
-printer.Print(reports);
+var reportGenerationService = services.GetRequiredService<ReportGenerationService>();
+var reports = reportGenerationService.Generate();
+
+var exporter = services.GetRequiredService<IReportExporter>();
+exporter.Write(reports);
 
 logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);
-//Console.ReadKey();
