@@ -1,5 +1,5 @@
 ﻿using MathNet.Numerics.Statistics;
-using TgJobAdAnalytics.Models.Messages;
+using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Reports;
 
 
@@ -7,54 +7,54 @@ namespace TgJobAdAnalytics.Services.Analytics;
 
 internal class SalaryCalculator
 {
-    public static ReportGroup CalculateAll(List<Message> messages)
+    public static ReportGroup CalculateAll(List<SalaryEntity> salaries)
     {
-        var filteredMessages = FilterOutliers(messages);
+        var filteredSalaries = FilterOutliers(salaries);
 
         var reports = new List<Report>
         {
-            GetMinimalByYear(filteredMessages),
-            GetMaximumByYear(filteredMessages),
-            GetMeanByYear(filteredMessages),
-            GetMedianByYear(filteredMessages)
+            GetMinimalByYear(filteredSalaries),
+            GetMaximumByYear(filteredSalaries),
+            GetMeanByYear(filteredSalaries),
+            GetMedianByYear(filteredSalaries)
         };
 
         return new ReportGroup("Статистика по зарплатам", reports);
     }
 
 
-    private static Report GetMinimalByYear(List<Message> messages)
-        => messages
-            .Where(message => Math.Abs(message.Salary.LowerBoundNormalized) > Tolerance)
-            .GroupBy(message => message.Date.Year)
+    private static Report GetMinimalByYear(List<SalaryEntity> salaries)
+        => salaries
+            .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance)
+            .GroupBy(salary => salary.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
-                MinimalSalary = group.Select(group => group.Salary.LowerBoundNormalized).Minimum()
+                MinimalSalary = group.Select(group => group.LowerBoundNormalized).Minimum()
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary)
             .ToReport("Минимальная зарплата по годам");
 
 
-    private static Report GetMaximumByYear(List<Message> messages)
-        => messages
-            .Where(message => Math.Abs(message.Salary.UpperBoundNormalized) > Tolerance)
-            .GroupBy(message => message.Date.Year)
+    private static Report GetMaximumByYear(List<SalaryEntity> salaries)
+        => salaries
+            .Where(salary => Math.Abs(salary.UpperBoundNormalized) > Tolerance)
+            .GroupBy(salary => salary.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
-                MaximumSalary = group.Select(group => group.Salary.UpperBoundNormalized).Maximum()
+                MaximumSalary = group.Select(group => group.UpperBoundNormalized).Maximum()
             })
             .OrderBy(group => group.Year)
             .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary)
             .ToReport("Максимальная зарплата по годам");
 
 
-    private static Report GetMeanByYear(List<Message> messages)
-        => messages
-            .Where(message => Math.Abs(message.Salary.LowerBoundNormalized) > Tolerance && Math.Abs(message.Salary.UpperBoundNormalized) > Tolerance)
-            .GroupBy(message => message.Date.Year)
+    private static Report GetMeanByYear(List<SalaryEntity> salaries)
+        => salaries
+            .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance && Math.Abs(salary.UpperBoundNormalized) > Tolerance)
+            .GroupBy(salary => salary.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
@@ -67,10 +67,10 @@ internal class SalaryCalculator
             .ToReport("Средняя зарплата по годам");
 
 
-    private static Report GetMedianByYear(List<Message> messages)
-        => messages
-            .Where(message => Math.Abs(message.Salary.LowerBoundNormalized) > Tolerance && Math.Abs(message.Salary.UpperBoundNormalized) > Tolerance)
-            .GroupBy(message => message.Date.Year)
+    private static Report GetMedianByYear(List<SalaryEntity> salaries)
+        => salaries
+            .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance && Math.Abs(salary.UpperBoundNormalized) > Tolerance)
+            .GroupBy(salary => salary.Date.Year)
             .Select(group => new
             {
                 Year = group.Key,
@@ -83,36 +83,36 @@ internal class SalaryCalculator
             .ToReport("Медианная зарплата по годам");
 
 
-    private static double GetSalaryValue(Message message)
+    private static double GetSalaryValue(SalaryEntity salary)
     {
         // No salary information
-        if (double.IsNaN(message.Salary.LowerBoundNormalized) && double.IsNaN(message.Salary.UpperBoundNormalized))
+        if (double.IsNaN(salary.LowerBoundNormalized) && double.IsNaN(salary.UpperBoundNormalized))
             return double.NaN;
 
-        if (double.IsNaN(message.Salary.LowerBoundNormalized))
-            return message.Salary.UpperBoundNormalized;
+        if (double.IsNaN(salary.LowerBoundNormalized))
+            return salary.UpperBoundNormalized;
 
-        if (double.IsNaN(message.Salary.UpperBoundNormalized))
-            return message.Salary.LowerBoundNormalized;
+        if (double.IsNaN(salary.UpperBoundNormalized))
+            return salary.LowerBoundNormalized;
 
-        return (message.Salary.LowerBoundNormalized + message.Salary.UpperBoundNormalized) / 2;
+        return (salary.LowerBoundNormalized + salary.UpperBoundNormalized) / 2;
     }
 
 
-    private static List<Message> FilterOutliers(List<Message> messages)
+    private static List<SalaryEntity> FilterOutliers(List<SalaryEntity> salaries)
     {
-        var excludedIds = GetExcludedIds(messages, message => message.Salary.LowerBoundNormalized)
-            .Concat(GetExcludedIds(messages, message => message.Salary.UpperBoundNormalized))
+        var excludedIds = GetExcludedIds(salaries, salary => salary.LowerBoundNormalized)
+            .Concat(GetExcludedIds(salaries, salary => salary.UpperBoundNormalized))
             .ToHashSet();
 
-        return messages
-            .Where(message => !excludedIds.Contains(message.Id))
+        return salaries
+            .Where(salary => !excludedIds.Contains(salary.Id))
             .ToList();
 
 
-        IEnumerable<long> GetExcludedIds(List<Message> messages, Func<Message, double> salarySelector)
+        IEnumerable<Guid> GetExcludedIds(List<SalaryEntity> salaries, Func<SalaryEntity, double> salarySelector)
         {
-            var validLogValues = messages
+            var validLogValues = salaries
                 .Select(salarySelector)
                 .Where(salary => !double.IsNaN(salary) && Math.Abs(salary) > Tolerance)
                 .Select(salary => Math.Log(salary))
@@ -120,8 +120,8 @@ internal class SalaryCalculator
 
             var (lowerThreshold, upperThreshold) = GetThresholds(validLogValues);
 
-            return messages.Where(message => IsOutlier(salarySelector(message), lowerThreshold, upperThreshold))
-                .Select(message => message.Id);
+            return salaries.Where(message => IsOutlier(salarySelector(message), lowerThreshold, upperThreshold))
+                .Select(salary => salary.Id);
         }
 
 

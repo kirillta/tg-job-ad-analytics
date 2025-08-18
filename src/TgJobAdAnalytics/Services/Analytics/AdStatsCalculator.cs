@@ -1,28 +1,28 @@
-﻿using TgJobAdAnalytics.Models.Messages;
+﻿using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Reports;
 
 namespace TgJobAdAnalytics.Services.Analytics;
 
 public sealed class AdStatsCalculator
 {
-    public static ReportGroup CalculateAll(List<Message> messages)
+    public static ReportGroup CalculateAll(List<SalaryEntity> salaries)
     {
         var reports = new List<Report>
         {
-            PrintNumberOfAdsByYearAndMonth(messages),
-            GetMaximumNumberOfAdsByMonthAndYear(messages),
-            GetNumberOfAdsByMonth(messages),
-            GetNumberOfAdsByYear(messages),
+            PrintNumberOfAdsByYearAndMonth(salaries),
+            GetMaximumNumberOfAdsByMonthAndYear(salaries),
+            GetNumberOfAdsByMonth(salaries),
+            GetNumberOfAdsByYear(salaries),
         };
 
         return new ReportGroup("Статистика по вакансиям", reports);
     }
 
 
-    private static Report GetMaximumNumberOfAdsByMonthAndYear(List<Message> messages)
+    private static Report GetMaximumNumberOfAdsByMonthAndYear(List<SalaryEntity> salaries)
     {
-        var results = messages
-            .GroupBy(message => new { message.Date.Year, message.Date.Month })
+        var results = salaries
+            .GroupBy(salary => new { salary.Date.Year, salary.Date.Month })
             .Select(group => new
             {
                 group.Key.Year,
@@ -37,10 +37,10 @@ public sealed class AdStatsCalculator
     }
 
 
-    private static Report GetNumberOfAdsByMonth(List<Message> messages)
+    private static Report GetNumberOfAdsByMonth(List<SalaryEntity> salaries)
     {
-        var results = messages
-            .GroupBy(message => message.Date.Month)
+        var results = salaries
+            .GroupBy(salary => salary.Date.Month)
             .Select(group => new
             {
                 group.Key,
@@ -53,10 +53,10 @@ public sealed class AdStatsCalculator
     }
 
 
-    private static Report GetNumberOfAdsByYear(List<Message> messages)
+    private static Report GetNumberOfAdsByYear(List<SalaryEntity> salaries)
     {
-        var results = messages
-            .GroupBy(message => message.Date.Year)
+        var results = salaries
+            .GroupBy(salary => salary.Date.Year)
             .Select(group => new
             {
                 group.Key,
@@ -69,10 +69,10 @@ public sealed class AdStatsCalculator
     }
 
 
-    private static Report PrintNumberOfAdsByYearAndMonth(List<Message> messages)
+    private static Report PrintNumberOfAdsByYearAndMonth(List<SalaryEntity> salaries)
     {
-        var results = messages
-            .GroupBy(message => message.Date.Year)
+        var results = salaries
+            .GroupBy(salary => salary.Date.Year)
             .Select(yearGroup => new
             {
                 AdsByMonth = yearGroup
