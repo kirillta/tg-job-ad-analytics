@@ -1,28 +1,29 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using TgJobAdAnalytics.Models.Messages;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
 public sealed class LocalitySensitiveHashCalculator
 {
-    public LocalitySensitiveHashCalculator(int hashTableCount, int bandCount = 20)
+    public LocalitySensitiveHashCalculator(VectorizationOptions vectorizationOptions)
     {
-        Debug.Assert(hashTableCount > 0, "hashTableCount must be greater than 0");
-        Debug.Assert(bandCount > 0, "bandCount must be greater than 0");
-        Debug.Assert(hashTableCount % bandCount == 0, "hashTableCount must be divisible by bandCount");
+        Debug.Assert(vectorizationOptions.HashFunctionCount > 0, "hashTableCount must be greater than 0");
+        Debug.Assert(vectorizationOptions.LshBandCount > 0, "bandCount must be greater than 0");
+        Debug.Assert(vectorizationOptions.HashFunctionCount % vectorizationOptions.LshBandCount == 0, "hashTableCount must be divisible by bandCount");
 
-        _bandCount = bandCount;
-        _rowCount = hashTableCount / bandCount;
+        _bandCount = vectorizationOptions.LshBandCount;
+        _rowCount = vectorizationOptions.HashFunctionCount / vectorizationOptions.LshBandCount;
 
-        _storedMessageIds = new ConcurrentDictionary<long, bool>();
+        _storedMessageIds = new ConcurrentDictionary<Guid, bool>();
 
-        _hashTables = new List<ConcurrentDictionary<uint, ConcurrentBag<long>>>(_bandCount);
+        _hashTables = new List<ConcurrentDictionary<uint, ConcurrentBag<Guid>>>(_bandCount);
         for (int i = 0; i < _bandCount; i++)
-            _hashTables.Add(new ConcurrentDictionary<uint, ConcurrentBag<long>>());
+            _hashTables.Add(new ConcurrentDictionary<uint, ConcurrentBag<Guid>>());
     }
 
 
-    public void Add(long itemId, ReadOnlySpan<uint> signature)
+    public void Add(Guid itemId, ReadOnlySpan<uint> signature)
     {
         if (!_storedMessageIds.TryAdd(itemId, true))
             throw new Exception($"Item with ID {itemId} is already stored");
@@ -36,18 +37,18 @@ public sealed class LocalitySensitiveHashCalculator
     }
 
 
-    public List<long> GetMatches(ReadOnlySpan<uint> signature)
+    public List<Guid> GetMatches(ReadOnlySpan<uint> signature)
     {
         if (signature.Length == 0)
             return [];
 
         var signatureLength = signature.Length;
 
-        var candidates = new HashSet<long>();
+        var candidates = new HashSet<Guid>();
         for (var band = 0; band < _bandCount; band++)
         {
             var bandHash = ComputeBandHash(signature, band, _rowCount, signatureLength);
-            if (_hashTables[band].TryGetValue(bandHash, out ConcurrentBag<long>? value))
+            if (_hashTables[band].TryGetValue(bandHash, out ConcurrentBag<Guid>? value))
                 candidates.UnionWith(value);
         }
 
@@ -73,6 +74,6 @@ public sealed class LocalitySensitiveHashCalculator
 
     private readonly int _bandCount;
     private readonly int _rowCount;
-    private readonly List<ConcurrentDictionary<uint, ConcurrentBag<long>>> _hashTables;
-    private readonly ConcurrentDictionary<long, bool> _storedMessageIds;
+    private readonly List<ConcurrentDictionary<uint, ConcurrentBag<Guid>>> _hashTables;
+    private readonly ConcurrentDictionary<Guid, bool> _storedMessageIds;
 }

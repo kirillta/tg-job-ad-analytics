@@ -1,31 +1,31 @@
 ﻿using System.Diagnostics;
+using TgJobAdAnalytics.Models.Messages;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
 public sealed class MinHashCalculator
 {
-    public MinHashCalculator(int hashFunctionCount, int vocabularySize, int seed = 1000)
+    public MinHashCalculator(VectorizationOptions vectorizationOptions, int vocabularySize)
     {
-        Debug.Assert(hashFunctionCount > 0, "Hash function count must be positive");
+        Debug.Assert(vectorizationOptions.HashFunctionCount > 0, "Hash function count must be positive");
         Debug.Assert(vocabularySize > 0, "Vocabulary size must be positive");
-
-        _hashFunctionCount = hashFunctionCount;
+        
+        _vectorizationOptions = vectorizationOptions;
 
         var universeBitSize = BitsForUniverse(vocabularySize);
-        _hashFunctions = GenerateHashFunctions(hashFunctionCount, universeBitSize, seed);
-
+        _hashFunctions = GenerateHashFunctions(_vectorizationOptions.HashFunctionCount, universeBitSize, _vectorizationOptions.MinHashSeed);
     }
 
 
     public ReadOnlySpan<uint> GenerateSignature(HashSet<string> shingles)
     {
-        var signature = new uint[_hashFunctionCount];
+        var signature = new uint[_vectorizationOptions.HashFunctionCount];
         Array.Fill(signature, uint.MaxValue);
 
         foreach (string shingle in shingles)
         {
             var shingleHash = shingle.GetHashCode();
-            for (int i = 0; i < _hashFunctionCount; i++)
+            for (int i = 0; i < _vectorizationOptions.HashFunctionCount; i++)
             {
                 var hashValue = _hashFunctions[i](shingleHash);
                 if (hashValue < signature[i])
@@ -35,10 +35,6 @@ public sealed class MinHashCalculator
 
         return signature;
     }
-
-
-    public int HashFunctionCount
-        => _hashFunctionCount;
 
 
     private static int BitsForUniverse(int universeSize)
@@ -85,6 +81,6 @@ public sealed class MinHashCalculator
     }
 
 
-    private readonly int _hashFunctionCount;
     private readonly List<Func<int, uint>> _hashFunctions;
+    private readonly VectorizationOptions _vectorizationOptions;
 }

@@ -1,16 +1,17 @@
-﻿using System.Globalization;
+﻿using Microsoft.Extensions.Options;
+using System.Globalization;
 using System.Xml.Linq;
 using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-internal class RateApiClient
+public class RateApiClient
 {
-    public RateApiClient()
+    public RateApiClient(IOptions<RateOptions> rateOptions)
     {
         _client = new HttpClient
         {
-            BaseAddress = new Uri("https://www.cbr.ru/scripts/XML_dynamic.asp")
+            BaseAddress = rateOptions.Value.RateApiUrl
         };
     }
 

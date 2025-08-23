@@ -1,28 +1,28 @@
-﻿using TgJobAdAnalytics.Models.Messages;
+﻿using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Reports;
 
 namespace TgJobAdAnalytics.Services.Analytics;
 
 public sealed class AdStatsCalculator
 {
-    public static ReportGroup CalculateAll(List<Message> messages)
+    public static ReportGroup GenerateAll(List<SalaryEntity> salaries)
     {
         var reports = new List<Report>
         {
-            PrintNumberOfAdsByYearAndMonth(messages),
-            GetMaximumNumberOfAdsByMonthAndYear(messages),
-            GetNumberOfAdsByMonth(messages),
-            GetNumberOfAdsByYear(messages),
+            GetNumberOfAdsByYearAndMonth(salaries),
+            GetTopMonthsByAdCount(salaries),
+            GetMonthlyAdCounts(salaries),
+            GetYearlyAdCounts(salaries),
         };
 
         return new ReportGroup("Статистика по вакансиям", reports);
     }
 
 
-    private static Report GetMaximumNumberOfAdsByMonthAndYear(List<Message> messages)
+    private static Report GetTopMonthsByAdCount(List<SalaryEntity> salaries)
     {
-        var results = messages
-            .GroupBy(message => new { message.Date.Year, message.Date.Month })
+        var results = salaries
+            .GroupBy(salary => new { salary.Date.Year, salary.Date.Month })
             .Select(group => new
             {
                 group.Key.Year,
@@ -37,42 +37,10 @@ public sealed class AdStatsCalculator
     }
 
 
-    private static Report GetNumberOfAdsByMonth(List<Message> messages)
+    private static Report GetNumberOfAdsByYearAndMonth(List<SalaryEntity> salaries)
     {
-        var results = messages
-            .GroupBy(message => message.Date.Month)
-            .Select(group => new
-            {
-                group.Key,
-                Count = group.Count()
-            })
-            .OrderBy(group => group.Key)
-            .ToDictionary(group => new DateTime(1, group.Key, 1).ToString("MMMM"), group => (double) group.Count);
-
-        return new Report("Общее количество вакансий по месяцам года", results, ChartType.PolarArea);
-    }
-
-
-    private static Report GetNumberOfAdsByYear(List<Message> messages)
-    {
-        var results = messages
-            .GroupBy(message => message.Date.Year)
-            .Select(group => new
-            {
-                group.Key,
-                Count = group.Count()
-            })
-            .OrderBy(group => group.Key)
-            .ToDictionary(group => group.Key.ToString(), group => (double) group.Count);
-
-        return new Report("Общее количество вакансий по годам", results);
-    }
-
-
-    private static Report PrintNumberOfAdsByYearAndMonth(List<Message> messages)
-    {
-        var results = messages
-            .GroupBy(message => message.Date.Year)
+        var results = salaries
+            .GroupBy(salary => salary.Date.Year)
             .Select(yearGroup => new
             {
                 AdsByMonth = yearGroup
@@ -97,5 +65,37 @@ public sealed class AdStatsCalculator
             .ToDictionary(pair => pair.Value.Year + " " + new DateTime(1, pair.Value.Month, 1).ToString("MMMM"), pair => (double) pair.Value.Count);
 
         return new Report("Количество вакансий по месяцам", results);
+    }
+
+
+    private static Report GetMonthlyAdCounts(List<SalaryEntity> salaries)
+    {
+        var results = salaries
+            .GroupBy(salary => salary.Date.Month)
+            .Select(group => new
+            {
+                group.Key,
+                Count = group.Count()
+            })
+            .OrderBy(group => group.Key)
+            .ToDictionary(group => new DateTime(1, group.Key, 1).ToString("MMMM"), group => (double) group.Count);
+
+        return new Report("Общее количество вакансий по месяцам года", results, ChartType.PolarArea);
+    }
+
+
+    private static Report GetYearlyAdCounts(List<SalaryEntity> salaries)
+    {
+        var results = salaries
+            .GroupBy(salary => salary.Date.Year)
+            .Select(group => new
+            {
+                group.Key,
+                Count = group.Count()
+            })
+            .OrderBy(group => group.Key)
+            .ToDictionary(group => group.Key.ToString(), group => (double) group.Count);
+
+        return new Report("Общее количество вакансий по годам", results);
     }
 }

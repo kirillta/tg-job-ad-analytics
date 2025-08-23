@@ -1,12 +1,15 @@
-﻿using TgJobAdAnalytics.Models.Salaries;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using TgJobAdAnalytics.Models.Salaries;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-internal class RateSourceManager
+public class RateSourceManager
 {
-    public RateSourceManager(string rateSourcePath)
+    public RateSourceManager(ILogger<RateSourceManager> logger, IOptions<RateOptions> rateOptions)
     {
-        _rateSourcePath = rateSourcePath;
+        _logger = logger;
+        _rateOptions = rateOptions.Value;
 
         UploadFromFile();
     }
@@ -14,7 +17,9 @@ internal class RateSourceManager
 
     public async Task Add(List<Rate> rates)
     {
-        using var writer = new StreamWriter(_rateSourcePath, true);
+        _logger.LogInformation("Adding {Count} rates to the source file: {RateSourcePath}", rates.Count, _rateOptions.RateSourcePath);
+
+        using var writer = new StreamWriter(_rateOptions.RateSourcePath, true);
 
         var ratesByDate = rates.GroupBy(x => x.TargetDate)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -83,10 +88,13 @@ internal class RateSourceManager
 
     private void UploadFromFile()
     {
-        if (!File.Exists(_rateSourcePath))
-        using (File.Create(_rateSourcePath)) { }
+        if (!File.Exists(_rateOptions.RateSourcePath))
+        {
+            _logger.LogWarning("Rate source file not found: {RateSourcePath}. Creating a new file.", _rateOptions.RateSourcePath);
+            File.WriteAllText(_rateOptions.RateSourcePath, string.Empty);
+        }
 
-        foreach (var line in File.ReadLines(_rateSourcePath))
+        foreach (var line in File.ReadLines(_rateOptions.RateSourcePath))
         {
             var parts = line.Split(',');
             if (parts.Length != 4)
@@ -102,6 +110,7 @@ internal class RateSourceManager
     }
 
 
+    private readonly ILogger<RateSourceManager> _logger;
     private readonly Dictionary<(Currency Target, DateOnly Date), Rate> _rates = [];
-    private readonly string _rateSourcePath;
+    private readonly RateOptions _rateOptions;
 }

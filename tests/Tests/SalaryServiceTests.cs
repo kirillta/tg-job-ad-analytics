@@ -9,9 +9,9 @@ public class SalaryServiceTests
     public SalaryServiceTests()
     {
         _rateService = Substitute.For<IRateService>();
-        _rateService.GetRate(Arg.Any<Currency>(), Arg.Any<Currency>(), Arg.Any<DateOnly>()).Returns(1.1);
+        _rateService.Get(Arg.Any<Currency>(), Arg.Any<Currency>(), Arg.Any<DateOnly>()).Returns(1.1);
 
-        _service = new SalaryService(Currency.USD, _rateService);
+        _service = new SalaryProcessingService(Currency.USD, _rateService);
     }
 
 
@@ -54,7 +54,7 @@ public class SalaryServiceTests
         double expectedLowerNormalized, double expectedUpperNormalized)
     {
         var date = new DateOnly(2024, 1, 1);
-        var service = new SalaryService(baseCurrency, _rateService);
+        var service = new SalaryProcessingService(baseCurrency, _rateService);
 
         var result = service.Get(input, date);
 
@@ -63,6 +63,6 @@ public class SalaryServiceTests
     }
 
 
-    private readonly SalaryService _service;
+    private readonly SalaryProcessingService _service;
     private readonly IRateService _rateService;
 }

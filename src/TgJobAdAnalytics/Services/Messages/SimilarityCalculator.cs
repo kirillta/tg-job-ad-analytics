@@ -1,27 +1,30 @@
-﻿using System.Collections.Concurrent;
+﻿using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
+using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Messages;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
 public sealed class SimilarityCalculator
 {
-    public SimilarityCalculator(ParallelOptions parallelOptions)
+    public SimilarityCalculator(IOptions<ParallelOptions> parallelOptions, IOptions<VectorizationOptions> vectorizationOptions)
     {
-        _parallelOptions = parallelOptions;
+        _parallelOptions = parallelOptions.Value;
+        _vectorizationOptions = vectorizationOptions.Value;
     }
 
 
-    public List<Message> Distinct(List<Message> messages)
+    public List<AdEntity> Distinct(List<AdEntity> ads)
     {
-        if (messages.Count == 0)
+        if (ads.Count == 0)
             return [];
 
-        var (shingles, vocabulary) = GetShinglesAndVocabulary(messages);
+        var (shingles, vocabulary) = GetShinglesAndVocabulary(ads);
 
-        return DistinctInternal(messages, shingles);
+        return DistinctInternal(ads, shingles);
 
 
-        static HashSet<string> GetShingles(string text, int shingleSize = 5)
+        static HashSet<string> GetShingles(string text, int shingleSize)
         {
             if (text.Length < shingleSize)
                 return Enumerable.Empty<string>().ToHashSet();
@@ -34,43 +37,44 @@ public sealed class SimilarityCalculator
         }
 
 
-        (Dictionary<Message, HashSet<string>>, List<string>) GetShinglesAndVocabulary(List<Message> messages)
+        (Dictionary<AdEntity, HashSet<string>>, List<string>) GetShinglesAndVocabulary(List<AdEntity> ads)
         {
             var vocabulary = new HashSet<string>();
-            var messageShingles = new Dictionary<Message, HashSet<string>>();
-            foreach (var message in messages)
+            var adShingles = new Dictionary<AdEntity, HashSet<string>>();
+            foreach (var ad in ads)
             {
-                var shingles = GetShingles(message.Text);
-                messageShingles.Add(message, shingles);
+                var shingles = GetShingles(ad.Text, _vectorizationOptions.ShingleSize);
+                adShingles.Add(ad, shingles);
                 vocabulary.UnionWith(shingles);
             }
 
-            return (messageShingles, vocabulary.ToList());
+            return (adShingles, vocabulary.ToList());
         }
 
 
-        List<Message> DistinctInternal(List<Message> messages, Dictionary<Message, HashSet<string>> shingles)
+        List<AdEntity> DistinctInternal(List<AdEntity> ads, Dictionary<AdEntity, HashSet<string>> shingles)
         {
-            var minHashCalculator = new MinHashCalculator(100, vocabulary.Count);
-            var lshCalculator = new LocalitySensitiveHashCalculator(minHashCalculator.HashFunctionCount);
+            var minHashCalculator = new MinHashCalculator(_vectorizationOptions, vocabulary.Count);
+            var lshCalculator = new LocalitySensitiveHashCalculator(_vectorizationOptions);
 
-            var distinctMessages = new ConcurrentBag<Message>();
-            Parallel.ForEach(messages, _parallelOptions, message =>
+            var distinctAds = new ConcurrentBag<AdEntity>();
+            Parallel.ForEach(ads, _parallelOptions, ad =>
             {
-                var hash = minHashCalculator.GenerateSignature(shingles[message]);
+                var hash = minHashCalculator.GenerateSignature(shingles[ad]);
 
                 var similarMessages = lshCalculator.GetMatches(hash);
                 if (similarMessages.Count == 0)
                 {
-                    lshCalculator.Add(message.Id, hash);
-                    distinctMessages.Add(message);
+                    lshCalculator.Add(ad.Id, hash);
+                    distinctAds.Add(ad);
                 }
             });
 
-            return [.. distinctMessages];
+            return [.. distinctAds];
         }
     }
 
 
     private readonly ParallelOptions _parallelOptions;
+    private readonly VectorizationOptions _vectorizationOptions;
 }

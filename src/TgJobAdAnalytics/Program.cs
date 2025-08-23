@@ -1,96 +1,124 @@
-﻿using System.Collections.Concurrent;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OpenAI.Chat;
+using System.ClientModel;
 using System.Diagnostics;
-using System.Text.Json;
+using System.Text;
+using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Salaries;
-using TgJobAdAnalytics.Models.Telegram;
-using TgJobAdAnalytics.Services.Analytics;
+using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Services.Messages;
+using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Salaries;
+using TgJobAdAnalytics.Services.Uploads;
+
+System.Console.OutputEncoding = Encoding.UTF8;
+
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureLogging(logging =>
+    {
+        logging.ClearProviders();
+        logging.AddConsole(options =>
+        {
+            options.FormatterName = "simple";
+        });
+        logging.AddSimpleConsole(options =>
+        {
+            options.SingleLine = true;
+            options.IncludeScopes = false;
+            options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+            options.UseUtcTimestamp = true;
+        });
+    })
+    .ConfigureServices((context, services) =>
+    {
+        services.AddDbContext<ApplicationDbContext>();
+        services.Configure<UploadOptions>(context.Configuration.GetSection("Upload"));
+
+        services.Configure<ParallelOptions>(options =>
+        {
+            options.MaxDegreeOfParallelism = Environment.ProcessorCount;
+        });
+
+        services.Configure<VectorizationOptions>(context.Configuration.GetSection("Vectorization"));
+
+        services.Configure<RateOptions>(options => 
+        { 
+            options.RateApiUrl = new Uri("https://www.cbr.ru/scripts/XML_dynamic.asp");
+            options.RateSourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources", "rates.csv");
+        });
+
+        services.Configure<ReportPrinterOptions>(options =>
+        {
+            options.OutputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
+            options.TemplatePath = Path.Combine("Views", "Reports");
+        });
+
+        services.AddSingleton(_ => 
+        { 
+            var credentials = new ApiKeyCredential(Environment.GetEnvironmentVariable("PNKL_OPEN_AI_KEY")!);
+
+            var options = new OpenAI.OpenAIClientOptions
+            {
+                UserAgentApplicationId = "TgJobAdAnalytics",
+                RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(maxRetries: 3)
+            };
+
+            return new ChatClient("gpt-5-nano", credentials, options);
+        });
+        
+        services.AddSingleton<RateApiClient>();
+        services.AddSingleton<RateSourceManager>();
+        services.AddSingleton<RateServiceFactory>();
+
+        services.AddTransient<TelegramChatPersistenceService>();
+        services.AddTransient<TelegramMessagePersistenceService>();
+        services.AddTransient<TelegramAdPersistenceService>();
+        services.AddTransient<SimilarityCalculator>();
+        services.AddTransient<TelegramChatImportService>();
+        
+        services.AddTransient(serviceProvider => 
+        {
+            var dbContext = serviceProvider.GetRequiredService<ApplicationDbContext>();
+            var rateServiceFactory = serviceProvider.GetRequiredService<RateServiceFactory>();
+
+            return new SalaryProcessingServiceFactory(dbContext, rateServiceFactory);    
+        });
+
+        services.AddSingleton<SalaryExtractionService>();
+        services.AddSingleton<SalaryPersistenceService>();
+        services.AddTransient<SalaryExtractionProcessor>();
+
+        services.AddTransient<ReportGenerationService>();
+        services.AddTransient<IReportExporter, HtmlReportExporter>();
+    })
+    .Build();
+
+using var scope = host.Services.CreateScope();
+var services = scope.ServiceProvider;
+var logger = services.GetRequiredService<ILogger<Program>>();
+
+using var dbContext = services.GetRequiredService<ApplicationDbContext>();
+await dbContext.Database.MigrateAsync();
 
 var startTime = Stopwatch.GetTimestamp();
 
-var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
-var outputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
-const string relativeTemplatePath = "Views/Reports";
+var telegramChatImportService = services.GetRequiredService<TelegramChatImportService>();
+await telegramChatImportService.ImportFromJson(sourcePath);
 
-var chats = await GetChats(sourcePath);
-var messages = GetMessages(chats, parallelOptions);
-messages = await TryAddSalaries(sourcePath, messages, parallelOptions);
+var salaryExtractionProcessor = services.GetRequiredService<SalaryExtractionProcessor>();
+await salaryExtractionProcessor.ExtractAndPersist();
 
-List<ReportGroup> reports = [];
+var reportGenerationService = services.GetRequiredService<ReportGenerationService>();
+var reports = reportGenerationService.Generate();
 
-reports.Add(AdStatsCalculator.CalculateAll(messages));
-reports.Add(SalaryCalculator.CalculateAll(messages));
+var exporter = services.GetRequiredService<IReportExporter>();
+exporter.Write(reports);
 
-var printer = new HtmlReportPrinter(outputPath, relativeTemplatePath, chats);
-printer.Print(reports);
-//ConsoleReportPrinter.Print(reports);
-
-Console.WriteLine($"Completed in {Stopwatch.GetElapsedTime(startTime).TotalSeconds} seconds");
-//Console.ReadKey();
-
-
-static async Task<List<TgChat>> GetChats(string sourcePath)
-{
-    var chats = new List<TgChat>();
-    var fileNames = Directory.GetFiles(sourcePath);
-    foreach (string fileName in fileNames)
-    {
-        if (!fileName.EndsWith(".json"))
-            continue;
-
-        using var json = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-        var buffer = new byte[json.Length];
-        await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));
-        var chat = JsonSerializer.Deserialize<TgChat>(buffer);
-        
-        chats.Add(chat);
-    }
-
-    return chats;
-}
-
-
-static List<Message> GetMessages(List<TgChat> chats, ParallelOptions parallelOptions)
-{
-    List<Message> adMessages = [];
-
-    var messageProcessor = new MessageProcessor(parallelOptions);
-    foreach (var chat in chats)
-    {
-        var chatMessages = messageProcessor.Get(chat);
-        adMessages.AddRange(chatMessages);
-    }
-
-    var orderedAdMessages = adMessages.OrderByDescending(message => message.Date)
-        .ToList();
-
-    var similarityCalculator = new SimilarityCalculator(parallelOptions);
-    return similarityCalculator.Distinct(orderedAdMessages);
-}
-
-
-static async Task<List<Message>> TryAddSalaries(string sourcePath, List<Message> messages, ParallelOptions parallelOptions)
-{
-    var rateServiceFactory = new RateServiceFactory(sourcePath);
-
-    var initialDate = messages.Min(message => message.Date);
-    var rateService = await rateServiceFactory.Get(Currency.RUB, initialDate);
-
-    var salaryService = new SalaryService(Currency.RUB, rateService);
-
-    var results = new ConcurrentBag<Message>();
-    Parallel.ForEach(messages, parallelOptions, message =>
-    {
-        var salary = salaryService.Get(message.Text, message.Date);
-        message = message with { Salary = salary };
-
-        results.Add(message);
-    });
-
-    return [.. results];
-}
+logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);

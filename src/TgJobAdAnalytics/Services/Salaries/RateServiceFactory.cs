@@ -4,16 +4,16 @@ namespace TgJobAdAnalytics.Services.Salaries;
 
 public sealed class RateServiceFactory
 {
-    public RateServiceFactory(string sourcePath)
+    public RateServiceFactory(RateApiClient rateApiClient, RateSourceManager rateSourceManager)
     {
-        _rateApiClient = new RateApiClient();
-        _rateSourceManager = new RateSourceManager(Path.Combine(sourcePath, "rates.csv"));
+        _rateApiClient = rateApiClient;
+        _rateSourceManager = rateSourceManager;
 
         _rate = null;
     }
 
 
-    public async ValueTask<RateService> Get(Currency baseCurrency, DateOnly initialDate)
+    public async ValueTask<RateService> Create(Currency baseCurrency, DateOnly initialDate)
     {
         if (_rate is not null)
             return _rate;
