@@ -52,13 +52,37 @@ public sealed class HtmlReportExporter : IReportExporter
             .ToList();
 
         var lastDayOfThePreviousMonth = new DateOnly(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
+
+        var messageCounts = _dbContext.Messages
+            .Where(m => DateOnly.FromDateTime(m.TelegramMessageDate) <= lastDayOfThePreviousMonth)
+            .GroupBy(m => m.TelegramChatId)
+            .Select(g => new { ChatId = g.Key, Count = g.Count() })
+            .ToDictionary(g => g.ChatId, g => g.Count);
+
+        var salaryCounts = _dbContext.Salaries
+            .Where(s => s.Date <= lastDayOfThePreviousMonth)
+            .Join(_dbContext.Ads,
+                salary => salary.AdId,
+                ad => ad.Id,
+                (salary, ad) => new { salary, ad })
+            .Join(_dbContext.Messages,
+                sa => sa.ad.MessageId,
+                message => message.Id,
+                (sa, message) => new { sa.salary, message.TelegramChatId })
+            .GroupBy(x => x.TelegramChatId)
+            .Select(g => new { ChatId = g.Key, Count = g.Count() })
+            .ToDictionary(g => g.ChatId, g => g.Count);
+
         List<DataSourceModel> results = [];
         foreach (var chat in chats) {
             if (!dates.TryGetValue(chat.TelegramId, out var minDate))
                 continue;
 
+            var processedMessages = messageCounts.TryGetValue(chat.TelegramId, out var mc) ? mc : 0;
+            var extractedSalaries = salaryCounts.TryGetValue(chat.TelegramId, out var sc) ? sc : 0;
+
             // Because we trim dates to the last day of the previous month to avoid showing incomplete data intervals
-            results.Add(new DataSourceModel(chat.TelegramId, chat.Name, DateOnly.FromDateTime(minDate), lastDayOfThePreviousMonth));
+            results.Add(new DataSourceModel(chat.TelegramId, chat.Name, DateOnly.FromDateTime(minDate), lastDayOfThePreviousMonth, processedMessages, extractedSalaries));
         }
 
         return results;
