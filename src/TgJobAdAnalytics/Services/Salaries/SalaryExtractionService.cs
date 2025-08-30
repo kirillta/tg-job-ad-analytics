@@ -6,6 +6,7 @@ using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Services.Levels;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
@@ -26,7 +27,7 @@ public sealed class SalaryExtractionService
         if (salaryResponse is null)
             return null;
 
-        var entry = BuildEntity(salaryResponse.Value, ad);
+        var entry = await BuildEntity(salaryResponse.Value, ad);
 
         _dbContext.Salaries.Add(entry);
         await _dbContext.SaveChangesAsync();
@@ -35,8 +36,12 @@ public sealed class SalaryExtractionService
     }
 
 
-    private static SalaryEntity BuildEntity(ChatGptSalaryResponse salaryResponse, AdEntity ad) 
-        => new()
+    private async Task<SalaryEntity> BuildEntity(ChatGptSalaryResponse salaryResponse, AdEntity ad) 
+    {
+        var tags = await GetMessageTags(ad.MessageId);
+        var level = PositionLevelResolver.Resolve(tags);
+
+        return new()
         {
             AdId = ad.Id,
             Date = ad.Date,
@@ -44,8 +49,17 @@ public sealed class SalaryExtractionService
             LowerBound = salaryResponse.LowerBound,
             UpperBound = salaryResponse.UpperBound,
             Period = salaryResponse.Period,
-            Status = ProcessingStatus.Extracted
+            Status = ProcessingStatus.Extracted,
+            Level = level
         };
+    }
+
+
+    private async Task<List<string>> GetMessageTags(Guid messageId)
+    {
+        var message = await _dbContext.Messages.FindAsync(messageId);
+        return message?.Tags ?? [];
+    }
 
 
     private async Task<ChatGptSalaryResponse?> ExtractSalary(AdEntity ad)

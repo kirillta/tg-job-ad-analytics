@@ -89,6 +89,7 @@ var host = Host.CreateDefaultBuilder(args)
 
             return new SalaryProcessingServiceFactory(dbContext, rateServiceFactory);    
         });
+        
 
         services.AddSingleton<SalaryExtractionService>();
         services.AddSingleton<SalaryPersistenceService>();

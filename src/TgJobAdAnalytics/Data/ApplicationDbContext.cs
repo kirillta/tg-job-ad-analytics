@@ -83,8 +83,10 @@ namespace TgJobAdAnalytics.Data
                 entity.Property(e => e.UpperBound)
                     .HasConversion<DoubleToNullableDoubleConverter>();
                 entity.Property(e => e.UpperBoundNormalized);
+                entity.Property(e => e.Level).HasConversion<int>();
 
                 entity.HasIndex(e => e.AdId);
+                entity.HasIndex(e => e.Level);
             });
         }
         

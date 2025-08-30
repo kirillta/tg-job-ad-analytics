@@ -15,4 +15,6 @@ public class SalaryEntity
     public double UpperBoundNormalized { get; set; }
     public Period? Period { get; set; }
     public ProcessingStatus Status { get; set; } = ProcessingStatus.NotStarted;
+    public PositionLevel Level { get; set; } = PositionLevel.Unknown;
 }
+
