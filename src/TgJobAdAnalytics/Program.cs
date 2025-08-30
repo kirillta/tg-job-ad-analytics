@@ -11,6 +11,7 @@ using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Uploads;
+using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
@@ -94,6 +95,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<SalaryExtractionService>();
         services.AddSingleton<SalaryPersistenceService>();
         services.AddTransient<SalaryExtractionProcessor>();
+        services.AddTransient<SalaryLevelUpdateProcessor>();
 
         services.AddTransient<ReportGenerationService>();
         services.AddTransient<IReportExporter, HtmlReportExporter>();
@@ -109,17 +111,21 @@ await dbContext.Database.MigrateAsync();
 
 var startTime = Stopwatch.GetTimestamp();
 
-var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
-var telegramChatImportService = services.GetRequiredService<TelegramChatImportService>();
-await telegramChatImportService.ImportFromJson(sourcePath);
+//var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
+//var telegramChatImportService = services.GetRequiredService<TelegramChatImportService>();
+//await telegramChatImportService.ImportFromJson(sourcePath);
 
-var salaryExtractionProcessor = services.GetRequiredService<SalaryExtractionProcessor>();
-await salaryExtractionProcessor.ExtractAndPersist();
+//var salaryExtractionProcessor = services.GetRequiredService<SalaryExtractionProcessor>();
+//await salaryExtractionProcessor.ExtractAndPersist();
 
-var reportGenerationService = services.GetRequiredService<ReportGenerationService>();
-var reports = reportGenerationService.Generate();
+// Backfill missing salary levels (idempotent)
+var levelUpdater = services.GetRequiredService<SalaryLevelUpdateProcessor>();
+await levelUpdater.UpdateMissingLevels();
 
-var exporter = services.GetRequiredService<IReportExporter>();
-exporter.Write(reports);
+//var reportGenerationService = services.GetRequiredService<ReportGenerationService>();
+//var reports = reportGenerationService.Generate();
+
+//var exporter = services.GetRequiredService<IReportExporter>();
+//exporter.Write(reports);
 
 logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);
