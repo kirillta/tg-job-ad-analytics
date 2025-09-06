@@ -6,6 +6,7 @@ using System.Text.Json;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
+using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Services.Messages;
 
 namespace TgJobAdAnalytics.Services.Uploads
@@ -31,7 +32,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         }
 
 
-        public async Task ImportFromJson(string sourcePath)
+        public async Task ImportFromJson()
         {
             if (_options.Mode == UploadMode.Skip)
             {
@@ -47,7 +48,7 @@ namespace TgJobAdAnalytics.Services.Uploads
             }
 
             var timeStamp = DateTime.UtcNow;
-            var fileNames = Directory.GetFiles(sourcePath);
+            var fileNames = Directory.GetFiles(_options.SourcePath);
             foreach (string fileName in fileNames)
             {
                 if (!fileName.EndsWith(".json"))

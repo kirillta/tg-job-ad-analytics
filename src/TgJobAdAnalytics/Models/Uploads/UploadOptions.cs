@@ -1,28 +1,8 @@
-using System;
+using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Services.Uploads;
 
 namespace TgJobAdAnalytics.Models.Uploads
 {
-    /// <summary>
-    /// Defines the mode of operation for the upload process.
-    /// </summary>
-    public enum UploadMode
-    {
-        /// <summary>
-        /// Skip the update process entirely.
-        /// </summary>
-        Skip,        
-        
-        /// <summary>
-        /// OnlyNewMessages update that adds new messages while preserving existing ones.
-        /// </summary>
-        OnlyNewMessages,
-
-        /// <summary>
-        /// Clean update with removal of all message data before updating.
-        /// </summary>
-        Clean
-    }    
     
     
     /// <summary>
@@ -31,13 +11,18 @@ namespace TgJobAdAnalytics.Models.Uploads
     public class UploadOptions
     {
         /// <summary>
+        /// Gets or sets the batch size for message uploads. Larger values can improve performance but require more memory.
+        /// </summary>
+        public int BatchSize { get; set; } = 10000;
+
+        /// <summary>
         /// Gets or sets the mode of operation for the upload process.
         /// </summary>
         public UploadMode Mode { get; set; } = UploadMode.OnlyNewMessages;
 
         /// <summary>
-        /// Gets or sets the batch size for message uploads. Larger values can improve performance but require more memory.
+        /// Specifies the path to the source directory containing the data to be uploaded.
         /// </summary>
-        public int BatchSize { get; set; } = 10000;
+        public string SourcePath { get; set; } = string.Empty;
     }
 }

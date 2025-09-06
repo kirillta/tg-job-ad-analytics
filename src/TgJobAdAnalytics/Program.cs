@@ -10,6 +10,9 @@ using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Uploads;
+using TgJobAdAnalytics.Models.Uploads.Enums;
+using TgJobAdAnalytics.Pipelines;
+using TgJobAdAnalytics.Services;
 using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Reports;
@@ -37,7 +40,17 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         services.AddDbContext<ApplicationDbContext>();
-        services.Configure<UploadOptions>(context.Configuration.GetSection("Upload"));
+        services.Configure<UploadOptions>(options =>
+        {
+            options.BatchSize = int.Parse(context.Configuration["Upload:BatchSize"]!);
+            options.Mode = context.Configuration["Upload:Mode"]?.ToLower() switch
+            {
+                "Clean" => UploadMode.Clean,
+                "OnlyNewMessages" => UploadMode.OnlyNewMessages,
+                _ => UploadMode.Skip
+            };
+            options.SourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
+        });
 
         services.Configure<ParallelOptions>(options =>
         {
@@ -99,6 +112,11 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddTransient<ReportGenerationService>();
         services.AddTransient<IReportExporter, HtmlReportExporter>();
+
+        services.AddSingleton<IPipelineRunner, PipelineRunner>();
+        services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();
+
+        services.AddTransient<ProcessOrchestrator>();
     })
     .Build();
 
@@ -111,21 +129,14 @@ await dbContext.Database.MigrateAsync();
 
 var startTime = Stopwatch.GetTimestamp();
 
-//var sourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
-//var telegramChatImportService = services.GetRequiredService<TelegramChatImportService>();
-//await telegramChatImportService.ImportFromJson(sourcePath);
+using var cancellationToken = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cancellationToken.Cancel();
+};
 
-//var salaryExtractionProcessor = services.GetRequiredService<SalaryExtractionProcessor>();
-//await salaryExtractionProcessor.ExtractAndPersist();
-
-// Backfill missing salary levels (idempotent)
-var levelUpdater = services.GetRequiredService<SalaryLevelUpdateProcessor>();
-await levelUpdater.UpdateMissingLevels();
-
-//var reportGenerationService = services.GetRequiredService<ReportGenerationService>();
-//var reports = reportGenerationService.Generate();
-
-//var exporter = services.GetRequiredService<IReportExporter>();
-//exporter.Write(reports);
+var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
+await orchestrator.Run([.. args], cancellationToken.Token);
 
 logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);
