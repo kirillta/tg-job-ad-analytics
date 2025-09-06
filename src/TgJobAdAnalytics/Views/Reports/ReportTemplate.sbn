@@ -1,24 +1,24 @@
 <div class="mb-10">
 		<h4 class="caption-top text-lg font-semibold mb-2">{{ report.title }}</h4>
 		{{ if report.chart != null }}
-				{{ include "Chart.sbn" report.chart }}
+				{{ include "Chart.sbn" report }}
         <button onclick="toggleTable(this)" class="my-5 px-4 py-2 bg-blue-500 text-white rounded">Показать таблицу</button>
 		{{ end }}
     <div>
         <table class="min-w-80 table-auto border-collapse border border-gray-200 {{ if report.chart != null }}hidden{{ end }}">
         		<tbody>
-								{{ for result in report.results }}
-								<tr>
-										<td class="border border-gray-300 px-4 py-2 min-w-[15vw]">
-												{{ result.key }}
-										</td>
-										<td class="border border-gray-300 px-4 py-2 min-w-[15vw] text-right">
-												{{ result.value }}
-										</td>
-								</tr>
-								{{ end }}
-						</tbody>
-				</table>
+							{{ for result in report.results }}
+							<tr>
+								<td class="border border-gray-300 px-4 py-2 min-w-[15vw]">
+										{{ result.key }}
+								</td>
+								<td class="border border-gray-300 px-4 py-2 min-w-[15vw] text-right">
+										{{ result.value }}
+								</td>
+							</tr>
+							{{ end }}
+					</tbody>
+			</table>
     </div>
     <script>
 				function toggleTable(button) {

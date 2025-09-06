@@ -10,7 +10,7 @@ internal readonly record struct ChartModel
     }
 
 
-    public string IdToken => "chart-" + Id.ToString();
+    public string IdToken => "chart_" + Id.ToString("N");
 
 
     public Guid Id { get; }

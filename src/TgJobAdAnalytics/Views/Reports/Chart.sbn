@@ -1,31 +1,89 @@
 <div style="max-width: 100vw; max-height: 75vh;">
+    {{ if report.variants != null }}
+    <div class="mb-2 flex items-center gap-2">
+        <label for="{{ report.chart.id_token }}-variant" class="text-sm">Позиция:</label>
+        <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded px-2 py-1 text-sm"></select>
+    </div>
+    {{ end }}
     <canvas id="{{ report.chart.id_token }}"></canvas>
     <script>
-        var ctx = document.getElementById('{{ report.chart.id_token }}').getContext('2d');
-    
-        var chart = new Chart(ctx, {
-            type: '{{ report.chart.type }}',
-            data: {
-                labels: {{ report.chart.data.labels }},
-                datasets: [{
-                    label: '{{ report.chart.data.dataset.label }}',
-                    data: {{ report.chart.data.dataset.data }},
-                    backgroundColor: {{ report.chart.data.dataset.background_color }},
-                    borderColor: {{ report.chart.data.dataset.border_color }},
-                    borderWidth: {{ report.chart.data.dataset.border_width }},
-                    fill: {{ report.chart.data.dataset.fill }},
-                    tension: {{ report.chart.data.dataset.tension }}
-                }]
-            },
-            options: {
-                maintainAspectRatio: true,
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    },
+        (function(){
+            var ctx = document.getElementById('{{ report.chart.id_token }}').getContext('2d');
+        
+            var chart = new Chart(ctx, {
+                type: '{{ report.chart.type }}',
+                data: {
+                    labels: {{ report.chart.data.labels }},
+                    datasets: [{
+                        label: '{{ report.chart.data.dataset.label }}',
+                        data: {{ report.chart.data.dataset.data }},
+                        backgroundColor: {{ report.chart.data.dataset.background_color }},
+                        borderColor: {{ report.chart.data.dataset.border_color }},
+                        borderWidth: {{ report.chart.data.dataset.border_width }},
+                        fill: {{ report.chart.data.dataset.fill }},
+                        tension: {{ report.chart.data.dataset.tension }}
+                    }]
                 },
+                options: {
+                    maintainAspectRatio: true,
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        },
+                    },
+                }
+            });
+
+            {{ if report.variants != null }}
+            // Build variants data object from server-rendered model
+            var variantsData = {
+                {{ for v in report.variants }}
+                "{{ v.key }}": {
+                    labels: {{ v.value.labels }},
+                    dataset: {
+                        label: '{{ v.value.dataset.label }}',
+                        data: {{ v.value.dataset.data }},
+                        backgroundColor: {{ v.value.dataset.background_color }},
+                        borderColor: {{ v.value.dataset.border_color }},
+                        borderWidth: {{ v.value.dataset.border_width }},
+                        fill: {{ v.value.dataset.fill }},
+                        tension: {{ v.value.dataset.tension }}
+                    }
+                }{{ if !for.last }},{{ end }}
+                {{ end }}
+            };
+
+            // Populate selector
+            var selector = document.getElementById('{{ report.chart.id_token }}-variant');
+            var keys = Object.keys(variantsData);
+            keys.forEach(function(k){
+                var opt = document.createElement('option');
+                opt.value = k; opt.text = k; selector.appendChild(opt);
+            });
+
+            // Prefer "Все" if present
+            var preferred = keys.indexOf('Все') >= 0 ? 'Все' : keys[0];
+            selector.value = preferred;
+
+            function applyVariant(name) {
+                var v = variantsData[name];
+                if (!v) return;
+                chart.data.labels = v.labels;
+                chart.data.datasets[0].label = v.dataset.label;
+                chart.data.datasets[0].data = v.dataset.data;
+                chart.data.datasets[0].backgroundColor = v.dataset.backgroundColor;
+                chart.data.datasets[0].borderColor = v.dataset.borderColor;
+                chart.data.datasets[0].borderWidth = v.dataset.borderWidth;
+                chart.data.datasets[0].fill = v.dataset.fill;
+                chart.data.datasets[0].tension = v.dataset.tension;
+                chart.update();
             }
-        });
+
+            selector.addEventListener('change', function(){ applyVariant(this.value); });
+            // Initialize with preferred variant so UI matches data
+            applyVariant(preferred);
+            {{ end }}
+        })();
     </script>
 </div>

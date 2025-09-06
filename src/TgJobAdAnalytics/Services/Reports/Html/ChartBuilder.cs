@@ -13,6 +13,16 @@ public sealed class ChartBuilder
     }
 
 
+    internal static ChartModel.DataModel BuildData(string label, Dictionary<string, double> results)
+    {
+        var labels = results.Keys.ToList();
+        var datasetData = results.Values.Select(x => x.ToString(CultureInfo.InvariantCulture)).ToList();
+        var dataset = new ChartModel.DatasetModel(label: label, data: datasetData, backgroundColor: _backgroundColors, borderColor: _borderColors);
+
+        return new ChartModel.DataModel(labels: labels, dataset: dataset);
+    }
+
+
     private static ChartModel.DataModel GetData(Report report)
     {
         var dataset = GetDataset(report);

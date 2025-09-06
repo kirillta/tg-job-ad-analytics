@@ -1,5 +1,6 @@
 ﻿using MathNet.Numerics.Statistics;
 using TgJobAdAnalytics.Data.Salaries;
+using TgJobAdAnalytics.Models.Levels;
 using TgJobAdAnalytics.Models.Reports;
 
 
@@ -13,18 +14,19 @@ internal class SalaryStatisticsCalculator
 
         var reports = new List<Report>
         {
-            GetMinimumByYear(filteredSalaries),
-            GetMaximumByYear(filteredSalaries),
-            GetAverageByYear(filteredSalaries),
-            GetMedianByYear(filteredSalaries)
+            GetMinimumByYearWithVariants(filteredSalaries),
+            GetMaximumByYearWithVariants(filteredSalaries),
+            GetAverageByYearWithVariants(filteredSalaries),
+            GetMedianByYearWithVariants(filteredSalaries)
         };
 
         return new ReportGroup("Статистика по зарплатам", reports);
     }
 
 
-    private static Report GetMinimumByYear(List<SalaryEntity> salaries)
-        => salaries
+    private static Report GetMinimumByYearWithVariants(List<SalaryEntity> salaries)
+    {
+        var baseResults = salaries
             .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance)
             .GroupBy(salary => salary.Date.Year)
             .Select(group => new
@@ -33,12 +35,41 @@ internal class SalaryStatisticsCalculator
                 MinimalSalary = group.Select(group => group.LowerBoundNormalized).Minimum()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary)
-            .ToReport("Минимальная зарплата по годам");
+            .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary);
+
+        var variants = new Dictionary<string, Dictionary<string, double>>
+        {
+            ["Все"] = baseResults
+        };
+
+        foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
+        {
+            var perLevel = salaries
+                .Where(s => s.Level == level && Math.Abs(s.LowerBoundNormalized) > Tolerance)
+                .GroupBy(salary => salary.Date.Year)
+                .Select(group => new
+                {
+                    Year = group.Key,
+                    MinimalSalary = group.Select(x => x.LowerBoundNormalized).Minimum()
+                })
+                .OrderBy(group => group.Year)
+                .ToDictionary(group => group.Year.ToString(), group => group.MinimalSalary);
+
+            if (perLevel.Count > 0)
+                variants[level.ToString()] = perLevel;
+        }
+
+        return new Report(
+            title: "Минимальная зарплата по годам",
+            results: baseResults,
+            variants: variants
+        );
+    }
 
 
-    private static Report GetMaximumByYear(List<SalaryEntity> salaries)
-        => salaries
+    private static Report GetMaximumByYearWithVariants(List<SalaryEntity> salaries)
+    {
+        var baseResults = salaries
             .Where(salary => Math.Abs(salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(salary => salary.Date.Year)
             .Select(group => new
@@ -47,12 +78,41 @@ internal class SalaryStatisticsCalculator
                 MaximumSalary = group.Select(group => group.UpperBoundNormalized).Maximum()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary)
-            .ToReport("Максимальная зарплата по годам");
+            .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary);
+
+        var variants = new Dictionary<string, Dictionary<string, double>>
+        {
+            ["Все"] = baseResults
+        };
+
+        foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
+        {
+            var perLevel = salaries
+                .Where(s => s.Level == level && Math.Abs(s.UpperBoundNormalized) > Tolerance)
+                .GroupBy(salary => salary.Date.Year)
+                .Select(group => new
+                {
+                    Year = group.Key,
+                    MaximumSalary = group.Select(x => x.UpperBoundNormalized).Maximum()
+                })
+                .OrderBy(group => group.Year)
+                .ToDictionary(group => group.Year.ToString(), group => group.MaximumSalary);
+
+            if (perLevel.Count > 0)
+                variants[level.ToString()] = perLevel;
+        }
+
+        return new Report(
+            title: "Максимальная зарплата по годам",
+            results: baseResults,
+            variants: variants
+        );
+    }
 
 
-    private static Report GetAverageByYear(List<SalaryEntity> salaries)
-        => salaries
+    private static Report GetAverageByYearWithVariants(List<SalaryEntity> salaries)
+    {
+        var baseResults = salaries
             .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance && Math.Abs(salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(salary => salary.Date.Year)
             .Select(group => new
@@ -63,12 +123,43 @@ internal class SalaryStatisticsCalculator
                     .Mean()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => group.MeanSalary)
-            .ToReport("Средняя зарплата по годам");
+            .ToDictionary(group => group.Year.ToString(), group => group.MeanSalary);
+
+        var variants = new Dictionary<string, Dictionary<string, double>>
+        {
+            ["Все"] = baseResults
+        };
+
+        foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
+        {
+            var perLevel = salaries
+                .Where(s => s.Level == level && Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
+                .GroupBy(salary => salary.Date.Year)
+                .Select(group => new
+                {
+                    Year = group.Key,
+                    MeanSalary = group.Select(GetNormalizedSalaryValue)
+                        .Where(salary => !double.IsNaN(salary))
+                        .Mean()
+                })
+                .OrderBy(group => group.Year)
+                .ToDictionary(group => group.Year.ToString(), group => group.MeanSalary);
+
+            if (perLevel.Count > 0)
+                variants[level.ToString()] = perLevel;
+        }
+
+        return new Report(
+            title: "Средняя зарплата по годам",
+            results: baseResults,
+            variants: variants
+        );
+    }
 
 
-    private static Report GetMedianByYear(List<SalaryEntity> salaries)
-        => salaries
+    private static Report GetMedianByYearWithVariants(List<SalaryEntity> salaries)
+    {
+        var baseResults = salaries
             .Where(salary => Math.Abs(salary.LowerBoundNormalized) > Tolerance && Math.Abs(salary.UpperBoundNormalized) > Tolerance)
             .GroupBy(salary => salary.Date.Year)
             .Select(group => new
@@ -79,8 +170,42 @@ internal class SalaryStatisticsCalculator
                     .Median()
             })
             .OrderBy(group => group.Year)
-            .ToDictionary(group => group.Year.ToString(), group => group.MedianSalary)
-            .ToReport("Медианная зарплата по годам");
+            .ToDictionary(group => group.Year.ToString(), group => group.MedianSalary);
+
+        var variants = new Dictionary<string, Dictionary<string, double>>();
+        variants["Все"] = baseResults;
+
+        var knownLevels = Enum.GetValues<PositionLevel>()
+            .Where(l => l != PositionLevel.Unknown)
+            .ToArray();
+
+        foreach (var level in knownLevels)
+        {
+            var perLevel = salaries
+                .Where(s => s.Level == level && Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
+                .GroupBy(salary => salary.Date.Year)
+                .Select(group => new
+                {
+                    Year = group.Key,
+                    MedianSalary = group.Select(GetNormalizedSalaryValue)
+                        .Where(salary => !double.IsNaN(salary))
+                        .DefaultIfEmpty(double.NaN)
+                        .Median()
+                })
+                .OrderBy(group => group.Year)
+                .Where(g => !double.IsNaN(g.MedianSalary))
+                .ToDictionary(group => group.Year.ToString(), group => group.MedianSalary);
+
+            if (perLevel.Count > 0)
+                variants[level.ToString()] = perLevel;
+        }
+
+        return new Report(
+            title: "Медианная зарплата по годам",
+            results: baseResults,
+            variants: variants
+        );
+    }
 
 
     private static double GetNormalizedSalaryValue(SalaryEntity salary)

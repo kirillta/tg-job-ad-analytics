@@ -98,7 +98,18 @@ public sealed class HtmlReportExporter : IReportExporter
         if (report.Type is not ChartType.None)
             chart = ChartBuilder.Build(report);
 
-        return new(report.Title, results, chart);
+        Dictionary<string, ChartModel.DataModel>? variants = null;
+        if (report.Variants is not null && report.Variants.Count > 0)
+        {
+            variants = new Dictionary<string, ChartModel.DataModel>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, data) in report.Variants)
+            {
+                var dm = ChartBuilder.BuildData(label: report.Title + " — " + name, results: data);
+                variants[name] = dm;
+            }
+        }
+
+        return new(title: report.Title, results: results, chart: chart, variants: variants);
     }
 
 
