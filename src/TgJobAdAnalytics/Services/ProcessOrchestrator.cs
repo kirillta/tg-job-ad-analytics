@@ -43,7 +43,7 @@ public class ProcessOrchestrator
     async Task ExecutePipelines(List<string> pipelineNames, CancellationToken cancellationToken)
     {
         foreach (var pipelineName in pipelineNames)
-            await _pipelineRunner.Run(pipelineName, cancellationToken);
+        await _pipelineRunner.Run(pipelineName, cancellationToken);
     }
 
 
