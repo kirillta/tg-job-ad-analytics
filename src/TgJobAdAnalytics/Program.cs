@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using System.ClientModel;
 using System.Diagnostics;
-using System.Text;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
@@ -18,7 +17,6 @@ using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Salaries;
 using TgJobAdAnalytics.Services.Uploads;
 
-System.Console.OutputEncoding = Encoding.UTF8;
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureLogging(logging =>
@@ -82,7 +80,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddTransient<TelegramAdPersistenceService>();
         services.AddTransient<SimilarityCalculator>();
         services.AddTransient<TelegramChatImportService>();
-        
+
+        services.AddTransient<PositionLevelExtractionService>();
+        services.AddSingleton<PositionLevelResolver>();
+
         services.AddTransient(serviceProvider => 
         {
             var dbContext = serviceProvider.GetRequiredService<ApplicationDbContext>();
@@ -91,7 +92,6 @@ var host = Host.CreateDefaultBuilder(args)
             return new SalaryProcessingServiceFactory(dbContext, rateServiceFactory);    
         });
         
-
         services.AddSingleton<SalaryExtractionService>();
         services.AddSingleton<SalaryPersistenceService>();
         services.AddTransient<SalaryExtractionProcessor>();
