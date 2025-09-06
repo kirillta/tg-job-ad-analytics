@@ -1,5 +1,5 @@
 ﻿using System.Text.RegularExpressions;
-using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Models.Levels;
 
 namespace TgJobAdAnalytics.Services.Levels;
 
@@ -8,7 +8,13 @@ namespace TgJobAdAnalytics.Services.Levels;
 /// </summary>
 public sealed class PositionLevelResolver
 {
-    public static PositionLevel Resolve(IEnumerable<string> tags)
+    public PositionLevelResolver(PositionLevelExtractionService positionLevelExtractionService)
+    {
+        _positionLevelExtractionService = positionLevelExtractionService;
+    }
+
+
+    public async ValueTask<PositionLevel> Resolve(IEnumerable<string> tags, string text)
     {
         if (tags is null)
             return PositionLevel.Unknown;
@@ -44,7 +50,10 @@ public sealed class PositionLevelResolver
             }
         }
 
-        return detected;
+        if (detected != PositionLevel.Unknown)
+            return detected;
+        
+        return await _positionLevelExtractionService.Process(text);
 
 
         void Update(PositionLevel level)
@@ -188,4 +197,7 @@ public sealed class PositionLevelResolver
         (new Regex("^head(ofit)?$", RegexOptions.Compiled), PositionLevel.Manager),
         (new Regex("^руководитель$", RegexOptions.Compiled), PositionLevel.Manager)
     ];
+
+
+    private readonly PositionLevelExtractionService _positionLevelExtractionService;
 }
