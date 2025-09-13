@@ -44,7 +44,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.Configure<UploadOptions>(options =>
         {
             options.BatchSize = int.Parse(context.Configuration["Upload:BatchSize"]!);
-            options.Mode = context.Configuration["Upload:Mode"]?.ToLower() switch
+            options.Mode = context.Configuration["Upload:Mode"] switch
             {
                 "Clean" => UploadMode.Clean,
                 "OnlyNewMessages" => UploadMode.OnlyNewMessages,
