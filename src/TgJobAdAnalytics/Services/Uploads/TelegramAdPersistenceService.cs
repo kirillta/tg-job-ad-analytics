@@ -9,17 +9,28 @@ using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Services.Messages;
+using TgJobAdAnalytics.Services.Vectors;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
 public class TelegramAdPersistenceService
 {
-    public TelegramAdPersistenceService(ILogger<TelegramAdPersistenceService> logger, ApplicationDbContext dbContext, IOptions<ParallelOptions> parallelOptions, IOptions<UploadOptions> uploadOptions)
+    public TelegramAdPersistenceService(
+        ILogger<TelegramAdPersistenceService> logger,
+        ApplicationDbContext dbContext,
+        IOptions<ParallelOptions> parallelOptions,
+        IOptions<UploadOptions> uploadOptions,
+        IMinHashVectorizer minHashVectorizer,
+        IVectorStore vectorStore,
+        IVectorIndex vectorIndex)
     {
         _logger = logger;
         _dbContext = dbContext;
         _parallelOptions = parallelOptions.Value;
         _uploadOptions = uploadOptions.Value;
+        _minHashVectorizer = minHashVectorizer;
+        _vectorStore = vectorStore;
+        _vectorIndex = vectorIndex;
     }
 
 
@@ -45,7 +56,6 @@ public class TelegramAdPersistenceService
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
         }
-        ;
     }
 
 
@@ -113,6 +123,14 @@ public class TelegramAdPersistenceService
 
             await _dbContext.Ads.AddRangeAsync(batch);
             await _dbContext.SaveChangesAsync();
+
+            foreach (var ad in batch)
+            {
+                var (signature, shingleCount) = _minHashVectorizer.Compute(ad.Text);
+
+                await _vectorStore.Upsert(ad.Id, signature, shingleCount, CancellationToken.None);
+                await _vectorIndex.Upsert(ad.Id, signature, CancellationToken.None);
+            }
 
             addedCount += currentBatchSize;
         }
@@ -213,4 +231,7 @@ public class TelegramAdPersistenceService
     private readonly ApplicationDbContext _dbContext;
     private readonly ParallelOptions _parallelOptions;
     private readonly UploadOptions _uploadOptions;
+    private readonly IMinHashVectorizer _minHashVectorizer;
+    private readonly IVectorStore _vectorStore;
+    private readonly IVectorIndex _vectorIndex;
 }
