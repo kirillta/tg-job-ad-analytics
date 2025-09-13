@@ -56,6 +56,14 @@ public sealed class LocalitySensitiveHashCalculator
     }
 
 
+    public int BandCount 
+        => _bandCount;
+
+
+    public int RowCount 
+        => _rowCount;
+
+
     private static uint ComputeBandHash(ReadOnlySpan<uint> signature, int bandIndex, int rowsCount, int signatureLength)
     {
         var startIdx = bandIndex * rowsCount;

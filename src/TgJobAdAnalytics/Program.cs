@@ -19,6 +19,7 @@ using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Salaries;
 using TgJobAdAnalytics.Services.Uploads;
+using TgJobAdAnalytics.Services.Vectors;
 
 
 var host = Host.CreateDefaultBuilder(args)
@@ -113,8 +114,17 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddTransient<ReportGenerationService>();
         services.AddTransient<IReportExporter, HtmlReportExporter>();
 
-        services.AddSingleton<IPipelineRunner, PipelineRunner>();
+        services.AddSingleton<IVectorizationConfig, OptionVectorizationConfig>();
+        services.AddSingleton<IMinHashVectorizer, MinHashVectorizer>();
+        services.AddScoped<IVectorStore, VectorStore>();
+        services.AddScoped<IVectorIndex, VectorIndex>();
+        services.AddSingleton<ISimilarityService, SimilarityService>();
+        services.AddTransient<VectorsBackfillService>();
+
         services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();
+        services.AddSingleton<IPipeline, DistinctAdsPipeline>();
+        services.AddSingleton<IPipeline, InitVectorsPipeline>();
+        services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
         services.AddTransient<ProcessOrchestrator>();
     })

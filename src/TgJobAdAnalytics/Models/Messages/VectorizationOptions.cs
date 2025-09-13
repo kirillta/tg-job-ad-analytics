@@ -8,4 +8,7 @@ public class VectorizationOptions
     public int MinHashSeed { get; set; } = 1000;
     public string NormalizationVersion { get; set; } = string.Empty;
     public int ShingleSize { get; set; } = 5;
+
+    // Fixed universe size used to derive MinHash bit-width. Changing this requires a new model version.
+    public int VocabularySize { get; set; } = 1_000_000;
 }

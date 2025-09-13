@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using TgJobAdAnalytics.Models.Messages;
 
 namespace TgJobAdAnalytics.Services.Messages;
@@ -24,7 +25,7 @@ public sealed class MinHashCalculator
 
         foreach (string shingle in shingles)
         {
-            var shingleHash = shingle.GetHashCode();
+            var shingleHash = StableHash32(shingle);
             for (int i = 0; i < _vectorizationOptions.HashFunctionCount; i++)
             {
                 var hashValue = _hashFunctions[i](shingleHash);
@@ -35,6 +36,10 @@ public sealed class MinHashCalculator
 
         return signature;
     }
+
+
+    public int HashFunctionCount 
+        => _vectorizationOptions.HashFunctionCount;
 
 
     private static int BitsForUniverse(int universeSize)
@@ -57,19 +62,15 @@ public sealed class MinHashCalculator
             while (b <= 0)
                 b = (uint)rand.Next(bMax);
 
-            hashFunctions.Add(x => HashFunction(x, a, b, universeBitSize));
+            hashFunctions.Add(x => ComputeFnv1aHash(x, a, b, universeBitSize));
         }
 
         return hashFunctions;
     }
 
 
-    // FNV-1a hash
-    private static uint HashFunction(int value, uint a, uint b, int universeBitSize)
+    private static uint ComputeFnv1aHash(int value, uint a, uint b, int universeBitSize)
     {
-        const uint FNV_PRIME = 16777619;
-        const uint FNV_OFFSET = 2166136261;
-
         uint hash = FNV_OFFSET;
         hash ^= (uint)value;
         hash *= FNV_PRIME;
@@ -80,6 +81,23 @@ public sealed class MinHashCalculator
         return hash >> 32 - universeBitSize;
     }
 
+
+    private static int StableHash32(string value)
+    {
+        uint hash = FNV_OFFSET;
+        var bytes = Encoding.UTF8.GetBytes(value);
+        foreach (var b in bytes)
+        {
+            hash ^= b;
+            hash *= FNV_PRIME;
+        }
+
+        return unchecked((int)hash);
+    }
+
+    
+    private const uint FNV_OFFSET = 2166136261;
+    private const uint FNV_PRIME = 16777619;
 
     private readonly List<Func<int, uint>> _hashFunctions;
     private readonly VectorizationOptions _vectorizationOptions;

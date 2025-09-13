@@ -34,7 +34,7 @@ public sealed class PipelineRunner : IPipelineRunner
         _logger.LogInformation("Running pipeline '{Name}' ({Description})", pipeline.Name, pipeline.Description);
 
         var start = DateTime.UtcNow;
-        var result = await pipeline.RunAsync(cancellationToken);
+        var result = await pipeline.Run(cancellationToken);
         var elapsed = DateTime.UtcNow - start;
 
         _logger.LogInformation("Pipeline '{Name}' completed. Processed: {Count}. Elapsed: {ElapsedMs} ms", pipeline.Name, result, (int)elapsed.TotalMilliseconds);

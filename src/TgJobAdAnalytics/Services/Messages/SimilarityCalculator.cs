@@ -2,15 +2,30 @@
 using System.Collections.Concurrent;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Messages;
+using TgJobAdAnalytics.Services;
+using TgJobAdAnalytics.Services.Vectors;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
 public sealed class SimilarityCalculator
 {
-    public SimilarityCalculator(IOptions<ParallelOptions> parallelOptions, IOptions<VectorizationOptions> vectorizationOptions)
+    public SimilarityCalculator(
+        IOptions<ParallelOptions> parallelOptions,
+        IOptions<VectorizationOptions> vectorizationOptions,
+        IMinHashVectorizer? vectorizer = null,
+        IVectorIndex? vectorIndex = null,
+        IVectorStore? vectorStore = null,
+        ISimilarityService? similarityService = null,
+        IVectorizationConfig? vectorizationConfig = null)
     {
         _parallelOptions = parallelOptions.Value;
         _vectorizationOptions = vectorizationOptions.Value;
+
+        _vectorizer = vectorizer;
+        _vectorIndex = vectorIndex;
+        _vectorStore = vectorStore;
+        _similarityService = similarityService;
+        _vectorizationConfig = vectorizationConfig;
     }
 
 
@@ -54,7 +69,7 @@ public sealed class SimilarityCalculator
 
         List<AdEntity> DistinctInternal(List<AdEntity> ads, Dictionary<AdEntity, HashSet<string>> shingles)
         {
-            var minHashCalculator = new MinHashCalculator(_vectorizationOptions, vocabulary.Count);
+            var minHashCalculator = new MinHashCalculator(_vectorizationOptions, _vectorizationOptions.VocabularySize);
             var lshCalculator = new LocalitySensitiveHashCalculator(_vectorizationOptions);
 
             var distinctAds = new ConcurrentBag<AdEntity>();
@@ -75,6 +90,67 @@ public sealed class SimilarityCalculator
     }
 
 
+    public async Task<List<AdEntity>> DistinctPersistent(List<AdEntity> ads, CancellationToken ct = default)
+    {
+        if (_vectorizer is null || _vectorIndex is null || _vectorStore is null || _similarityService is null)
+            return Distinct(ads);
+
+        if (ads.Count == 0)
+            return [];
+
+        var version = _vectorizationConfig?.GetActive().Version ?? _vectorizationOptions.CurrentVersion;
+        var distinctAds = new ConcurrentBag<AdEntity>();
+
+        var options = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = _parallelOptions.MaxDegreeOfParallelism,
+            TaskScheduler = _parallelOptions.TaskScheduler,
+            CancellationToken = ct
+        };
+
+        await Parallel.ForEachAsync(ads, options, async (ad, token) =>
+        {
+            var (signature, shingleCount) = _vectorizer.Compute(ad.Text);
+
+            var candidates = await _vectorIndex.Query(signature, token);
+            bool isDuplicate = false;
+            if (candidates.Count > 0)
+            {
+                foreach (var candidateId in candidates)
+                {
+                    var candidateVector = await _vectorStore.Get(candidateId, version: version, token);
+                    if (candidateVector is null) continue;
+
+                    var candidateSig = SignatureSerializer.FromBytes(candidateVector.Signature);
+                    var score = _similarityService.EstimatedJaccard(signature, candidateSig);
+                    if (score >= DuplicateThreshold)
+                    {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!isDuplicate)
+            {
+                await _vectorStore.Upsert(ad.Id, signature, shingleCount, token);
+                await _vectorIndex.Upsert(ad.Id, signature, token);
+                distinctAds.Add(ad);
+            }
+        });
+
+        return [.. distinctAds];
+    }
+
+
+    private const double DuplicateThreshold = 0.92;
+
     private readonly ParallelOptions _parallelOptions;
     private readonly VectorizationOptions _vectorizationOptions;
+
+    private readonly IMinHashVectorizer? _vectorizer;
+    private readonly IVectorIndex? _vectorIndex;
+    private readonly IVectorStore? _vectorStore;
+    private readonly ISimilarityService? _similarityService;
+    private readonly IVectorizationConfig? _vectorizationConfig;
 }

@@ -5,6 +5,7 @@ using System.Text.Json;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Messages.Converters;
 using TgJobAdAnalytics.Data.Salaries;
+using TgJobAdAnalytics.Data.Vectors;
 
 namespace TgJobAdAnalytics.Data
 {
@@ -88,6 +89,35 @@ namespace TgJobAdAnalytics.Data
                 entity.HasIndex(e => e.AdId);
                 entity.HasIndex(e => e.Level);
             });
+
+            // Vectors
+            modelBuilder.Entity<VectorModelVersionEntity>(entity =>
+            {
+                entity.HasKey(e => e.Version);
+                entity.Property(e => e.NormalizationVersion).IsRequired();
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            modelBuilder.Entity<AdVectorEntity>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.AdId).IsRequired();
+                entity.Property(e => e.Version).IsRequired();
+                entity.Property(e => e.Dim).IsRequired();
+                entity.Property(e => e.Signature).IsRequired();
+                entity.HasIndex(e => new { e.AdId, e.Version }).IsUnique();
+            });
+
+            modelBuilder.Entity<LshBucketEntity>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Version).IsRequired();
+                entity.Property(e => e.Band).IsRequired();
+                entity.Property(e => e.Key).IsRequired();
+                entity.Property(e => e.AdId).IsRequired();
+                entity.HasIndex(e => new { e.Version, e.Band, e.Key });
+                entity.HasIndex(e => e.AdId);
+            });
         }
         
         
@@ -98,6 +128,12 @@ namespace TgJobAdAnalytics.Data
         public DbSet<AdEntity> Ads { get; set; }
 
         public DbSet<SalaryEntity> Salaries { get; set; }
+
+        public DbSet<VectorModelVersionEntity> VectorModelVersions { get; set; }
+
+        public DbSet<AdVectorEntity> AdVectors { get; set; }
+
+        public DbSet<LshBucketEntity> LshBuckets { get; set; }
 
 
         private static readonly JsonSerializerOptions JsonSerializerOptions = new()
