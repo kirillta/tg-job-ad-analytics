@@ -1,22 +1,55 @@
-<div style="max-width: 100vw; max-height: 75vh;">
+<div class="max-w-full">
     {{ if report.variants != null }}
-    <div class="mb-2 flex items-center gap-2">
-        <label for="{{ report.chart.id_token }}-variant" class="text-sm">Позиция:</label>
-        <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded px-2 py-1 text-sm"></select>
+    <div class="mb-3 flex items-center gap-2">
+        <label for="{{ report.chart.id_token }}-variant" class="text-sm text-gray-700">Позиция:</label>
+        <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm"></select>
     </div>
     {{ end }}
-    <canvas id="{{ report.chart.id_token }}"></canvas>
+
+    <div class="relative">
+        <canvas id="{{ report.chart.id_token }}" class="!max-h-[65vh]"></canvas>
+    </div>
+
     <script>
         (function(){
             var ctx = document.getElementById('{{ report.chart.id_token }}').getContext('2d');
+
+            // Prepare initial labels and data as numbers
+            var initialLabels = {{ report.chart.data.labels }};
+            var initialRawData = {{ report.chart.data.dataset.data }};
+            function toNumericArray(arr){
+                return (Array.isArray(arr) ? arr : []).map(function(v){
+                    if (v && typeof v === 'object') {
+                        if ('y' in v) return Number(v.y);
+                        if ('value' in v) return Number(v.value);
+                    }
+                    return Number(v);
+                });
+            }
+            function niceStep(max, tickTarget){
+                var raw = (max || 1) / (tickTarget || 6);
+                var pow = Math.pow(10, Math.floor(Math.log10(raw)));
+                var norm = raw / pow;
+                var s = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+                return s * pow;
+            }
+            function computeYAxis(data){
+                var nums = toNumericArray(data).filter(Number.isFinite);
+                var maxY = nums.length ? Math.max.apply(null, nums) : 0;
+                var suggested = Math.ceil(maxY * 1.05);
+                var step = niceStep(suggested, 6);
+                var yMax = Math.ceil((suggested || 1) / step) * step;
+                return { step: step, max: yMax };
+            }
+            var yAxis = computeYAxis(initialRawData);
         
             var chart = new Chart(ctx, {
                 type: '{{ report.chart.type }}',
                 data: {
-                    labels: {{ report.chart.data.labels }},
+                    labels: initialLabels,
                     datasets: [{
                         label: '{{ report.chart.data.dataset.label }}',
-                        data: {{ report.chart.data.dataset.data }},
+                        data: initialRawData,
                         backgroundColor: {{ report.chart.data.dataset.background_color }},
                         borderColor: {{ report.chart.data.dataset.border_color }},
                         borderWidth: {{ report.chart.data.dataset.border_width }},
@@ -27,11 +60,44 @@
                 options: {
                     maintainAspectRatio: true,
                     responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
+                    plugins: {
+                        legend: {
+                            labels: {
+                                boxWidth: 12,
+                                boxHeight: 12
+                            }
                         },
+                        tooltip: {
+                            callbacks: {
+                                title: function(items){
+                                    return items && items.length ? String(items[0].label) : '';
+                                },
+                                label: function(context) {
+                                    var idx = context.dataIndex;
+                                    var raw = context.dataset && context.dataset.data ? context.dataset.data[idx] : context.raw;
+                                    var value = (raw && typeof raw === 'object' && 'y' in raw) ? raw.y : raw;
+                                    var num = Number(value);
+                                    return Number.isFinite(num)
+                                        ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(num)
+                                        : String(value);
+                                }
+                            }
+                        }
                     },
+                    scales: {
+                        x: {
+                            type: 'category',
+                            offset: true,
+                            ticks: { display: false },
+                            grid: { drawBorder: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            suggestedMax: yAxis.max,
+                            ticks: { display: false },
+                            grid: { drawBorder: false }
+                        }
+                    }
                 }
             });
 
@@ -77,6 +143,9 @@
                 chart.data.datasets[0].borderWidth = v.dataset.borderWidth;
                 chart.data.datasets[0].fill = v.dataset.fill;
                 chart.data.datasets[0].tension = v.dataset.tension;
+                // Recompute Y axis suggestion and step size for new data
+                var yConf = computeYAxis(v.dataset.data);
+                chart.options.scales.y.suggestedMax = yConf.max;
                 chart.update();
             }
 

@@ -1,35 +1,48 @@
 ﻿<!DOCTYPE html>
-<html>
+<html lang="ru" class="h-full">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Аналитика вакансий в Telegram</title>
         
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
-    <body>
-        <div class="container mx-auto mt-5">
-            <h1 class="text-3xl font-bold text-center">Аналитика вакансий в Telegram</h1>
-            <section class="mb-10">
+    <body class="min-h-full bg-gray-50 text-gray-900">
+        <header class="bg-white shadow-sm">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+                <h1 class="text-3xl font-bold tracking-tight">Аналитика вакансий в Telegram</h1>
+                <p class="mt-1 text-sm text-gray-500">Обновлено: {{ report_date }}</p>
+            </div>
+        </header>
+
+        <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+            <section class="mb-12 space-y-10">
             {{ for report_group in report_groups }}
-                {{ include "ReportGroupTemplate.sbn" report_group }}
+                <div class="border-b border-gray-200 pb-6">
+                    {{ include "ReportGroupTemplate.sbn" report_group }}
+                </div>
             {{ end }}
             </section>
-            <section class="mb-10 text-sm">
+
+            <section id="data-sources" class="mb-16">
                 {{ include "DataSources.sbn" }}
             </section>
-        </div>
-        <footer class="text-center text-sm font-light mb-10">
-            <p class="mb-15">
-                Автор: <a href="https://www.linkedin.com/in/kirillta/?locale=en_US" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Kirill Taran</a>. 
-                Исходный код: <a href="https://github.com/kirillta/tg-job-ad-analytics" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">GitHub</a>. 
-                Версия аналитики: {{ report_date }}.
-                <br>
-                Создано с использованием 
-                <a href="https://tailwindcss.com/" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Tailwind CSS</a>, 
-                <a href="https://www.chartjs.org/" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Chart.js</a> и 
-                <a href="https://github.com/scriban/scriban" class="text-blue-500 hover:text-blue-700 focus:text-blue-900 active:text-blue-800">Scriban</a>.
-            </p>
+        </main>
+
+        <footer class="border-t border-gray-200">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 text-center text-sm text-gray-600">
+                <p class="mb-4">
+                    Автор: <a href="https://www.linkedin.com/in/kirillta/?locale=en_US" class="text-blue-600 hover:text-blue-800">Kirill Taran</a>. 
+                    Исходный код: <a href="https://github.com/kirillta/tg-job-ad-analytics" class="text-blue-600 hover:text-blue-800">GitHub</a>.
+                </p>
+                <p>
+                    Создано с использованием 
+                    <a href="https://tailwindcss.com/" class="text-blue-600 hover:text-blue-800">Tailwind CSS</a>, 
+                    <a href="https://www.chartjs.org/" class="text-blue-600 hover:text-blue-800">Chart.js</a> и 
+                    <a href="https://github.com/scriban/scriban" class="text-blue-600 hover:text-blue-800">Scriban</a>.
+                </p>
+            </div>
         </footer>
     </body>
 </html>

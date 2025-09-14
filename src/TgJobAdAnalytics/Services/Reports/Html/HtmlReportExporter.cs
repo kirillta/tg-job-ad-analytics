@@ -51,7 +51,7 @@ public sealed class HtmlReportExporter : IReportExporter
         var chats = _dbContext.Chats
             .ToList();
 
-        var lastDayOfThePreviousMonth = new DateOnly(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
+        var lastDayOfThePreviousMonth = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddDays(-1);
 
         var messageCounts = _dbContext.Messages
             .Where(m => DateOnly.FromDateTime(m.TelegramMessageDate) <= lastDayOfThePreviousMonth)
@@ -135,13 +135,11 @@ public sealed class HtmlReportExporter : IReportExporter
 
     private void WriteToFile(string content)
     {
-        var fileName = string.Format(ResultsFileNameTemplate, DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss"));
+        var fileName = string.Format(ResultsFileNameTemplate, DateTime.UtcNow.ToString("yyyy-MM-dd HH-mm-ss"));
         var path = Path.Combine(_options.OutputPath, fileName);
-        if (!File.Exists(path))
-        {
-            if (!string.IsNullOrEmpty(_options.OutputPath))
-                Directory.CreateDirectory(_options.OutputPath);
-        }
+
+        if (!string.IsNullOrEmpty(_options.OutputPath))
+            Directory.CreateDirectory(_options.OutputPath);
 
         File.WriteAllText(path, content);
     }
