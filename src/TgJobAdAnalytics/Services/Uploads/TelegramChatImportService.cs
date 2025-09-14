@@ -32,7 +32,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         }
 
 
-        public async Task ImportFromJson()
+        public async Task ImportFromJson(CancellationToken cancellationToken)
         {
             if (_options.Mode == UploadMode.Skip)
             {
@@ -42,8 +42,8 @@ namespace TgJobAdAnalytics.Services.Uploads
 
             if (_options.Mode == UploadMode.Clean)
             {
-                await _telegramChatPersistenceService.RemoveAll();
-                await _telegramMessagePersistenceService.RemoveAll();
+                await _telegramChatPersistenceService.RemoveAll(cancellationToken);
+                await _telegramMessagePersistenceService.RemoveAll(cancellationToken);
                 // Preserve ads and derived data (salaries, vectors) to avoid re-processing LLM and vectorization work
                 //_ = await _adDataService.RemoveAll();
             }
@@ -52,6 +52,8 @@ namespace TgJobAdAnalytics.Services.Uploads
             var fileNames = Directory.GetFiles(_options.SourcePath);
             foreach (string fileName in fileNames)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (!fileName.EndsWith(".json"))
                     continue;
 
@@ -59,15 +61,15 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chatFileName = Path.GetFileName(fileName);
                 _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
-                var chat = await ReadChatFromFile(fileName);
+                var chat = await ReadChatFromFile(fileName, cancellationToken);
 
-                var chatState = await _telegramChatPersistenceService.DetermineState(chat);
+                var chatState = await _telegramChatPersistenceService.DetermineState(chat, cancellationToken);
 
-                var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp);
-                await _adDataService.Upsert(chat, chatState, timeStamp);
+                var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+                await _adDataService.Upsert(chat, chatState, timeStamp, cancellationToken);
 
                 if (chatState == UploadedDataState.New || addedMessages > 0)
-                    await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp);
+                    await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
                 else
                     _logger.LogInformation("No new messages for chat '{ChatName}'. Skipping chat update.", chat.Name);
 
@@ -75,40 +77,42 @@ namespace TgJobAdAnalytics.Services.Uploads
             }            
         
             _logger.LogInformation("Chat processing completed");
-            await DeduplicateAds();
+            await DeduplicateAds(cancellationToken);
 
 
-            static async Task<TgChat> ReadChatFromFile(string name)
+            static async Task<TgChat> ReadChatFromFile(string name, CancellationToken cancellationToken)
             {
-                using var json = new FileStream(name, FileMode.Open, FileAccess.Read);
+                using var json = new FileStream(name, FileMode.Open, FileAccess.Read, FileShare.Read);
                 var buffer = new byte[json.Length];
-                await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length));
+                await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length), cancellationToken);
 
                 return JsonSerializer.Deserialize<TgChat>(buffer);
             }
         }
 
 
-        private async Task DeduplicateAds()
+        private async Task DeduplicateAds(CancellationToken cancellationToken)
         {
             var ads = await _dbContext.Ads
                 .AsNoTracking()
                 .IgnoreQueryFilters()
                 .OrderByDescending(a => a.Date)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             var uniqueAds = _similarityCalculator.Distinct(ads);
             _logger.LogInformation("Found {UniqueAdCount} unique ads out of {TotalAdCount}", uniqueAds.Count, ads.Count);
 
             foreach (var batch in uniqueAds.Chunk(_options.BatchSize))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 await _dbContext.Ads
                     .AsNoTracking()
                     .IgnoreQueryFilters()
                     .Where(ad => batch.Select(b => b.Id).Contains(ad.Id))
                     .ExecuteUpdateAsync(b => b
                     .SetProperty(a => a.IsUnique, true)
-                    .SetProperty(a => a.UpdatedAt, DateTime.UtcNow));
+                    .SetProperty(a => a.UpdatedAt, DateTime.UtcNow), cancellationToken);
             }
         }
 

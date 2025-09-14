@@ -27,7 +27,7 @@ public class ProcessOrchestrator
 
     public async Task Run(List<string> pipelineNames, CancellationToken cancellationToken)
     {
-        await ImportData();
+        await ImportData(cancellationToken);
 
         //await _pipelineRunner.Run("migrate-deterministic-ids", cancellationToken);
 
@@ -38,10 +38,10 @@ public class ProcessOrchestrator
     }
 
 
-    async Task ImportData()
+    async Task ImportData(CancellationToken cancellationToken)
     {
-        await _telegramChatImportService.ImportFromJson();
-        await _salaryExtractionProcessor.ExtractAndPersist();
+        await _telegramChatImportService.ImportFromJson(cancellationToken);
+        await _salaryExtractionProcessor.ExtractAndPersist(cancellationToken);
     }
 
 

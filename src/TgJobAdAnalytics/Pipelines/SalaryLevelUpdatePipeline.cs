@@ -33,8 +33,7 @@ public sealed class SalaryLevelUpdatePipeline : IPipeline
     /// <inheritdoc/>
     public async Task<int> Run(CancellationToken cancellationToken)
     {
-        // Current processor does not support CancellationToken; can be added later.
-        return await _processor.UpdateMissingLevels();
+        return await _processor.UpdateMissingLevels(cancellationToken);
     }
 
 

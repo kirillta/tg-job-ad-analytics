@@ -13,23 +13,23 @@ public sealed class RateServiceFactory
     }
 
 
-    public async ValueTask<RateService> Create(Currency baseCurrency, DateOnly initialDate)
+    public async ValueTask<RateService> Create(Currency baseCurrency, DateOnly initialDate, CancellationToken cancellationToken)
     {
         if (_rate is not null)
             return _rate;
 
-        _rate = await GetRateService(baseCurrency, initialDate);
+        _rate = await GetRateService(baseCurrency, initialDate, cancellationToken);
         return _rate;
     }
 
 
-    private async ValueTask<RateService> GetRateService(Currency baseCurrency, DateOnly initialDate)
+    private async ValueTask<RateService> GetRateService(Currency baseCurrency, DateOnly initialDate, CancellationToken cancellationToken)
     {
         var rates = _rateSourceManager.Get();
 
         var searchDate = initialDate;
         var storedFinalDate = _rateSourceManager.GetMaximalDate();
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         if (storedFinalDate < today)
             searchDate = storedFinalDate;
 
@@ -38,7 +38,7 @@ public sealed class RateServiceFactory
 
         foreach (Currency currency in GetTargetCurrencies(baseCurrency))
         {
-            var apiRates = await _rateApiClient.Get(baseCurrency, currency, searchDate);
+            var apiRates = await _rateApiClient.Get(baseCurrency, currency, searchDate, cancellationToken);
             await _rateSourceManager.Add(apiRates);
         }
 

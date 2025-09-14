@@ -16,21 +16,21 @@ public sealed class PositionLevelExtractionService
     }
 
 
-    public async Task<PositionLevel> Process(string adText)
+    public async Task<PositionLevel> Process(string adText, CancellationToken cancellationToken)
     { 
         if (string.IsNullOrWhiteSpace(adText))
             return PositionLevel.Unknown;
 
-        var response = await ExtractPositionLevel(adText);
+        var response = await ExtractPositionLevel(adText, cancellationToken);
         return response.Level;
     }
 
 
-    private async Task<ChatGptPositionLevelResponse> ExtractPositionLevel(string text)
+    private async Task<ChatGptPositionLevelResponse> ExtractPositionLevel(string text, CancellationToken cancellationToken)
     { 
         try 
         {
-            var completion = await _chatClient.CompleteChatAsync([SystemPrompt, text], ChatOptions);
+            var completion = await _chatClient.CompleteChatAsync([SystemPrompt, text], ChatOptions, cancellationToken);
             var raw = completion.Value.Content[0].Text;
             var response = JsonSerializer.Deserialize<ChatGptPositionLevelResponse>(raw);
 

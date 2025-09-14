@@ -15,7 +15,7 @@ public sealed class SalaryPersistenceService
     }
 
 
-    public async Task Process(SalaryEntity? entity)
+    public async Task Process(SalaryEntity? entity, CancellationToken cancellationToken)
     {
         if (entity is null)
             return;
@@ -25,13 +25,13 @@ public sealed class SalaryPersistenceService
             if (entity.Period is null || entity.Period is Period.Unknown || entity.Period is Period.Project)
                 return;
 
-            var salaryService = await _salaryProcessingServiceFactory.Create(_baseCurrency);
+            var salaryService = await _salaryProcessingServiceFactory.Create(_baseCurrency, cancellationToken);
             var entry = salaryService.Process(entity);
             if (entry is null)
                 return;
 
             _dbContext.Salaries.Update(entry);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
         {

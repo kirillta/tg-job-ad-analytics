@@ -16,16 +16,16 @@ public class RateApiClient
     }
 
 
-    public async Task<List<Rate>> Get(Currency baseCurrency, Currency targetCurrency, DateOnly initialtDate)
+    public async Task<List<Rate>> Get(Currency baseCurrency, Currency targetCurrency, DateOnly initialtDate, CancellationToken cancellationToken)
     {
         var currencyCode = GetCurrencyCode(targetCurrency);
-        var address = $"?date_req1={initialtDate:dd/MM/yyyy}&date_req2={DateOnly.FromDateTime(DateTime.Now):dd/MM/yyyy}&VAL_NM_RQ={currencyCode}";
+        var address = $"?date_req1={initialtDate:dd/MM/yyyy}&date_req2={DateOnly.FromDateTime(DateTime.UtcNow):dd/MM/yyyy}&VAL_NM_RQ={currencyCode}";
         using var request = new HttpRequestMessage(HttpMethod.Get, address);
         
-        using var response = await _client.SendAsync(request);
+        using var response = await _client.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        using var responseStream = await response.Content.ReadAsStreamAsync();
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
 
         return ParseRates(responseStream, baseCurrency, targetCurrency);
     }

@@ -14,7 +14,7 @@ public sealed class PositionLevelResolver
     }
 
 
-    public async ValueTask<PositionLevel> Resolve(IEnumerable<string> tags, string text)
+    public async ValueTask<PositionLevel> Resolve(IEnumerable<string> tags, string text, CancellationToken cancellationToken)
     {
         if (tags is null)
             return PositionLevel.Unknown;
@@ -24,6 +24,8 @@ public sealed class PositionLevelResolver
 
         foreach (var raw in tags)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (string.IsNullOrWhiteSpace(raw))
                 continue;
 
@@ -53,7 +55,7 @@ public sealed class PositionLevelResolver
         if (detected != PositionLevel.Unknown)
             return detected;
         
-        return await _positionLevelExtractionService.Process(text);
+        return await _positionLevelExtractionService.Process(text, cancellationToken);
 
 
         void Update(PositionLevel level)

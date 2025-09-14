@@ -16,16 +16,18 @@ public sealed class SalaryExtractionProcessor
     }
 
 
-    public async Task ExtractAndPersist()
+    public async Task ExtractAndPersist(CancellationToken cancellationToken)
     {
         var channel = Channel.CreateUnbounded<(AdEntity Ad, SalaryEntity? Salary)>();
-        var persistenceTask = ConsumeAndPersist(channel.Reader);
+        var persistenceTask = ConsumeAndPersist(channel.Reader, cancellationToken);
         
-        var ads = await GetAdsWithoutSalaries();
+        var ads = await GetAdsWithoutSalaries(cancellationToken);
         foreach (var ad in ads)
         {
-            var salaryEntry = await _salaryExtractionService.Process(ad);
-            await channel.Writer.WriteAsync((ad, salaryEntry));
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var salaryEntry = await _salaryExtractionService.Process(ad, cancellationToken);
+            await channel.Writer.WriteAsync((ad, salaryEntry), cancellationToken);
         
         }
 
@@ -33,26 +35,26 @@ public sealed class SalaryExtractionProcessor
         await persistenceTask;
 
 
-        async Task ConsumeAndPersist(ChannelReader<(AdEntity Ad, SalaryEntity? Salary)> reader)
+        async Task ConsumeAndPersist(ChannelReader<(AdEntity Ad, SalaryEntity? Salary)> reader, CancellationToken cancellationToken)
         {
-            await foreach (var (_, salary) in reader.ReadAllAsync())
-                await _salaryPersistenceService.Process(salary);
+            await foreach (var (_, salary) in reader.ReadAllAsync(cancellationToken))
+                await _salaryPersistenceService.Process(salary, cancellationToken);
         }
     }
 
 
-    private async Task<List<AdEntity>> GetAdsWithoutSalaries()
+    private async Task<List<AdEntity>> GetAdsWithoutSalaries(CancellationToken cancellationToken)
     {
         var existingSalaryAdIds = await _dbContext.Salaries
             .AsNoTracking()
             .Select(s => s.AdId)
-            .ToHashSetAsync();
+            .ToHashSetAsync(cancellationToken);
 
         return await _dbContext.Ads
             .AsNoTracking()
             .Where(ad => !existingSalaryAdIds.Contains(ad.Id))
             .Select(x => x)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
 

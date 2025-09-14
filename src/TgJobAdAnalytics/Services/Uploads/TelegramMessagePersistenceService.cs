@@ -22,52 +22,58 @@ public class TelegramMessagePersistenceService
     }
 
 
-    public async Task RemoveAll()
+    public async Task RemoveAll(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleaning all message data...");
-        await _dbContext.Messages.ExecuteDeleteAsync();
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.Messages.ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("All message data has been removed");
     }
 
 
-    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp)
+    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken)
     {
         switch (state)
         {
             case UploadedDataState.New:
-                return await AddAll(chat, timeStamp);
+                return await AddAll(chat, timeStamp, cancellationToken);
             case UploadedDataState.Existing:
-                return await AddOnlyNew(chat, timeStamp);
+                return await AddOnlyNew(chat, timeStamp, cancellationToken);
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
         };
     }
 
 
-    private Task<int> AddAll(TgChat chat, DateTime timeStamp)
-        => ProcessAndInsert(chat, chat.Messages, timeStamp);
+    private Task<int> AddAll(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
+        => ProcessAndInsert(chat, chat.Messages, timeStamp, cancellationToken);
 
 
-    private async Task<int> AddOnlyNew(TgChat chat, DateTime timeStamp)
+    private async Task<int> AddOnlyNew(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
     {
         var existingMessageTelegramIds = await _dbContext.Messages
             .Where(m => m.TelegramChatId == chat.Id)
             .Select(m => m.TelegramMessageId)
-            .ToHashSetAsync();
+            .ToHashSetAsync(cancellationToken);
 
         var targetMessages = chat.Messages
             .Where(m => !existingMessageTelegramIds.Contains(m.Id))
             .ToList();            
             
-        return await ProcessAndInsert(chat, targetMessages, timeStamp);
+        return await ProcessAndInsert(chat, targetMessages, timeStamp, cancellationToken);
     }
 
 
-    private async Task<int> ProcessAndInsert(TgChat chat, List<TgMessage> messages, DateTime timeStamp)
+    private async Task<int> ProcessAndInsert(TgChat chat, List<TgMessage> messages, DateTime timeStamp, CancellationToken cancellationToken)
     {
         var entryBag = new ConcurrentBag<MessageEntity>();
-        Parallel.ForEach(messages, _parallelOptions, tgMessage =>
+        var parallelOptions = new ParallelOptions
+        {
+            CancellationToken = cancellationToken,
+            MaxDegreeOfParallelism = _parallelOptions.MaxDegreeOfParallelism
+        };
+
+        Parallel.ForEach(messages, parallelOptions, tgMessage =>
         {
             var textEntries = ToRawEntries(tgMessage.TextEntities);
             if (textEntries.Count == 0)
@@ -96,6 +102,8 @@ public class TelegramMessagePersistenceService
         var addedCount = 0;
         for (int i = 0; i < entries.Count; i += batchSize)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             int currentBatchSize = Math.Min(batchSize, entries.Count - i);
             var batch = entries.GetRange(i, currentBatchSize);
 
@@ -103,14 +111,14 @@ public class TelegramMessagePersistenceService
             var existingIds = await _dbContext.Messages
                 .Where(m => batchIds.Contains(m.Id))
                 .Select(m => m.Id)
-                .ToHashSetAsync();
+                .ToHashSetAsync(cancellationToken);
 
             var newBatch = batch.Where(e => !existingIds.Contains(e.Id)).ToList();
             if (newBatch.Count == 0)
                 continue;
         
-            await _dbContext.Messages.AddRangeAsync(newBatch);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.Messages.AddRangeAsync(newBatch, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             addedCount += newBatch.Count;
         }

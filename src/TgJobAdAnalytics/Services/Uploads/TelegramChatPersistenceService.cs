@@ -16,25 +16,25 @@ public class TelegramChatPersistenceService
     }
 
 
-    public async Task RemoveAll()
+    public async Task RemoveAll(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleaning all chat data...");
-        await _dbContext.Chats.ExecuteDeleteAsync();
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.Chats.ExecuteDeleteAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("All chat data has been removed");
     }
 
 
-    public async Task<UploadedDataState> DetermineState(TgChat chat)
+    public async Task<UploadedDataState> DetermineState(TgChat chat, CancellationToken cancellationToken)
     {
         var hasChat = await _dbContext.Chats
-            .AnyAsync(c => c.TelegramId == chat.Id);
+            .AnyAsync(c => c.TelegramId == chat.Id, cancellationToken);
 
         if (hasChat)
             return UploadedDataState.Existing;
 
         var hasMessages = await _dbContext.Messages
-            .AnyAsync(m => m.TelegramChatId == chat.Id);
+            .AnyAsync(m => m.TelegramChatId == chat.Id, cancellationToken);
 
         return hasMessages 
             ? UploadedDataState.Existing 
@@ -42,7 +42,7 @@ public class TelegramChatPersistenceService
     }
 
 
-    public async ValueTask Upsert(TgChat chat, UploadedDataState state, DateTime timestamp)
+    public async ValueTask Upsert(TgChat chat, UploadedDataState state, DateTime timestamp, CancellationToken cancellationToken)
     {
         switch (state)
         {
@@ -50,13 +50,13 @@ public class TelegramChatPersistenceService
                 Add(in chat, timestamp);
                 break;
             case UploadedDataState.Existing:
-                await Update(chat, timestamp);
+                await Update(chat, timestamp, cancellationToken);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
 
@@ -75,10 +75,10 @@ public class TelegramChatPersistenceService
     }
 
 
-    private async ValueTask Update(TgChat chat, DateTime timeStamp)
+    private async ValueTask Update(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
     {
         var existingChat = await _dbContext.Chats
-            .FirstOrDefaultAsync(c => c.TelegramId == chat.Id);
+            .FirstOrDefaultAsync(c => c.TelegramId == chat.Id, cancellationToken);
 
         if (existingChat is null)
         {

@@ -22,25 +22,25 @@ public sealed class SalaryExtractionService
     }
 
 
-    public async Task<SalaryEntity?> Process(AdEntity ad)
+    public async Task<SalaryEntity?> Process(AdEntity ad, CancellationToken cancellationToken)
     {
-        var salaryResponse = await ExtractSalary(ad);
+        var salaryResponse = await ExtractSalary(ad, cancellationToken);
         if (salaryResponse is null)
             return null;
 
-        var entry = await BuildEntity(salaryResponse.Value, ad);
+        var entry = await BuildEntity(salaryResponse.Value, ad, cancellationToken);
 
         _dbContext.Salaries.Add(entry);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return entry;
     }
 
 
-    private async Task<SalaryEntity> BuildEntity(ChatGptSalaryResponse salaryResponse, AdEntity ad) 
+    private async Task<SalaryEntity> BuildEntity(ChatGptSalaryResponse salaryResponse, AdEntity ad, CancellationToken cancellationToken) 
     {
-        var tags = await GetMessageTags(ad.MessageId);
-        var level = await _positionLevelResolver.Resolve(tags, ad.Text);
+        var tags = await GetMessageTags(ad.MessageId, cancellationToken);
+        var level = await _positionLevelResolver.Resolve(tags, ad.Text, cancellationToken);
 
         return new()
         {
@@ -56,18 +56,18 @@ public sealed class SalaryExtractionService
     }
 
 
-    private async Task<List<string>> GetMessageTags(Guid messageId)
+    private async Task<List<string>> GetMessageTags(Guid messageId, CancellationToken cancellationToken)
     {
-        var message = await _dbContext.Messages.FindAsync(messageId);
+        var message = await _dbContext.Messages.FindAsync([messageId], cancellationToken);
         return message?.Tags ?? [];
     }
 
 
-    private async Task<ChatGptSalaryResponse?> ExtractSalary(AdEntity ad)
+    private async Task<ChatGptSalaryResponse?> ExtractSalary(AdEntity ad, CancellationToken cancellationToken)
     {
         try
         {
-            var completion = await _chatClient.CompleteChatAsync([SystemPrompt, ad.Text], ChatOptions);
+            var completion = await _chatClient.CompleteChatAsync([SystemPrompt, ad.Text], ChatOptions, cancellationToken);
             var raw = completion.Value.Content[0].Text;
             var response = JsonSerializer.Deserialize<ChatGptSalaryResponse>(raw, JsonSerializerOptions);
 
@@ -98,11 +98,11 @@ public sealed class SalaryExtractionService
         * If an exact amount is given without `от`/`до`, try to infer from context (e.g., "от" for lower). If uncertain, default to **upper bound**.
     3. **Period**:
         * **Project**: "за проект".
-        * **Day**: "в день", "дневная ставка", "в сутки". Typical daily: \$10–\$100 / 1k–10k RUB.
-        * **Month**: default. Typical monthly: \$1k–\$5k+ / 100k–350k+ RUB.
+        * **Day**: "в день", "дневная ставка", "в сутки". Typical daily: $10–$100 / 1k–10k RUB.
+        * **Month**: default. Typical monthly: $1k–$5k+ / 100k–350k+ RUB.
         * `$500` is **unlikely daily** → prefer month/project unless clearly daily.
     4. **Currency**:
-        * RUB (руб, ₽), USD (\$, долларов), EUR (€‚ евро).
+        * RUB (руб, ₽), USD ($, долларов), EUR (€‚ евро).
         * `$` alone = USD unless contradicted.
     5. **Multiple/conflicts**: Choose the broadest relevant range; if tie, pick the first. If phrasing conflicts with plausibility, use the heuristics above.
         
@@ -116,9 +116,9 @@ public sealed class SalaryExtractionService
         
     Return **compact JSON** with these keys:
         
-    * `p` → salary\_present (true|false)
-    * `lb` → lower\_bound (integer|null)
-    * `ub` → upper\_bound (integer|null)
+    * `p` → salary_present (true|false)
+    * `lb` → lower_bound (integer|null)
+    * `ub` → upper_bound (integer|null)
     * `prd` → period ("month"|"day"|"project"|null)
     * `cur` → currency ("RUB"|"USD"|"EUR"|null)
 

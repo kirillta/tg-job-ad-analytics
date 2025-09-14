@@ -13,13 +13,13 @@ public sealed class SalaryProcessingServiceFactory
     }
 
 
-    public async Task<SalaryProcessingService> Create(Currency baseCurrency)
+    public async Task<SalaryProcessingService> Create(Currency baseCurrency, CancellationToken cancellationToken)
     {
         if (_services.TryGetValue(baseCurrency, out var existingService))
             return existingService;
 
-        var initialDate = await GetInitialDate();
-        var rateService = await _rateServiceFactory.Create(baseCurrency, initialDate);
+        var initialDate = await GetInitialDate(cancellationToken);
+        var rateService = await _rateServiceFactory.Create(baseCurrency, initialDate, cancellationToken);
         
         var newService = new SalaryProcessingService(baseCurrency, rateService);
         _services[baseCurrency] = newService;
@@ -27,15 +27,15 @@ public sealed class SalaryProcessingServiceFactory
         return newService;
 
 
-        async Task<DateOnly> GetInitialDate()
+        async Task<DateOnly> GetInitialDate(CancellationToken cancellationToken)
         { 
             var minimalDateTime = await _dbContext.Ads
                 .OrderBy(ad => ad.Date)
                 .Select(ad => ad.Date)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(cancellationToken);
 
             return minimalDateTime == default 
-                ? DateOnly.FromDateTime(DateTime.Now) 
+                ? DateOnly.FromDateTime(DateTime.UtcNow) 
                 : minimalDateTime;
         }
     }

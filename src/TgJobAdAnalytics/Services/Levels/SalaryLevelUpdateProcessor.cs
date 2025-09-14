@@ -27,7 +27,7 @@ public sealed class SalaryLevelUpdateProcessor
     /// Updates salary level for all salaries where the level is <see cref="PositionLevel.Unknown"/>.
     /// </summary>
     /// <returns>The number of salary records updated.</returns>
-    public async Task<int> UpdateMissingLevels()
+    public async Task<int> UpdateMissingLevels(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting salary level update process");
 
@@ -35,7 +35,7 @@ public sealed class SalaryLevelUpdateProcessor
             .Where(s => s.Level == PositionLevel.Unknown)
             .Join(_dbContext.Ads, s => s.AdId, a => a.Id, (s, a) => new { SalaryId = s.Id, a.MessageId, a.Text })
             .Join(_dbContext.Messages, sa => sa.MessageId, m => m.Id, (sa, m) => new { sa.SalaryId, sa.Text, m.Tags })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         _logger.LogInformation("Found {Count} salaries with unknown level", items.Count);
 
@@ -50,10 +50,12 @@ public sealed class SalaryLevelUpdateProcessor
 
         foreach (var chunk in items.Chunk(50))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var chunkUpdates = new List<(Guid Id, PositionLevel Level)>();
             foreach (var item in chunk)
             {
-                var level = await _positionLevelResolver.Resolve(item.Tags, item.Text);
+                var level = await _positionLevelResolver.Resolve(item.Tags, item.Text, cancellationToken);
                 if (level == PositionLevel.Unknown)
                     continue;
 
@@ -71,7 +73,7 @@ public sealed class SalaryLevelUpdateProcessor
                     {
                         var updated = await _dbContext.Salaries
                             .Where(s => idChunk.Contains(s.Id))
-                            .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.Level, level));
+                            .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.Level, level), cancellationToken);
 
                         totalUpdated += updated;
                     }
