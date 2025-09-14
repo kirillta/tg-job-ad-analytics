@@ -124,6 +124,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();
         services.AddSingleton<IPipeline, DistinctAdsPipeline>();
         services.AddSingleton<IPipeline, InitVectorsPipeline>();
+        services.AddSingleton<IPipeline, DeterministicIdMigrationPipeline>();
         services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
         services.AddTransient<ProcessOrchestrator>();

@@ -29,7 +29,7 @@ public class ProcessOrchestrator
     {
         await ImportData();
 
-        //await _pipelineRunner.Run("init-vectors", cancellationToken);
+        //await _pipelineRunner.Run("migrate-deterministic-ids", cancellationToken);
 
         if (pipelineNames.Count != 0)
             await ExecutePipelines(pipelineNames, cancellationToken);

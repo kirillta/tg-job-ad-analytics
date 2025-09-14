@@ -16,7 +16,7 @@ public class AdEntity
     /// <summary>
     /// Gets or sets the unique identifier for the advertisement.
     /// </summary>
-    public Guid Id { get; set; } = Guid.CreateVersion7();
+    public Guid Id { get; set; }
 
     /// <summary>
     /// Gets or sets the date when the advertisement was posted.

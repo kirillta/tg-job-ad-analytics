@@ -10,6 +10,7 @@ using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Vectors;
+using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
@@ -103,8 +104,11 @@ public class TelegramAdPersistenceService
             if (string.IsNullOrEmpty(normalizedText))
                 return;
 
+            var adId = DeterministicGuid.Create(Namespaces.Ads, $"{message.TelegramChatId}:{message.TelegramMessageId}:ad");
+
             entryBag.Add(new AdEntity
             {
+                Id = adId,
                 Date = DateOnly.FromDateTime(message.TelegramMessageDate),
                 Text = normalizedText,
                 MessageId = message.Id,
@@ -121,18 +125,28 @@ public class TelegramAdPersistenceService
             int currentBatchSize = Math.Min(batchSize, entries.Count - i);
             var batch = entries.GetRange(i, currentBatchSize);
 
-            await _dbContext.Ads.AddRangeAsync(batch);
+            var batchIds = batch.Select(e => e.Id).ToList();
+            var existingIds = await _dbContext.Ads
+                .IgnoreQueryFilters()
+                .Where(a => batchIds.Contains(a.Id))
+                .Select(a => a.Id)
+                .ToHashSetAsync();
+
+            var newBatch = batch.Where(e => !existingIds.Contains(e.Id)).ToList();
+            if (newBatch.Count == 0)
+                continue;
+
+            await _dbContext.Ads.AddRangeAsync(newBatch);
             await _dbContext.SaveChangesAsync();
 
-            foreach (var ad in batch)
+            foreach (var ad in newBatch)
             {
                 var (signature, shingleCount) = _minHashVectorizer.Compute(ad.Text);
-
                 await _vectorStore.Upsert(ad.Id, signature, shingleCount, CancellationToken.None);
                 await _vectorIndex.Upsert(ad.Id, signature, CancellationToken.None);
             }
 
-            addedCount += currentBatchSize;
+            addedCount += newBatch.Count;
         }
 
         _logger.LogInformation("Added {AddedCount} ads to the database", addedCount);

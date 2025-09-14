@@ -7,6 +7,7 @@ using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
+using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
@@ -30,27 +31,25 @@ public class TelegramMessagePersistenceService
     }
 
 
-    public async Task Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp)
+    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp)
     {
         switch (state)
         {
             case UploadedDataState.New:
-                await AddAll(chat, timeStamp);
-                break;
+                return await AddAll(chat, timeStamp);
             case UploadedDataState.Existing:
-                await AddOnlyNew(chat, timeStamp);
-                break;
+                return await AddOnlyNew(chat, timeStamp);
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
         };
     }
 
 
-    private Task AddAll(TgChat chat, DateTime timeStamp) 
+    private Task<int> AddAll(TgChat chat, DateTime timeStamp)
         => ProcessAndInsert(chat, chat.Messages, timeStamp);
 
 
-    private async Task AddOnlyNew(TgChat chat, DateTime timeStamp)
+    private async Task<int> AddOnlyNew(TgChat chat, DateTime timeStamp)
     {
         var existingMessageTelegramIds = await _dbContext.Messages
             .Where(m => m.TelegramChatId == chat.Id)
@@ -61,11 +60,11 @@ public class TelegramMessagePersistenceService
             .Where(m => !existingMessageTelegramIds.Contains(m.Id))
             .ToList();            
             
-        await ProcessAndInsert(chat, targetMessages, timeStamp);
+        return await ProcessAndInsert(chat, targetMessages, timeStamp);
     }
 
 
-    private async Task ProcessAndInsert(TgChat chat, List<TgMessage> messages, DateTime timeStamp)
+    private async Task<int> ProcessAndInsert(TgChat chat, List<TgMessage> messages, DateTime timeStamp)
     {
         var entryBag = new ConcurrentBag<MessageEntity>();
         Parallel.ForEach(messages, _parallelOptions, tgMessage =>
@@ -77,8 +76,11 @@ public class TelegramMessagePersistenceService
             if (tags.Count == 0)
                 return;
 
+            var deterministicId = DeterministicGuid.Create(Namespaces.Messages, $"{chat.Id}:{tgMessage.Id}");
+
             entryBag.Add(new MessageEntity
             {
+                Id = deterministicId,
                 TelegramChatId = chat.Id,
                 TelegramMessageId = tgMessage.Id,
                 TelegramMessageDate = tgMessage.Date,
@@ -96,14 +98,26 @@ public class TelegramMessagePersistenceService
         {
             int currentBatchSize = Math.Min(batchSize, entries.Count - i);
             var batch = entries.GetRange(i, currentBatchSize);
+
+            var batchIds = batch.Select(e => e.Id).ToList();
+            var existingIds = await _dbContext.Messages
+                .Where(m => batchIds.Contains(m.Id))
+                .Select(m => m.Id)
+                .ToHashSetAsync();
+
+            var newBatch = batch.Where(e => !existingIds.Contains(e.Id)).ToList();
+            if (newBatch.Count == 0)
+                continue;
         
-            await _dbContext.Messages.AddRangeAsync(batch);
+            await _dbContext.Messages.AddRangeAsync(newBatch);
             await _dbContext.SaveChangesAsync();
 
-            addedCount += currentBatchSize;
+            addedCount += newBatch.Count;
         }
             
         _logger.LogInformation("Added {AddedCount} messages to the database", addedCount);
+
+        return addedCount;
 
 
         static List<string> ToRawTags(List<TgTextEntry> entries)

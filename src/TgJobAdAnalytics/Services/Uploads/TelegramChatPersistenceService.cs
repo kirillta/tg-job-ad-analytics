@@ -27,13 +27,18 @@ public class TelegramChatPersistenceService
 
     public async Task<UploadedDataState> DetermineState(TgChat chat)
     {
-        var existingChat = await _dbContext.Chats
+        var hasChat = await _dbContext.Chats
             .AnyAsync(c => c.TelegramId == chat.Id);
 
-        if (existingChat)
+        if (hasChat)
             return UploadedDataState.Existing;
 
-        return UploadedDataState.New;
+        var hasMessages = await _dbContext.Messages
+            .AnyAsync(m => m.TelegramChatId == chat.Id);
+
+        return hasMessages 
+            ? UploadedDataState.Existing 
+            : UploadedDataState.New;
     }
 
 
@@ -75,7 +80,11 @@ public class TelegramChatPersistenceService
         var existingChat = await _dbContext.Chats
             .FirstOrDefaultAsync(c => c.TelegramId == chat.Id);
 
-        ArgumentNullException.ThrowIfNull(existingChat, $"Chat with ID {chat.Id} not found in the database.");
+        if (existingChat is null)
+        {
+            Add(in chat, timeStamp);
+            return;
+        }
 
         existingChat.Name = chat.Name;
         existingChat.UpdatedAt = timeStamp;

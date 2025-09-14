@@ -44,7 +44,8 @@ namespace TgJobAdAnalytics.Services.Uploads
             {
                 await _telegramChatPersistenceService.RemoveAll();
                 await _telegramMessagePersistenceService.RemoveAll();
-                await _adDataService.RemoveAll();
+                // Preserve ads and derived data (salaries, vectors) to avoid re-processing LLM and vectorization work
+                //_ = await _adDataService.RemoveAll();
             }
 
             var timeStamp = DateTime.UtcNow;
@@ -61,9 +62,14 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chat = await ReadChatFromFile(fileName);
 
                 var chatState = await _telegramChatPersistenceService.DetermineState(chat);
-                await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp);
-                await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp);
+
+                var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp);
                 await _adDataService.Upsert(chat, chatState, timeStamp);
+
+                if (chatState == UploadedDataState.New || addedMessages > 0)
+                    await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp);
+                else
+                    _logger.LogInformation("No new messages for chat '{ChatName}'. Skipping chat update.", chat.Name);
 
                 _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
             }            

@@ -9,7 +9,7 @@ public class MessageEntity
     }
 
 
-    public Guid Id { get; set; } = Guid.CreateVersion7();
+    public Guid Id { get; set; }
 
     public long TelegramChatId { get; set; }
 

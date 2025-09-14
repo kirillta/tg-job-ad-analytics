@@ -12,7 +12,7 @@ public class DoubleToNullableDoubleConverter : ValueConverter<double?, double?>
     }
 
 
-    private static double? ConvertToProvider(double? value)
+    private new static double? ConvertToProvider(double? value)
     {
         if (value is null)
             return null;
@@ -24,7 +24,7 @@ public class DoubleToNullableDoubleConverter : ValueConverter<double?, double?>
     }
 
 
-    private static double? ConvertFromProvider(double? value)
+    private new static double? ConvertFromProvider(double? value)
     {
         if (value == NanSentinelValue)
             return double.NaN;
