@@ -150,4 +150,14 @@ Console.CancelKeyPress += (_, e) =>
 var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
 await orchestrator.Run([.. args], cancellationToken.Token);
 
-logger.LogInformation("Completed in {ElapsedSeconds} seconds", Stopwatch.GetElapsedTime(startTime).TotalSeconds);
+var elapsed = Stopwatch.GetElapsedTime(startTime);
+string elapsedMessage;
+
+if (elapsed.TotalHours >= 1)
+    elapsedMessage = $"{(int)elapsed.TotalHours} hours {elapsed.Minutes} minutes {elapsed.Seconds} seconds";
+else if (elapsed.TotalMinutes >= 1)
+    elapsedMessage = $"{(int)elapsed.TotalMinutes} minutes {elapsed.Seconds} seconds";
+else
+    elapsedMessage = $"{elapsed.TotalSeconds:F3} seconds";
+
+logger.LogInformation("Completed in {Elapsed}", elapsedMessage);

@@ -28,7 +28,6 @@ public sealed class SalaryExtractionProcessor
 
             var salaryEntry = await _salaryExtractionService.Process(ad, cancellationToken);
             await channel.Writer.WriteAsync((ad, salaryEntry), cancellationToken);
-        
         }
 
         channel.Writer.Complete();

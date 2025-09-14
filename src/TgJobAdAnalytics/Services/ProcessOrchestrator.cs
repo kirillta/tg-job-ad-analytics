@@ -27,7 +27,7 @@ public class ProcessOrchestrator
 
     public async Task Run(List<string> pipelineNames, CancellationToken cancellationToken)
     {
-        //await ImportData(cancellationToken);
+        await ImportData(cancellationToken);
 
         if (pipelineNames.Count != 0)
             await ExecutePipelines(pipelineNames, cancellationToken);
