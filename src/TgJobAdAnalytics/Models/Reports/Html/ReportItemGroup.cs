@@ -10,5 +10,6 @@ internal readonly record struct ReportItemGroup
 
 
     public string Title { get; }
+
     public List<ReportItem> Reports { get; }
 }

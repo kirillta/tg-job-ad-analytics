@@ -1,4 +1,4 @@
-﻿namespace TgJobAdAnalytics.Models.Salaries;
+﻿namespace TgJobAdAnalytics.Models.Salaries.Enums;
 
 public enum ProcessingStatus
 {

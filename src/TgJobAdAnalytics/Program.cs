@@ -11,10 +11,12 @@ using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
-using TgJobAdAnalytics.Pipelines;
+using TgJobAdAnalytics.Models.Vectors;
 using TgJobAdAnalytics.Services;
 using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Messages;
+using TgJobAdAnalytics.Services.Pipelines;
+using TgJobAdAnalytics.Services.Pipelines.Implementations;
 using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Salaries;
@@ -22,7 +24,38 @@ using TgJobAdAnalytics.Services.Uploads;
 using TgJobAdAnalytics.Services.Vectors;
 
 
-var host = Host.CreateDefaultBuilder(args)
+var host = BuildHost(args);
+
+using var scope = host.Services.CreateScope();
+var services = scope.ServiceProvider;
+
+await ApplyDatabaseMigrations(services);
+
+var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
+var logger = services.GetRequiredService<ILogger<Program>>();
+
+using var cancellationToken = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cancellationToken.Cancel();
+};
+
+var startTime = Stopwatch.GetTimestamp();
+await orchestrator.Run([.. args], cancellationToken.Token);
+
+LogExecutionDuration(logger, Stopwatch.GetElapsedTime(startTime));
+
+
+async static Task ApplyDatabaseMigrations(IServiceProvider services)
+{ 
+    using var dbContext = services.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
+
+static IHost BuildHost(string[] args) =>
+    Host.CreateDefaultBuilder(args)
     .ConfigureLogging(logging =>
     {
         logging.ClearProviders();
@@ -40,17 +73,14 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureServices((context, services) =>
     {
+        var operationalDirectory = Path.Combine(Environment.CurrentDirectory, "..", "..", "..");
+
         services.AddDbContext<ApplicationDbContext>();
         services.Configure<UploadOptions>(options =>
         {
             options.BatchSize = int.Parse(context.Configuration["Upload:BatchSize"]!);
-            options.Mode = context.Configuration["Upload:Mode"] switch
-            {
-                "Clean" => UploadMode.Clean,
-                "OnlyNewMessages" => UploadMode.OnlyNewMessages,
-                _ => UploadMode.Skip
-            };
-            options.SourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources");
+            options.Mode = Enum.Parse<UploadMode>(context.Configuration["Upload:Mode"]!);
+            options.SourcePath = Path.Combine(operationalDirectory, "Sources");
         });
 
         services.Configure<ParallelOptions>(options =>
@@ -63,12 +93,12 @@ var host = Host.CreateDefaultBuilder(args)
         services.Configure<RateOptions>(options => 
         { 
             options.RateApiUrl = new Uri("https://www.cbr.ru/scripts/XML_dynamic.asp");
-            options.RateSourcePath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Sources", "rates.csv");
+            options.RateSourcePath = Path.Combine(operationalDirectory, "Sources", "rates.csv");
         });
 
         services.Configure<ReportPrinterOptions>(options =>
         {
-            options.OutputPath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "Output");
+            options.OutputPath = Path.Combine(operationalDirectory, "Output");
             options.TemplatePath = Path.Combine("Views", "Reports");
         });
 
@@ -114,11 +144,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddTransient<ReportGenerationService>();
         services.AddTransient<IReportExporter, HtmlReportExporter>();
 
-        services.AddSingleton<IVectorizationConfig, OptionVectorizationConfig>();
-        services.AddSingleton<IMinHashVectorizer, MinHashVectorizer>();
-        services.AddScoped<IVectorStore, VectorStore>();
-        services.AddScoped<IVectorIndex, VectorIndex>();
-        services.AddSingleton<ISimilarityService, SimilarityService>();
+        services.AddSingleton<OptionVectorizationConfig>();
+        services.AddSingleton<MinHashVectorizer>();
+        services.AddScoped<VectorStore>();
+        services.AddScoped<VectorIndex>();
         services.AddTransient<VectorsBackfillService>();
 
         services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();
@@ -131,33 +160,17 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .Build();
 
-using var scope = host.Services.CreateScope();
-var services = scope.ServiceProvider;
-var logger = services.GetRequiredService<ILogger<Program>>();
 
-using var dbContext = services.GetRequiredService<ApplicationDbContext>();
-await dbContext.Database.MigrateAsync();
+static void LogExecutionDuration(ILogger logger, TimeSpan elapsed)
+{ 
+    string elapsedMessage;
 
-var startTime = Stopwatch.GetTimestamp();
+    if (elapsed.TotalHours >= 1)
+        elapsedMessage = $"{(int)elapsed.TotalHours} hours {elapsed.Minutes} minutes {elapsed.Seconds} seconds";
+    else if (elapsed.TotalMinutes >= 1)
+        elapsedMessage = $"{(int)elapsed.TotalMinutes} minutes {elapsed.Seconds} seconds";
+    else
+        elapsedMessage = $"{elapsed.TotalSeconds:F3} seconds";
 
-using var cancellationToken = new CancellationTokenSource();
-Console.CancelKeyPress += (_, e) =>
-{
-    e.Cancel = true;
-    cancellationToken.Cancel();
-};
-
-var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
-await orchestrator.Run([.. args], cancellationToken.Token);
-
-var elapsed = Stopwatch.GetElapsedTime(startTime);
-string elapsedMessage;
-
-if (elapsed.TotalHours >= 1)
-    elapsedMessage = $"{(int)elapsed.TotalHours} hours {elapsed.Minutes} minutes {elapsed.Seconds} seconds";
-else if (elapsed.TotalMinutes >= 1)
-    elapsedMessage = $"{(int)elapsed.TotalMinutes} minutes {elapsed.Seconds} seconds";
-else
-    elapsedMessage = $"{elapsed.TotalSeconds:F3} seconds";
-
-logger.LogInformation("Completed in {Elapsed}", elapsedMessage);
+    logger.LogInformation("Completed in {Elapsed}", elapsedMessage);    
+}

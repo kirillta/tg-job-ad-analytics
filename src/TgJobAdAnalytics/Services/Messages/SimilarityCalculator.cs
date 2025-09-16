@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Messages;
-using TgJobAdAnalytics.Services;
+using TgJobAdAnalytics.Models.Vectors;
 using TgJobAdAnalytics.Services.Vectors;
 
 namespace TgJobAdAnalytics.Services.Messages;
@@ -12,11 +12,10 @@ public sealed class SimilarityCalculator
     public SimilarityCalculator(
         IOptions<ParallelOptions> parallelOptions,
         IOptions<VectorizationOptions> vectorizationOptions,
-        IMinHashVectorizer? vectorizer = null,
-        IVectorIndex? vectorIndex = null,
-        IVectorStore? vectorStore = null,
-        ISimilarityService? similarityService = null,
-        IVectorizationConfig? vectorizationConfig = null)
+        MinHashVectorizer? vectorizer = null,
+        VectorIndex? vectorIndex = null,
+        VectorStore? vectorStore = null,
+        OptionVectorizationConfig? vectorizationConfig = null)
     {
         _parallelOptions = parallelOptions.Value;
         _vectorizationOptions = vectorizationOptions.Value;
@@ -24,7 +23,6 @@ public sealed class SimilarityCalculator
         _vectorizer = vectorizer;
         _vectorIndex = vectorIndex;
         _vectorStore = vectorStore;
-        _similarityService = similarityService;
         _vectorizationConfig = vectorizationConfig;
     }
 
@@ -92,7 +90,7 @@ public sealed class SimilarityCalculator
 
     public async Task<List<AdEntity>> DistinctPersistent(List<AdEntity> ads, CancellationToken ct = default)
     {
-        if (_vectorizer is null || _vectorIndex is null || _vectorStore is null || _similarityService is null)
+        if (_vectorizer is null || _vectorIndex is null || _vectorStore is null)
             return Distinct(ads);
 
         if (ads.Count == 0)
@@ -122,7 +120,7 @@ public sealed class SimilarityCalculator
                     if (candidateVector is null) continue;
 
                     var candidateSig = SignatureSerializer.FromBytes(candidateVector.Signature);
-                    var score = _similarityService.EstimatedJaccard(signature, candidateSig);
+                    var score = SimilarityService.EstimatedJaccard(signature, candidateSig);
                     if (score >= DuplicateThreshold)
                     {
                         isDuplicate = true;
@@ -148,9 +146,8 @@ public sealed class SimilarityCalculator
     private readonly ParallelOptions _parallelOptions;
     private readonly VectorizationOptions _vectorizationOptions;
 
-    private readonly IMinHashVectorizer? _vectorizer;
-    private readonly IVectorIndex? _vectorIndex;
-    private readonly IVectorStore? _vectorStore;
-    private readonly ISimilarityService? _similarityService;
-    private readonly IVectorizationConfig? _vectorizationConfig;
+    private readonly MinHashVectorizer? _vectorizer;
+    private readonly VectorIndex? _vectorIndex;
+    private readonly VectorStore? _vectorStore;
+    private readonly OptionVectorizationConfig? _vectorizationConfig;
 }

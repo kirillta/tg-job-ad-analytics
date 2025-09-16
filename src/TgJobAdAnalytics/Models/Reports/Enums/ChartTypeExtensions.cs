@@ -1,4 +1,4 @@
-﻿namespace TgJobAdAnalytics.Models.Reports;
+﻿namespace TgJobAdAnalytics.Models.Reports.Enums;
 
 public static class ChartTypeExtensions
 {

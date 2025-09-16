@@ -14,9 +14,14 @@ internal readonly record struct DataSourceModel
 
 
     public long Id { get; }
+
     public string Name { get; }
+
     public DateOnly MinimalDate { get; }
+
     public DateOnly MaximalDate { get; }
+
     public int ProcessedMessages { get; }
+
     public int ExtractedSalaries { get; }
 }

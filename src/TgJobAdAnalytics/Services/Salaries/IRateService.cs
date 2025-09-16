@@ -1,9 +1,8 @@
-﻿using TgJobAdAnalytics.Models.Salaries;
+﻿using TgJobAdAnalytics.Models.Salaries.Enums;
 
-namespace TgJobAdAnalytics.Services.Salaries
+namespace TgJobAdAnalytics.Services.Salaries;
+
+public interface IRateService
 {
-    public interface IRateService
-    {
-        double Get(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate);
-    }
+    double Get(Currency baseCurrency, Currency targetCurrency, DateOnly targetDate);
 }

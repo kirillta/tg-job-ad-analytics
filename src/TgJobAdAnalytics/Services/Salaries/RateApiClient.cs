@@ -2,10 +2,11 @@
 using System.Globalization;
 using System.Xml.Linq;
 using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-public class RateApiClient
+public sealed class RateApiClient
 {
     public RateApiClient(IOptions<RateOptions> rateOptions)
     {

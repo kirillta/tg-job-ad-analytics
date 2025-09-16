@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
+using TgJobAdAnalytics.Models.Pipelines;
 
-namespace TgJobAdAnalytics.Pipelines;
+namespace TgJobAdAnalytics.Services.Pipelines;
 
 /// <summary>
 /// Default pipeline runner that resolves pipelines from DI and executes them by name.

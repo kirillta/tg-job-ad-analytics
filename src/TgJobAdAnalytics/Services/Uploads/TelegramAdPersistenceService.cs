@@ -6,6 +6,7 @@ using System.Text;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
+using TgJobAdAnalytics.Models.Telegram.Enums;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Services.Messages;
@@ -14,16 +15,16 @@ using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
-public class TelegramAdPersistenceService
+public sealed class TelegramAdPersistenceService
 {
     public TelegramAdPersistenceService(
         ILogger<TelegramAdPersistenceService> logger,
         ApplicationDbContext dbContext,
         IOptions<ParallelOptions> parallelOptions,
         IOptions<UploadOptions> uploadOptions,
-        IMinHashVectorizer minHashVectorizer,
-        IVectorStore vectorStore,
-        IVectorIndex vectorIndex)
+        MinHashVectorizer minHashVectorizer,
+        VectorStore vectorStore,
+        VectorIndex vectorIndex)
     {
         _logger = logger;
         _dbContext = dbContext;
@@ -247,7 +248,7 @@ public class TelegramAdPersistenceService
     private readonly ApplicationDbContext _dbContext;
     private readonly ParallelOptions _parallelOptions;
     private readonly UploadOptions _uploadOptions;
-    private readonly IMinHashVectorizer _minHashVectorizer;
-    private readonly IVectorStore _vectorStore;
-    private readonly IVectorIndex _vectorIndex;
+    private readonly MinHashVectorizer _minHashVectorizer;
+    private readonly VectorStore _vectorStore;
+    private readonly VectorIndex _vectorIndex;
 }

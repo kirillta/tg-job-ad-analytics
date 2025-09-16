@@ -1,12 +1,12 @@
 ﻿using MathNet.Numerics.Statistics;
 using TgJobAdAnalytics.Data.Salaries;
-using TgJobAdAnalytics.Models.Levels;
+using TgJobAdAnalytics.Models.Levels.Enums;
 using TgJobAdAnalytics.Models.Reports;
 
 
 namespace TgJobAdAnalytics.Services.Analytics;
 
-internal class SalaryStatisticsCalculator
+public sealed class SalaryStatisticsCalculator
 {
     public static ReportGroup GenerateAll(List<SalaryEntity> salaries)
     {

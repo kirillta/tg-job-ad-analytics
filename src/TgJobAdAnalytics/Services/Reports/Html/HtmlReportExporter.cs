@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Reports.Enums;
 using TgJobAdAnalytics.Models.Reports.Html;
 using TgJobAdAnalytics.Services.Reports.Html.Scriban;
 

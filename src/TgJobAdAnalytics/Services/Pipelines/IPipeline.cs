@@ -1,4 +1,4 @@
-namespace TgJobAdAnalytics.Pipelines;
+namespace TgJobAdAnalytics.Services.Pipelines;
 
 /// <summary>
 /// Represents a named, self-contained unit of work that can be executed on demand.

@@ -1,5 +1,6 @@
 ﻿using NSubstitute;
-using TgJobAdAnalytics.Models.Salaries;
+using Tests.Helpers;
+using TgJobAdAnalytics.Models.Salaries.Enums;
 using TgJobAdAnalytics.Services.Salaries;
 
 namespace Tests;
@@ -11,7 +12,7 @@ public class SalaryServiceTests
         _rateService = Substitute.For<IRateService>();
         _rateService.Get(Arg.Any<Currency>(), Arg.Any<Currency>(), Arg.Any<DateOnly>()).Returns(1.1);
 
-        _service = new SalaryProcessingService(Currency.USD, _rateService);
+        _service = new SalaryProcessingResultHelper(new SalaryProcessingService(Currency.USD, _rateService));
     }
 
 
@@ -54,7 +55,7 @@ public class SalaryServiceTests
         double expectedLowerNormalized, double expectedUpperNormalized)
     {
         var date = new DateOnly(2024, 1, 1);
-        var service = new SalaryProcessingService(baseCurrency, _rateService);
+        var service = new SalaryProcessingResultHelper(new SalaryProcessingService(baseCurrency, _rateService));
 
         var result = service.Get(input, date);
 
@@ -63,6 +64,6 @@ public class SalaryServiceTests
     }
 
 
-    private readonly SalaryProcessingService _service;
+    private readonly SalaryProcessingResultHelper _service;
     private readonly IRateService _rateService;
 }

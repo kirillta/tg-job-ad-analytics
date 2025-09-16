@@ -11,6 +11,8 @@ internal readonly record struct ReportModel
 
 
     public List<DataSourceModel> DataSources { get; }
+
     public DateOnly ReportDate { get; }
+
     public List<ReportItemGroup> ReportGroups { get; }
 }

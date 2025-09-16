@@ -1,4 +1,6 @@
-﻿namespace TgJobAdAnalytics.Models.Salaries;
+﻿using TgJobAdAnalytics.Models.Salaries.Enums;
+
+namespace TgJobAdAnalytics.Models.Salaries;
 
 public readonly record struct Rate
 {
@@ -12,7 +14,10 @@ public readonly record struct Rate
 
 
     public Currency BaseCurrency { get; }
+
     public Currency TargetCurrency { get; }
+
     public DateOnly TargetDate { get; }
+
     public double Value { get; }
 }

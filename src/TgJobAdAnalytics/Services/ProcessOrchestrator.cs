@@ -1,8 +1,7 @@
-﻿using TgJobAdAnalytics.Pipelines;
+﻿using TgJobAdAnalytics.Services.Pipelines;
 using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Salaries;
 using TgJobAdAnalytics.Services.Uploads;
-using TgJobAdAnalytics.Services.Vectors;
 
 namespace TgJobAdAnalytics.Services;
 
@@ -13,15 +12,13 @@ public class ProcessOrchestrator
         SalaryExtractionProcessor salaryExtractionProcessor, 
         IPipelineRunner pipelineRunner,
         ReportGenerationService reportGenerationService,
-        IReportExporter reportExporter,
-        VectorsBackfillService vectorsBackfillService)
+        IReportExporter reportExporter)
     {
         _pipelineRunner = pipelineRunner;
         _reportExporter = reportExporter;
         _reportGenerationService = reportGenerationService;
         _salaryExtractionProcessor = salaryExtractionProcessor;
         _telegramChatImportService = telegramChatImportService;
-        _vectorsBackfillService = vectorsBackfillService;
     }
 
 
@@ -62,5 +59,4 @@ public class ProcessOrchestrator
     private readonly ReportGenerationService _reportGenerationService;
     private readonly SalaryExtractionProcessor _salaryExtractionProcessor;
     private readonly TelegramChatImportService _telegramChatImportService;
-    private readonly VectorsBackfillService _vectorsBackfillService;
 }

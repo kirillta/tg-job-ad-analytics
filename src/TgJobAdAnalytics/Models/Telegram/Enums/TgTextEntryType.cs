@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Models.Telegram.Converters;
 
-namespace TgJobAdAnalytics.Models.Telegram;
+namespace TgJobAdAnalytics.Models.Telegram.Enums;
 
 [JsonConverter(typeof(TgTextEntryTypeConverter))]
 public enum TgTextEntryType

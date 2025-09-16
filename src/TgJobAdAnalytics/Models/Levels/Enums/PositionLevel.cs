@@ -1,4 +1,4 @@
-namespace TgJobAdAnalytics.Models.Levels;
+namespace TgJobAdAnalytics.Models.Levels.Enums;
 
 public enum PositionLevel
 {

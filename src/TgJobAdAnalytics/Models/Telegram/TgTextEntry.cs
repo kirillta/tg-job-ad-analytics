@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using TgJobAdAnalytics.Models.Telegram.Enums;
 
 namespace TgJobAdAnalytics.Models.Telegram;
 
@@ -14,6 +15,7 @@ public readonly record struct TgTextEntry
 
     [JsonPropertyName("text")]
     public string Text { get; init; }
+
     [JsonPropertyName("type")]
     public TgTextEntryType Type { get; init; }
 }

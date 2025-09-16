@@ -1,11 +1,8 @@
 ﻿using System.Text.RegularExpressions;
-using TgJobAdAnalytics.Models.Levels;
+using TgJobAdAnalytics.Models.Levels.Enums;
 
 namespace TgJobAdAnalytics.Services.Levels;
 
-/// <summary>
-/// Rule based position level resolver using provided ad tags.
-/// </summary>
 public sealed class PositionLevelResolver
 {
     public PositionLevelResolver(PositionLevelExtractionService positionLevelExtractionService)

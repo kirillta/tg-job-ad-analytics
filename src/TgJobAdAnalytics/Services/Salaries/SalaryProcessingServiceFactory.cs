@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TgJobAdAnalytics.Data;
-using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 

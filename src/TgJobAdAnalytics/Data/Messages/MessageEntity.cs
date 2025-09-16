@@ -1,4 +1,4 @@
-using TgJobAdAnalytics.Models.Telegram;
+using TgJobAdAnalytics.Models.Telegram.Enums;
 
 namespace TgJobAdAnalytics.Data.Messages;
 

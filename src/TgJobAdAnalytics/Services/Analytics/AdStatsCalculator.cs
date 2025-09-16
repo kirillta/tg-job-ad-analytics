@@ -1,5 +1,6 @@
 ﻿using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Reports.Enums;
 
 namespace TgJobAdAnalytics.Services.Analytics;
 

@@ -1,54 +1,56 @@
 using Microsoft.EntityFrameworkCore;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Vectors;
+using TgJobAdAnalytics.Models.Vectors;
 
 namespace TgJobAdAnalytics.Services.Vectors;
 
 /// <summary>
 /// EF-based LSH index (banded hashing) over signatures.
 /// </summary>
-public sealed class VectorIndex : IVectorIndex
+public sealed class VectorIndex
 {
-    public VectorIndex(ApplicationDbContext db, IVectorizationConfig config)
+    public VectorIndex(ApplicationDbContext dbContext, OptionVectorizationConfig vectorizationConfig)
     {
-        _db = db;
-        _config = config;
+        _dbContext = dbContext;
+        _vectorizationConfig = vectorizationConfig;
     }
+
 
     public async Task Upsert(Guid adId, uint[] signature, CancellationToken cancellationToken)
     {
-        var p = _config.GetActive();
+        var activeConfig = _vectorizationConfig.GetActive();
 
-        for (int band = 0; band < p.LshBandCount; band++)
+        for (int band = 0; band < activeConfig.LshBandCount; band++)
         {
-            var key = ComputeBandKey(signature, band, p.RowsPerBand);
+            var key = ComputeBandKey(signature, band, activeConfig.RowsPerBand);
             var entity = new LshBucketEntity
             {
                 Id = Guid.CreateVersion7(),
-                Version = p.Version,
+                Version = activeConfig.Version,
                 Band = band,
                 Key = key,
                 AdId = adId,
                 CreatedAt = DateTime.UtcNow
             };
-            _db.LshBuckets.Add(entity);
+            _dbContext.LshBuckets.Add(entity);
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
 
     public async Task<IReadOnlyCollection<Guid>> Query(uint[] signature, CancellationToken cancellationToken)
     {
-        var p = _config.GetActive();
+        var activeConfig = _vectorizationConfig.GetActive();
         var ids = new HashSet<Guid>();
 
-        for (int band = 0; band < p.LshBandCount; band++)
+        for (int band = 0; band < activeConfig.LshBandCount; band++)
         {
-            var key = ComputeBandKey(signature, band, p.RowsPerBand);
-            var matches = await _db.LshBuckets
+            var key = ComputeBandKey(signature, band, activeConfig.RowsPerBand);
+            var matches = await _dbContext.LshBuckets
                 .AsNoTracking()
-                .Where(x => x.Version == p.Version && x.Band == band && x.Key == key)
+                .Where(x => x.Version == activeConfig.Version && x.Band == band && x.Key == key)
                 .Select(x => x.AdId)
                 .ToListAsync(cancellationToken);
 
@@ -56,7 +58,7 @@ public sealed class VectorIndex : IVectorIndex
                 ids.Add(id);
         }
 
-        return ids.ToList();
+        return [.. ids];
     }
 
 
@@ -75,6 +77,6 @@ public sealed class VectorIndex : IVectorIndex
     }
 
 
-    private readonly ApplicationDbContext _db;
-    private readonly IVectorizationConfig _config;
+    private readonly ApplicationDbContext _dbContext;
+    private readonly OptionVectorizationConfig _vectorizationConfig;
 }

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using TgJobAdAnalytics.Models.Telegram.Enums;
 
 namespace TgJobAdAnalytics.Models.Telegram.Converters;
 

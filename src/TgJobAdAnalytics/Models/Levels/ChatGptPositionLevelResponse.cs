@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using TgJobAdAnalytics.Models.Levels.Enums;
 
 namespace TgJobAdAnalytics.Models.Levels;
 

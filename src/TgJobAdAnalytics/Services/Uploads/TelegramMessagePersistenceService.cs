@@ -5,13 +5,14 @@ using System.Collections.Concurrent;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Models.Telegram;
+using TgJobAdAnalytics.Models.Telegram.Enums;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
-public class TelegramMessagePersistenceService
+public sealed class TelegramMessagePersistenceService
 {
     public TelegramMessagePersistenceService(ILogger<TelegramMessagePersistenceService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options, IOptions<ParallelOptions> parallelOptions)
     {
@@ -31,18 +32,13 @@ public class TelegramMessagePersistenceService
     }
 
 
-    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken)
-    {
-        switch (state)
+    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken) 
+        => state switch
         {
-            case UploadedDataState.New:
-                return await AddAll(chat, timeStamp, cancellationToken);
-            case UploadedDataState.Existing:
-                return await AddOnlyNew(chat, timeStamp, cancellationToken);
-            default:
-                throw new ArgumentOutOfRangeException(nameof(state), state, null);
+            UploadedDataState.New => await AddAll(chat, timeStamp, cancellationToken),
+            UploadedDataState.Existing => await AddOnlyNew(chat, timeStamp, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
         };
-    }
 
 
     private Task<int> AddAll(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
@@ -159,9 +155,9 @@ public class TelegramMessagePersistenceService
         }
     }
 
-
-    private readonly ILogger<TelegramMessagePersistenceService> _logger;
+    
     private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<TelegramMessagePersistenceService> _logger;
     private readonly UploadOptions _options;
     private readonly ParallelOptions _parallelOptions;
 }

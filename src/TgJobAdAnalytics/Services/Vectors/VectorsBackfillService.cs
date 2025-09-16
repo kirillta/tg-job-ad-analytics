@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using Scriban.Parsing;
 using TgJobAdAnalytics.Data;
+using TgJobAdAnalytics.Models.Vectors;
 
 namespace TgJobAdAnalytics.Services.Vectors;
 
@@ -12,10 +11,10 @@ public sealed class VectorsBackfillService
 {
     public VectorsBackfillService(
         ApplicationDbContext dbContext,
-        IMinHashVectorizer minHashVectorizer,
-        IVectorStore vectorStore,
-        IVectorIndex vectorIndex,
-        IVectorizationConfig vectorizationConfig)
+        MinHashVectorizer minHashVectorizer,
+        VectorStore vectorStore,
+        VectorIndex vectorIndex,
+        OptionVectorizationConfig vectorizationConfig)
     {
         _dbContext = dbContext;
         _minHashVectorizer = minHashVectorizer;
@@ -66,8 +65,8 @@ public sealed class VectorsBackfillService
 
 
     private readonly ApplicationDbContext _dbContext;
-    private readonly IMinHashVectorizer _minHashVectorizer;
-    private readonly IVectorStore _vectorStore;
-    private readonly IVectorIndex _vectorIndex;
-    private readonly IVectorizationConfig _vectorizationConfig;
+    private readonly MinHashVectorizer _minHashVectorizer;
+    private readonly VectorStore _vectorStore;
+    private readonly VectorIndex _vectorIndex;
+    private readonly OptionVectorizationConfig _vectorizationConfig;
 }

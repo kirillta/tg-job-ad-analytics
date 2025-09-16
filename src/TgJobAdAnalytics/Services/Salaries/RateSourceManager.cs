@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-public class RateSourceManager
+public sealed class RateSourceManager
 {
     public RateSourceManager(ILogger<RateSourceManager> logger, IOptions<RateOptions> rateOptions)
     {

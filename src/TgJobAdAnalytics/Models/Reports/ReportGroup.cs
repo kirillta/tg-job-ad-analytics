@@ -10,5 +10,6 @@ public readonly record struct ReportGroup
 
 
     public string Title { get; init; }
+
     public List<Report> Reports { get; init; }
 }

@@ -1,8 +1,9 @@
 ﻿using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
-public class RateService : IRateService
+public sealed class RateService : IRateService
 {
     public RateService(Dictionary<(Currency, DateOnly), Rate> rates)
     {

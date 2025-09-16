@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Reports.Enums;
 using TgJobAdAnalytics.Models.Reports.Html;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;

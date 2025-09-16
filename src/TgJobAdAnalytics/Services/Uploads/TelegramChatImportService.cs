@@ -11,7 +11,7 @@ using TgJobAdAnalytics.Services.Messages;
 
 namespace TgJobAdAnalytics.Services.Uploads
 {
-    public class TelegramChatImportService
+    public sealed class TelegramChatImportService
     {
         public TelegramChatImportService(
             ILogger<TelegramChatImportService> logger,

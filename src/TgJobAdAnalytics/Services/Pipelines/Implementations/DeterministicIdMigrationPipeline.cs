@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Utils;
 
-namespace TgJobAdAnalytics.Pipelines;
+namespace TgJobAdAnalytics.Services.Pipelines.Implementations;
 
 /// <summary>
 /// Migrates existing Message and Ad identifiers to deterministic GUIDs derived from Telegram keys.
@@ -11,6 +11,9 @@ namespace TgJobAdAnalytics.Pipelines;
 /// </summary>
 public sealed class DeterministicIdMigrationPipeline : IPipeline
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DeterministicIdMigrationPipeline"/> class.
+    /// </summary>
     public DeterministicIdMigrationPipeline(ILoggerFactory loggerFactory, ApplicationDbContext dbContext)
     {
         _logger = loggerFactory.CreateLogger<DeterministicIdMigrationPipeline>();
@@ -55,7 +58,7 @@ public sealed class DeterministicIdMigrationPipeline : IPipeline
             .Join(_dbContext.Messages.AsNoTracking(), a => a.MessageId, m => m.Id, (a, m) => new
             {
                 AdId = a.Id,
-                MessageId = a.MessageId,
+                a.MessageId,
                 m.TelegramChatId,
                 m.TelegramMessageId
             })
@@ -142,7 +145,7 @@ public sealed class DeterministicIdMigrationPipeline : IPipeline
         return updated;
     }
 
-
-    private readonly ILogger<DeterministicIdMigrationPipeline> _logger;
+    
     private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<DeterministicIdMigrationPipeline> _logger;
 }

@@ -7,7 +7,7 @@ using TgJobAdAnalytics.Models.Uploads.Enums;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
-public class TelegramChatPersistenceService
+public sealed class TelegramChatPersistenceService
 {
     public TelegramChatPersistenceService(ILogger<TelegramChatPersistenceService> logger, ApplicationDbContext dbContext)
     {
@@ -93,7 +93,7 @@ public class TelegramChatPersistenceService
         _logger.LogInformation("Updated existing chat: {ChatName}", chat.Name);
     }
 
-
-    private readonly ILogger<TelegramChatPersistenceService> _logger;
+    
     private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<TelegramChatPersistenceService> _logger;
 }

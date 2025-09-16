@@ -1,6 +1,6 @@
 using TgJobAdAnalytics.Models.Messages;
 
-namespace TgJobAdAnalytics.Services.Vectors;
+namespace TgJobAdAnalytics.Models.Vectors;
 
 /// <summary>
 /// Parameters defining the active vectorization model used to compute master-vectors and LSH keys.

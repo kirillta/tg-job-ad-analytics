@@ -12,7 +12,10 @@ internal readonly record struct ReportItem
 
 
     public string Title { get; }
+
     public List<KeyValuePair<string, string>> Results { get; }
+
     public ChartModel? Chart { get; }
+
     public Dictionary<string, ChartModel.DataModel>? Variants { get; }
 }

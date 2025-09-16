@@ -14,7 +14,9 @@ internal readonly record struct ChartModel
 
 
     public Guid Id { get; }
+
     public DataModel Data { get; }
+
     public string Type { get; }
 
 
@@ -28,6 +30,7 @@ internal readonly record struct ChartModel
 
 
         public List<string> Labels { get; }
+
         public DatasetModel Dataset { get; }
     }
 
@@ -44,11 +47,17 @@ internal readonly record struct ChartModel
 
 
         public List<string> BackgroundColor { get; }
+
         public List<string> BorderColor { get; }
+
         public int BorderWidth { get; } = 1;
+
         public List<string> Data { get; }
+
         public bool Fill { get; } = false;
+
         public string Label { get; }
+
         public double Tension { get; } = 0.1;
     }
 }

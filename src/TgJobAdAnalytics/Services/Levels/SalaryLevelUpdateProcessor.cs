@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
-using TgJobAdAnalytics.Models.Levels;
+using TgJobAdAnalytics.Models.Levels.Enums;
 
 namespace TgJobAdAnalytics.Services.Levels;
 

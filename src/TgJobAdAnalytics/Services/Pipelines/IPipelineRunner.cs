@@ -1,4 +1,6 @@
-namespace TgJobAdAnalytics.Pipelines;
+using TgJobAdAnalytics.Models.Pipelines;
+
+namespace TgJobAdAnalytics.Services.Pipelines;
 
 /// <summary>
 /// Provides discovery and execution for configured pipelines.
@@ -18,8 +20,3 @@ public interface IPipelineRunner
     /// <returns>Number of processed/updated items.</returns>
     Task<int> Run(string name, CancellationToken cancellationToken);
 }
-
-/// <summary>
-/// Describes a pipeline registered in the system.
-/// </summary>
-public sealed record PipelineMetadata(string Name, string Description, bool IsIdempotent);

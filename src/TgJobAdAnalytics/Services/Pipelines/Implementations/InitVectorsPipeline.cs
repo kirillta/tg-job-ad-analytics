@@ -4,9 +4,10 @@ using Microsoft.Extensions.Options;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Vectors;
 using TgJobAdAnalytics.Models.Messages;
+using TgJobAdAnalytics.Models.Vectors;
 using TgJobAdAnalytics.Services.Vectors;
 
-namespace TgJobAdAnalytics.Pipelines;
+namespace TgJobAdAnalytics.Services.Pipelines.Implementations;
 
 /// <summary>
 /// Seeds the active vectorization model into the DB (if missing) and backfills vectors and index entries.
@@ -18,42 +19,45 @@ public sealed class InitVectorsPipeline : IPipeline
     /// </summary>
     public InitVectorsPipeline(
         ILoggerFactory loggerFactory,
-        ApplicationDbContext db,
-        IOptions<VectorizationOptions> options,
-        IVectorizationConfig config,
-        VectorsBackfillService backfill)
+        ApplicationDbContext dbContext,
+        IOptions<VectorizationOptions> vectorizationOptions,
+        OptionVectorizationConfig vectorizationConfig,
+        VectorsBackfillService vectorsBackfillService)
     {
         _logger = loggerFactory.CreateLogger<InitVectorsPipeline>();
-        _db = db;
-        _options = options.Value;
-        _config = config;
-        _backfill = backfill;
+        _dbContext = dbContext;
+        _vectorizationOptions = vectorizationOptions.Value;
+        _vectorizationConfig = vectorizationConfig;
+        _vectorsBackfillService = vectorsBackfillService;
     }
 
 
     /// <inheritdoc/>
-    public string Name => "init-vectors";
+    public string Name 
+        => "init-vectors";
 
 
     /// <inheritdoc/>
-    public string Description => "Seed active vector model and backfill master-vectors and LSH buckets.";
+    public string Description
+        => "Seed active vector model and backfill master-vectors and LSH buckets.";
 
 
     /// <inheritdoc/>
-    public bool IsIdempotent => true;
+    public bool IsIdempotent 
+        => true;
 
 
     /// <inheritdoc/>
     public async Task<int> Run(CancellationToken cancellationToken)
     {
-        var activeModelConfig = _config.GetActive();
-        var model = await _db.VectorModelVersions.FirstOrDefaultAsync(x => x.Version == activeModelConfig.Version, cancellationToken);
+        var activeModelConfig = _vectorizationConfig.GetActive();
+        var model = await _dbContext.VectorModelVersions.FirstOrDefaultAsync(x => x.Version == activeModelConfig.Version, cancellationToken);
         if (model is null)
         {
             model = new VectorModelVersionEntity
             {
                 Version = activeModelConfig.Version,
-                NormalizationVersion = _options.NormalizationVersion,
+                NormalizationVersion = _vectorizationOptions.NormalizationVersion,
                 ShingleSize = activeModelConfig.ShingleSize,
                 HashFunctionCount = activeModelConfig.HashFunctionCount,
                 MinHashSeed = activeModelConfig.MinHashSeed,
@@ -66,8 +70,8 @@ public sealed class InitVectorsPipeline : IPipeline
                 CreatedAt = DateTime.UtcNow
             };
 
-            _db.VectorModelVersions.Add(model);
-            await _db.SaveChangesAsync(cancellationToken);
+            _dbContext.VectorModelVersions.Add(model);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("InitVectors: seeded model version {Version}", activeModelConfig.Version);
         }
@@ -88,22 +92,22 @@ public sealed class InitVectorsPipeline : IPipeline
 
             if (needsUpdate)
             {
-                _db.VectorModelVersions.Update(model);
-                await _db.SaveChangesAsync(cancellationToken);
+                _dbContext.VectorModelVersions.Update(model);
+                await _dbContext.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("InitVectors: updated model version {Version} (IsActive={IsActive}, VocabularySize={VocabularySize})", model.Version, model.IsActive, model.VocabularySize);
             }
         }
 
-        var processed = await _backfill.Backfill(cancellationToken);
+        var processed = await _vectorsBackfillService.Backfill(cancellationToken);
 
         _logger.LogInformation("InitVectors: backfilled vectors for {Count} ads", processed);
         return processed;
     }
 
-
+    
+    private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<InitVectorsPipeline> _logger;
-    private readonly ApplicationDbContext _db;
-    private readonly VectorizationOptions _options;
-    private readonly IVectorizationConfig _config;
-    private readonly VectorsBackfillService _backfill;
+    private readonly VectorsBackfillService _vectorsBackfillService;
+    private readonly OptionVectorizationConfig _vectorizationConfig;
+    private readonly VectorizationOptions _vectorizationOptions;
 }

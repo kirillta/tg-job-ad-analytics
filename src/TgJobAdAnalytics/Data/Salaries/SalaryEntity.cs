@@ -1,5 +1,5 @@
-﻿using TgJobAdAnalytics.Models.Levels;
-using TgJobAdAnalytics.Models.Salaries;
+﻿using TgJobAdAnalytics.Models.Levels.Enums;
+using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Data.Salaries;
 

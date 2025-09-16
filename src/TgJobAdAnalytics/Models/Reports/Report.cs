@@ -1,4 +1,6 @@
-﻿namespace TgJobAdAnalytics.Models.Reports;
+﻿using TgJobAdAnalytics.Models.Reports.Enums;
+
+namespace TgJobAdAnalytics.Models.Reports;
 
 public readonly record struct Report
 {
@@ -12,7 +14,10 @@ public readonly record struct Report
 
     
     public Dictionary<string, double> Results { get; init; }
+
     public string Title { get; init; }
+
     public ChartType Type { get; init; }
+
     public Dictionary<string, Dictionary<string, double>>? Variants { get; init; }
 }

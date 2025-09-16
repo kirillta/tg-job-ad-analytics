@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Models.Levels;
+using TgJobAdAnalytics.Models.Levels.Enums;
 
 namespace TgJobAdAnalytics.Services.Levels;
 

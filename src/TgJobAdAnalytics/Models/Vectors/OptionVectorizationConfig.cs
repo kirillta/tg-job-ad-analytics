@@ -1,12 +1,12 @@
 using Microsoft.Extensions.Options;
 using TgJobAdAnalytics.Models.Messages;
 
-namespace TgJobAdAnalytics.Services.Vectors;
+namespace TgJobAdAnalytics.Models.Vectors;
 
 /// <summary>
 /// Default implementation of IVectorizationConfig reading from VectorizationOptions.
 /// </summary>
-public sealed class OptionVectorizationConfig : IVectorizationConfig
+public sealed class OptionVectorizationConfig
 {
     public OptionVectorizationConfig(IOptions<VectorizationOptions> options)
     {

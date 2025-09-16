@@ -14,8 +14,10 @@ public readonly record struct TgMessage
 
     [JsonPropertyName("id")]
     public long Id { get; init; }
+
     [JsonPropertyName("date")]
     public DateTime Date { get; init; }
+
     [JsonPropertyName("text_entities")]
     public List<TgTextEntry> TextEntities { get; init; }
 }

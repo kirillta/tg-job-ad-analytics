@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Services.Messages;
 
-namespace TgJobAdAnalytics.Pipelines;
+namespace TgJobAdAnalytics.Services.Pipelines.Implementations;
 
 /// <summary>
 /// Pipeline that deduplicates ads by computing master-vectors and writing them to the persistent index.
@@ -52,8 +52,8 @@ public sealed class DistinctAdsPipeline : IPipeline
         return uniques.Count;
     }
 
-
-    private readonly ILogger<DistinctAdsPipeline> _logger;
+    
     private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<DistinctAdsPipeline> _logger;
     private readonly SimilarityCalculator _similarityCalculator;
 }

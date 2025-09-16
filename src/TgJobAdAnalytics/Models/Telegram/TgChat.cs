@@ -15,8 +15,10 @@ public readonly record struct TgChat
 
     [JsonPropertyName("id")]
     public long Id { get; init; }
+
     [JsonPropertyName("name")]
     public string Name { get; init; }
+
     [JsonPropertyName("messages")]
     public List<TgMessage> Messages { get; init; }
 }

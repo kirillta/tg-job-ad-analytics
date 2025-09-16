@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using TgJobAdAnalytics.Models.Telegram;
+using TgJobAdAnalytics.Models.Telegram.Enums;
 
 namespace TgJobAdAnalytics.Data.Messages.Converters;
 
