@@ -7,7 +7,7 @@ public class LocalitySensitiveHashCalculatorTests
     [Fact]
     public void Add_StoresSignatureCorrectly()
     {
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         var signature = new uint[] { 1, 2, 3 };
 
         calculator.Add(1, signature);
@@ -20,7 +20,7 @@ public class LocalitySensitiveHashCalculatorTests
     [Fact]
     public void Query_WithEmptyCalculator_ReturnsEmptyList()
     {
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         var signature = new uint[] { 1, 2, 3 };
 
         var result = calculator.GetMatches(signature);
@@ -45,7 +45,7 @@ public class LocalitySensitiveHashCalculatorTests
                 signature2[i] = (uint)(i + 1000);
         }
         
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         calculator.Add(1, signature1);
         var result = calculator.GetMatches(signature2);
 
@@ -65,7 +65,7 @@ public class LocalitySensitiveHashCalculatorTests
             signature2[i] = (uint)(i + 1000); // Completely different values
         }
         
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         calculator.Add(1, signature1);
         var result = calculator.GetMatches(signature2);
 
@@ -76,7 +76,7 @@ public class LocalitySensitiveHashCalculatorTests
     [Fact]
     public void Add_MultipleSimilarSignatures_GroupsTogether()
     {
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         var baseSignature = new uint[] { 1, 2, 3, 4, 5 };
         var similarSignature1 = new uint[] { 1, 2, 3, 4, 6 };
         var similarSignature2 = new uint[] { 1, 2, 3, 5, 6 };
@@ -96,7 +96,7 @@ public class LocalitySensitiveHashCalculatorTests
     public void Query_WithInvalidSignatures_ReturnsEmpty()
     {
 
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         var matches = calculator.GetMatches([]);
 
         Assert.Empty(matches);
@@ -106,7 +106,7 @@ public class LocalitySensitiveHashCalculatorTests
     [Fact]
     public void Add_DuplicateId_ThrowsException()
     {
-        var calculator = new LocalitySensitiveHashCalculator(100, 20);
+        var calculator = new LocalitySensitiveHashWrapper(100, 20);
         var signature1 = new uint[] { 1, 2, 3 };
         var signature2 = new uint[] { 4, 5, 6 };
 

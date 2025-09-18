@@ -1,19 +1,19 @@
-using InnerLsh = TgJobAdAnalytics.Services.Messages.LocalitySensitiveHashCalculator;
 using TgJobAdAnalytics.Models.Messages;
+using TgJobAdAnalytics.Services.Messages;
 
-namespace TgJobAdAnalytics.Services;
+namespace Tests.Helpers;
 
 /// <summary>
 /// Compatibility wrapper exposing simple ctor and signature overloads used by tests, delegating to the actual LSH implementation.
 /// </summary>
-public sealed class LocalitySensitiveHashCalculator
+public sealed class LocalitySensitiveHashWrapper
 {
     /// <summary>
     /// Initializes a new instance with given signature length and band count.
     /// </summary>
     /// <param name="hashFunctionCount">Signature length (rows).</param>
     /// <param name="bandCount">Number of bands.</param>
-    public LocalitySensitiveHashCalculator(int hashFunctionCount, int bandCount)
+    public LocalitySensitiveHashWrapper(int hashFunctionCount, int bandCount)
     {
         var options = new VectorizationOptions
         {
@@ -25,7 +25,7 @@ public sealed class LocalitySensitiveHashCalculator
             NormalizationVersion = "v1"
         };
 
-        _inner = new InnerLsh(options);
+        _inner = new LocalitySensitiveHashCalculator(options);
     }
 
 
@@ -73,5 +73,5 @@ public sealed class LocalitySensitiveHashCalculator
     }
 
 
-    private readonly InnerLsh _inner;
+    private readonly LocalitySensitiveHashCalculator _inner;
 }

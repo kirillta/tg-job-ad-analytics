@@ -7,7 +7,7 @@ public class MinHashCalculatorTests
     [Fact]
     public void Constructor_WithValidParameters_InitializesCorrectly()
     {
-        var calculator = new MinHashCalculator(hashFunctionCount: 10, vocabularySize: 1000);
+        var calculator = new MinHashCalculatorWrapper(hashFunctionCount: 10, vocabularySize: 1000);
         Assert.Equal(10, calculator.HashFunctionCount);
     }
 
@@ -18,7 +18,7 @@ public class MinHashCalculatorTests
     [InlineData(20, 10000)]
     public void HashFunctionCount_ReturnsCorrectValue(int hashFunctionCount, int vocabularySize)
     {
-        var calculator = new MinHashCalculator(hashFunctionCount, vocabularySize);
+        var calculator = new MinHashCalculatorWrapper(hashFunctionCount, vocabularySize);
         Assert.Equal(hashFunctionCount, calculator.HashFunctionCount);
     }
 
@@ -26,7 +26,7 @@ public class MinHashCalculatorTests
     [Fact]
     public void GenerateSignature_EmptyShingles_ReturnsMaxValues()
     {
-        var calculator = new MinHashCalculator(hashFunctionCount: 5, vocabularySize: 100);
+        var calculator = new MinHashCalculatorWrapper(hashFunctionCount: 5, vocabularySize: 100);
         var shingles = new HashSet<string>();
         var signature = calculator.GenerateSignature(shingles).ToArray();
         
@@ -38,7 +38,7 @@ public class MinHashCalculatorTests
     [Fact]
     public void GenerateSignature_SameShingles_ReturnsSameSignature()
     {
-        var calculator = new MinHashCalculator(hashFunctionCount: 10, vocabularySize: 100, seed: 42);
+        var calculator = new MinHashCalculatorWrapper(hashFunctionCount: 10, vocabularySize: 100, seed: 42);
         var shingles1 = new HashSet<string> { "test1", "test2" };
         var shingles2 = new HashSet<string> { "test1", "test2" };
 
@@ -57,7 +57,7 @@ public class MinHashCalculatorTests
 
         var vocabulary = shingles1.Union(shingles2);
 
-        var calculator = new MinHashCalculator(hashFunctionCount: 10, vocabulary.Count());
+        var calculator = new MinHashCalculatorWrapper(hashFunctionCount: 10, vocabulary.Count());
 
         var signature1 = calculator.GenerateSignature(shingles1).ToArray();
         var signature2 = calculator.GenerateSignature(shingles2).ToArray();
@@ -74,7 +74,7 @@ public class MinHashCalculatorTests
 
         var vocabulary = shingles1.Union(shingles2);
 
-        var calculator = new MinHashCalculator(hashFunctionCount: 100, vocabulary.Count());
+        var calculator = new MinHashCalculatorWrapper(hashFunctionCount: 100, vocabulary.Count());
 
         var signature1 = calculator.GenerateSignature(shingles1).ToArray();
         var signature2 = calculator.GenerateSignature(shingles2).ToArray();

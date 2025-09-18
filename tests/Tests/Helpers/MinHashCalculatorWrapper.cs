@@ -1,19 +1,19 @@
 using TgJobAdAnalytics.Models.Messages;
-using InnerMinHash = TgJobAdAnalytics.Services.Messages.MinHashCalculator;
+using TgJobAdAnalytics.Services.Messages;
 
-namespace TgJobAdAnalytics.Services;
+namespace Tests.Helpers;
 
 /// <summary>
 /// Compatibility wrapper exposing a simple constructor used by tests while delegating to the actual MinHash implementation.
 /// </summary>
-public sealed class MinHashCalculator
+public sealed class MinHashCalculatorWrapper
 {
     /// <summary>
     /// Initializes a new instance of the MinHashCalculator with the given parameters.
     /// </summary>
     /// <param name="hashFunctionCount">Number of hash functions.</param>
     /// <param name="vocabularySize">Estimated vocabulary size.</param>
-    public MinHashCalculator(int hashFunctionCount, int vocabularySize)
+    public MinHashCalculatorWrapper(int hashFunctionCount, int vocabularySize)
         : this(hashFunctionCount, vocabularySize, seed: 1000)
     {
     }
@@ -25,7 +25,7 @@ public sealed class MinHashCalculator
     /// <param name="hashFunctionCount">Number of hash functions.</param>
     /// <param name="vocabularySize">Estimated vocabulary size.</param>
     /// <param name="seed">Seed used to generate hash functions.</param>
-    public MinHashCalculator(int hashFunctionCount, int vocabularySize, int seed)
+    public MinHashCalculatorWrapper(int hashFunctionCount, int vocabularySize, int seed)
     {
         var options = new VectorizationOptions
         {
@@ -37,7 +37,7 @@ public sealed class MinHashCalculator
             NormalizationVersion = "v1"
         };
 
-        _inner = new InnerMinHash(options, vocabularySize);
+        _inner = new MinHashCalculator(options, vocabularySize);
     }
 
 
@@ -56,5 +56,5 @@ public sealed class MinHashCalculator
         => _inner.GenerateSignature(shingles);
 
 
-    private readonly InnerMinHash _inner;
+    private readonly MinHashCalculator _inner;
 }

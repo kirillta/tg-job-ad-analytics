@@ -17,14 +17,14 @@ namespace TgJobAdAnalytics.Services.Uploads
             ILogger<TelegramChatImportService> logger,
             ApplicationDbContext dbContext,
             IOptions<UploadOptions> options, 
-            TelegramAdPersistenceService adDataService,
+            TelegramAdPersistenceService telegramAdPersistenceService,
             TelegramChatPersistenceService telegramChatPersistenceService, 
             TelegramMessagePersistenceService telegramMessagePersistenceService,
             SimilarityCalculator similarityCalculator)
         {
             _dbContext = dbContext;
             _logger = logger;
-            _adDataService = adDataService;
+            _telegramAdPersistenceService = telegramAdPersistenceService;
             _telegramChatPersistenceService = telegramChatPersistenceService;
             _telegramMessagePersistenceService = telegramMessagePersistenceService;
             _options = options.Value;
@@ -45,7 +45,7 @@ namespace TgJobAdAnalytics.Services.Uploads
                 await _telegramChatPersistenceService.RemoveAll(cancellationToken);
                 await _telegramMessagePersistenceService.RemoveAll(cancellationToken);
                 // Preserve ads and derived data (salaries, vectors) to avoid re-processing LLM and vectorization work
-                //_ = await _adDataService.RemoveAll();
+                //_ = await _telegramAdPersistenceService.RemoveAll();
             }
 
             var timeStamp = DateTime.UtcNow;
@@ -61,23 +61,28 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chatFileName = Path.GetFileName(fileName);
                 _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
-                var chat = await ReadChatFromFile(fileName, cancellationToken);
-
-                var chatState = await _telegramChatPersistenceService.DetermineState(chat, cancellationToken);
-
-                var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
-                await _adDataService.Upsert(chat, chatState, timeStamp, cancellationToken);
-
-                if (chatState == UploadedDataState.New || addedMessages > 0)
-                    await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
-                else
-                    _logger.LogInformation("No new messages for chat '{ChatName}'. Skipping chat update.", chat.Name);
+                await Process(chatFileName);
 
                 _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
             }            
         
             _logger.LogInformation("Chat processing completed");
             await DeduplicateAds(cancellationToken);
+
+
+            async Task Process(string fileName)
+            { 
+                var chat = await ReadChatFromFile(fileName, cancellationToken);
+                var chatState = await _telegramChatPersistenceService.DetermineState(chat, cancellationToken);
+
+                var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+                await _telegramAdPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+
+                if (chatState == UploadedDataState.New || addedMessages > 0)
+                    await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+                else
+                    _logger.LogInformation("No new messages for chat '{ChatName}'. Skipping chat update.", chat.Name);
+            }
 
 
             static async Task<TgChat> ReadChatFromFile(string name, CancellationToken cancellationToken)
@@ -119,7 +124,7 @@ namespace TgJobAdAnalytics.Services.Uploads
 
         private readonly ApplicationDbContext _dbContext;
         private readonly ILogger<TelegramChatImportService> _logger;
-        private readonly TelegramAdPersistenceService _adDataService;
+        private readonly TelegramAdPersistenceService _telegramAdPersistenceService;
         private readonly TelegramChatPersistenceService _telegramChatPersistenceService;
         private readonly TelegramMessagePersistenceService _telegramMessagePersistenceService;
         private readonly UploadOptions _options;
