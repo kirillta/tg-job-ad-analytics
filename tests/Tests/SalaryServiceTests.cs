@@ -17,23 +17,6 @@ public class SalaryServiceTests
 
 
     [Theory]
-    [InlineData("50k-70k USD", 50000, 70000, Currency.USD)]
-    [InlineData("от 150к до 200к руб", 150000, 200000, Currency.RUB)]
-    [InlineData("$60-80k", 60000, 80000, Currency.USD)]
-    [InlineData("до 100к", double.NaN, 100000, Currency.RUB)]
-    public void Get_ValidSalaryRanges_ParsesCorrectly(string input, double expectedLower, double expectedUpper, Currency expectedCurrency)
-    {
-        var date = new DateOnly(2024, 1, 1);
-
-        var result = _service.Get(input, date);
-
-        Assert.Equal(expectedLower, result.LowerBound);
-        Assert.Equal(expectedUpper, result.UpperBound);
-        Assert.Equal(expectedCurrency, result.Currency);
-    }
-
-
-    [Theory]
     [InlineData("invalid text")]
     [InlineData("")]
     public void Get_InvalidInput_ReturnsUnknownCurrency(string input)

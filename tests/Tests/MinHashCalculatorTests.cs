@@ -1,4 +1,4 @@
-﻿using TgJobAdAnalytics.Services;
+﻿using Tests.Helpers;
 
 namespace Tests;
 
