@@ -20,7 +20,7 @@ public sealed class SalaryStatisticsCalculator
             GetMedianByYearWithVariants(filteredSalaries)
         };
 
-        return new ReportGroup("Статистика по зарплатам", reports);
+        return new ReportGroup("group.salary.stats", reports);
     }
 
 
@@ -39,7 +39,7 @@ public sealed class SalaryStatisticsCalculator
 
         var variants = new Dictionary<string, Dictionary<string, double>>
         {
-            ["Все"] = baseResults
+            ["Все"] = baseResults // localization of variants deferred
         };
 
         foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
@@ -60,7 +60,7 @@ public sealed class SalaryStatisticsCalculator
         }
 
         return new Report(
-            title: "Минимальная зарплата по годам",
+            title: "report.salary.min_years",
             results: baseResults,
             variants: variants
         );
@@ -103,7 +103,7 @@ public sealed class SalaryStatisticsCalculator
         }
 
         return new Report(
-            title: "Максимальная зарплата по годам",
+            title: "report.salary.max_years",
             results: baseResults,
             variants: variants
         );
@@ -150,7 +150,7 @@ public sealed class SalaryStatisticsCalculator
         }
 
         return new Report(
-            title: "Средняя зарплата по годам",
+            title: "report.salary.avg_years",
             results: baseResults,
             variants: variants
         );
@@ -201,7 +201,7 @@ public sealed class SalaryStatisticsCalculator
         }
 
         return new Report(
-            title: "Медианная зарплата по годам",
+            title: "report.salary.median_years",
             results: baseResults,
             variants: variants
         );

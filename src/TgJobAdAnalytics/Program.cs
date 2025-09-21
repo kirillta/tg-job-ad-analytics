@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -8,17 +9,20 @@ using System.Diagnostics;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
+using TgJobAdAnalytics.Models.Reports.Metadata;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Models.Vectors;
 using TgJobAdAnalytics.Services;
 using TgJobAdAnalytics.Services.Levels;
+using TgJobAdAnalytics.Services.Localization;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Pipelines;
 using TgJobAdAnalytics.Services.Pipelines.Implementations;
 using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
+using TgJobAdAnalytics.Services.Reports.Metadata;
 using TgJobAdAnalytics.Services.Salaries;
 using TgJobAdAnalytics.Services.Uploads;
 using TgJobAdAnalytics.Services.Vectors;
@@ -49,9 +53,13 @@ LogExecutionDuration(logger, Stopwatch.GetElapsedTime(startTime));
 
 async static Task ApplyDatabaseMigrations(IServiceProvider services)
 { 
-    using var dbContext = services.GetRequiredService<ApplicationDbContext>();
+    var dbContext = services.GetRequiredService<ApplicationDbContext>();
     await dbContext.Database.MigrateAsync();
 }
+
+
+static string GetOperationalPath(params string[] relativePathSegments) =>
+    Path.Combine([Environment.CurrentDirectory, "..", "..", "..", .. relativePathSegments]);
 
 
 static IHost BuildHost(string[] args) =>
@@ -73,14 +81,12 @@ static IHost BuildHost(string[] args) =>
     })
     .ConfigureServices((context, services) =>
     {
-        var operationalDirectory = Path.Combine(Environment.CurrentDirectory, "..", "..", "..");
-
         services.AddDbContext<ApplicationDbContext>();
         services.Configure<UploadOptions>(options =>
         {
             options.BatchSize = int.Parse(context.Configuration["Upload:BatchSize"]!);
             options.Mode = Enum.Parse<UploadMode>(context.Configuration["Upload:Mode"]!);
-            options.SourcePath = Path.Combine(operationalDirectory, "Sources");
+            options.SourcePath = GetOperationalPath("Sources");
         });
 
         services.Configure<ParallelOptions>(options =>
@@ -93,13 +99,24 @@ static IHost BuildHost(string[] args) =>
         services.Configure<RateOptions>(options => 
         { 
             options.RateApiUrl = new Uri("https://www.cbr.ru/scripts/XML_dynamic.asp");
-            options.RateSourcePath = Path.Combine(operationalDirectory, "Sources", "rates.csv");
+            options.RateSourcePath = GetOperationalPath("Sources", "rates.csv");
         });
 
         services.Configure<ReportPrinterOptions>(options =>
         {
-            options.OutputPath = Path.Combine(operationalDirectory, "Output");
+            options.OutputPath = GetOperationalPath("Output");
             options.TemplatePath = Path.Combine("Views", "Reports");
+        });
+
+        services.Configure<SiteMetadataOptions>(options => 
+        {
+            options.BaseUrl = context.Configuration["SiteMetadata:BaseUrl"]!;
+            options.SiteName = context.Configuration["SiteMetadata:SiteName"]!;
+            options.DefaultOgImagePath = context.Configuration["SiteMetadata:DefaultOgImagePath"]!;
+            options.Locales = [.. context.Configuration.GetSection("SiteMetadata:Locales").Get<string[]>()!];
+            options.PrimaryLocale = context.Configuration["SiteMetadata:PrimaryLocale"]!;
+            options.JsonLdType = Enum.Parse<JsonLdType>(context.Configuration["SiteMetadata:JsonLdType"]!);
+            options.LocalizationPath = GetOperationalPath(context.Configuration["SiteMetadata:LocalizationPath"]!);
         });
 
         services.AddSingleton(_ => 
@@ -157,6 +174,8 @@ static IHost BuildHost(string[] args) =>
         services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
         services.AddTransient<ProcessOrchestrator>();
+        services.AddTransient<MetadataBuilder>();
+        services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
     })
     .Build();
 

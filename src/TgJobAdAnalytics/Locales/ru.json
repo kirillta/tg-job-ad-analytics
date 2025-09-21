@@ -1,0 +1,16 @@
+{
+  "report.title.suffix": "Аналитика вакансий и зарплат",
+  "report.description.default": "Постоянно обновляемый отчёт по обработанным вакансиям Telegram с извлечённой статистикой зарплат.",
+  "report.description.with_stats": "Отчёт по вакансиям Telegram: медианная зарплата {median}, p90 {p90}, {count} обработанных зарплат. Обновление ежемесячно.",
+  "ui.updated": "Обновлено",
+  "group.ads.stats": "Статистика по вакансиям",
+  "group.salary.stats": "Статистика по зарплатам",
+  "report.ads.top_months": "Топ-3 лучших месяца по предложениям за всё время",
+  "report.ads.monthly_by_year": "Количество вакансий по месяцам",
+  "report.ads.month_distribution": "Общее количество вакансий по месяцам года",
+  "report.ads.yearly_counts": "Общее количество вакансий по годам",
+  "report.salary.min_years": "Минимальная зарплата по годам",
+  "report.salary.max_years": "Максимальная зарплата по годам",
+  "report.salary.avg_years": "Средняя зарплата по годам",
+  "report.salary.median_years": "Медианная зарплата по годам"
+}

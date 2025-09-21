@@ -2,11 +2,12 @@
 
 internal readonly record struct ReportModel
 {
-    internal ReportModel(List<ReportItemGroup> reportGroups, DateOnly reportDate, List<DataSourceModel> dataSources)
+    internal ReportModel(List<ReportItemGroup> reportGroups, DateOnly reportDate, List<DataSourceModel> dataSources, ReportPageMetadata metadata)
     {
         DataSources = dataSources;
         ReportDate = reportDate;
         ReportGroups = reportGroups;
+        Metadata = metadata;
     }
 
 
@@ -15,4 +16,6 @@ internal readonly record struct ReportModel
     public DateOnly ReportDate { get; }
 
     public List<ReportItemGroup> ReportGroups { get; }
+
+    public ReportPageMetadata Metadata { get; }
 }

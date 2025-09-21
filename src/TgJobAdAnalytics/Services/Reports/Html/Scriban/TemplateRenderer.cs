@@ -44,18 +44,22 @@ internal class TemplateRenderer
 
         var scriptObjectWithFunctions = new ScriptObject();
         scriptObjectWithFunctions.Import("dump", new Func<object, string>(DumpObject));
+       
         context.PushGlobal(scriptObjectWithFunctions);
-
         context.PushGlobal(scriptObject);
 
         return context;
     }
 
-    private string DumpObject(object obj)
-    {
-        return JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
-    }
 
+    private string DumpObject(object obj) 
+        => JsonSerializer.Serialize(obj, _jsonOptions);
+
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        WriteIndented = true
+    };
 
     private readonly FileSystemLoader _loader;
     private readonly string _templatesPath;

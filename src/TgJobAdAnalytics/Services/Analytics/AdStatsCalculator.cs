@@ -16,7 +16,7 @@ public sealed class AdStatsCalculator
             GetYearlyAdCounts(salaries),
         };
 
-        return new ReportGroup("Статистика по вакансиям", reports);
+        return new ReportGroup("group.ads.stats", reports);
     }
 
 
@@ -34,7 +34,7 @@ public sealed class AdStatsCalculator
             .Take(3)
             .ToDictionary(group => group.Year + " " + new DateTime(1, group.Month, 1).ToString("MMMM"), group => (double) group.Count);
 
-        return new Report("Топ-3 лучших месяца по предложениям за всё время", results, ChartType.None);
+        return new Report("report.ads.top_months", results, ChartType.None);
     }
 
 
@@ -65,7 +65,7 @@ public sealed class AdStatsCalculator
             .ThenBy(group => group.Value.Month)
             .ToDictionary(pair => pair.Value.Year + " " + new DateTime(1, pair.Value.Month, 1).ToString("MMMM"), pair => (double) pair.Value.Count);
 
-        return new Report("Количество вакансий по месяцам", results);
+        return new Report("report.ads.monthly_by_year", results);
     }
 
 
@@ -81,7 +81,7 @@ public sealed class AdStatsCalculator
             .OrderBy(group => group.Key)
             .ToDictionary(group => new DateTime(1, group.Key, 1).ToString("MMMM"), group => (double) group.Count);
 
-        return new Report("Общее количество вакансий по месяцам года", results, ChartType.PolarArea);
+        return new Report("report.ads.month_distribution", results, ChartType.PolarArea);
     }
 
 
@@ -97,6 +97,6 @@ public sealed class AdStatsCalculator
             .OrderBy(group => group.Key)
             .ToDictionary(group => group.Key.ToString(), group => (double) group.Count);
 
-        return new Report("Общее количество вакансий по годам", results);
+        return new Report("report.ads.yearly_counts", results);
     }
 }

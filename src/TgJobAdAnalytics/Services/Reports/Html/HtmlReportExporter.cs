@@ -1,19 +1,25 @@
 ﻿using Microsoft.Extensions.Options;
+using System.Text.Json;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Enums;
 using TgJobAdAnalytics.Models.Reports.Html;
 using TgJobAdAnalytics.Services.Reports.Html.Scriban;
+using TgJobAdAnalytics.Services.Reports.Metadata;
+using TgJobAdAnalytics.Models.Reports.Metadata;
+using TgJobAdAnalytics.Services.Localization;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
 public sealed class HtmlReportExporter : IReportExporter
 {
-    public HtmlReportExporter(ApplicationDbContext dbContext, IOptions<ReportPrinterOptions> options)
+    public HtmlReportExporter(ApplicationDbContext dbContext, IOptions<ReportPrinterOptions> options, MetadataBuilder metadataBuilder, IOptions<SiteMetadataOptions> siteMetadataOptions, ILocalizationProvider localizationProvider)
     {
         _dbContext = dbContext;
         _options = options.Value;
-
+        _metadataBuilder = metadataBuilder;
+        _siteMetadata = siteMetadataOptions.Value;
+        _localization = localizationProvider;
         _templateRenderer = new TemplateRenderer(_options.TemplatePath);
     }
 
@@ -23,14 +29,14 @@ public sealed class HtmlReportExporter : IReportExporter
         var groups = reportGroups.Select(BuildReportItemGroup)
             .ToList();
 
-        GenerateReport(groups);
+        GenerateReports(groups);
     }
 
 
     public void Write(IEnumerable<Report> reports)
     {
         var group = new ReportItemGroup(string.Empty, reports.Select(BuildReportItem).ToList());
-        GenerateReport([group]);
+        GenerateReports([group]);
     }
 
 
@@ -49,8 +55,7 @@ public sealed class HtmlReportExporter : IReportExporter
             })
             .ToDictionary(x => x.ChatId, x => x.MinDate);
 
-        var chats = _dbContext.Chats
-            .ToList();
+        var chats = _dbContext.Chats.ToList();
 
         var lastDayOfThePreviousMonth = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddDays(-1);
 
@@ -82,12 +87,13 @@ public sealed class HtmlReportExporter : IReportExporter
             var processedMessages = messageCounts.TryGetValue(chat.TelegramId, out var mc) ? mc : 0;
             var extractedSalaries = salaryCounts.TryGetValue(chat.TelegramId, out var sc) ? sc : 0;
 
-            // Because we trim dates to the last day of the previous month to avoid showing incomplete data intervals
-            results.Add(new DataSourceModel(chat.TelegramId, chat.Name, DateOnly.FromDateTime(minDate), lastDayOfThePreviousMonth, processedMessages, extractedSalaries));
+            // Trim dates to the last day of the previous month to avoid showing incomplete interval
+            results.Add(new DataSourceModel(id: chat.TelegramId, name: chat.Name, minimalDate: DateOnly.FromDateTime(minDate), maximalDate: lastDayOfThePreviousMonth, processedMessages: processedMessages, extractedSalaries: extractedSalaries));
         }
 
         return results;
     }
+
 
     private static ReportItem BuildReportItem(Report report)
     {
@@ -115,16 +121,45 @@ public sealed class HtmlReportExporter : IReportExporter
 
 
     private static ReportItemGroup BuildReportItemGroup(ReportGroup reportGroup)
-        => new(reportGroup.Title, reportGroup.Reports.Select(BuildReportItem).ToList());
+        => new(reportGroup.Title, [.. reportGroup.Reports.Select(BuildReportItem)]);
 
 
-    private void GenerateReport(List<ReportItemGroup> reportItemGroups)
+    private void GenerateReports(List<ReportItemGroup> reportItemGroups)
     {
         var dataSources = BuildDataSourceModels();
+        var generationTime = DateTime.UtcNow;
 
-        var reportModel = ReportModelBuilder.Build(reportItemGroups, dataSources);
-        var html = _templateRenderer.Render(reportModel);
-        WriteToFile(html);
+        foreach (var locale in _siteMetadata.Locales)
+        {
+            var localizedGroups = LocalizeGroups(reportItemGroups, locale);
+            var persistedPublishedUtc = ReadPublishedTimestamp(locale);
+            var metadata = _metadataBuilder.Build(locale: locale, kpis: null, persistedPublishedUtc: persistedPublishedUtc, generatedUtc: generationTime);
+            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata);
+            var html = _templateRenderer.Render(reportModel);
+
+            WriteToFile(html, locale);
+            PersistPublishedTimestamp(locale, metadata.PublishedUtc);
+        }
+    }
+
+
+    private List<ReportItemGroup> LocalizeGroups(List<ReportItemGroup> groups, string locale)
+    {
+        var localized = new List<ReportItemGroup>(groups.Count);
+        foreach (var g in groups)
+        {
+            var localizedReports = new List<ReportItem>(g.Reports.Count);
+            foreach (var r in g.Reports)
+            {
+                var title = _localization.Get(locale, r.Title);
+                localizedReports.Add(new ReportItem(title, r.Results, r.Chart, r.Variants));
+            }
+
+            var groupTitle = _localization.Get(locale, g.Title);
+            localized.Add(new ReportItemGroup(groupTitle, localizedReports));
+        }
+
+        return localized;
     }
 
 
@@ -134,21 +169,57 @@ public sealed class HtmlReportExporter : IReportExporter
             : value.ToString("N2");
 
 
-    private void WriteToFile(string content)
+    private void WriteToFile(string content, string locale)
     {
-        var fileName = string.Format(ResultsFileNameTemplate, DateTime.UtcNow.ToString("yyyy-MM-dd HH-mm-ss"));
-        var path = Path.Combine(_options.OutputPath, fileName);
-
-        if (!string.IsNullOrEmpty(_options.OutputPath))
-            Directory.CreateDirectory(_options.OutputPath);
-
+        var path = Path.Combine(_options.OutputPath, locale, "reports", EvergreenFileName);
+        var directory = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(directory);
         File.WriteAllText(path, content);
     }
 
 
-    private const string ResultsFileNameTemplate = "{0}-report.html";
+    private DateTime? ReadPublishedTimestamp(string locale)
+    {
+        try
+        {
+            var sidecarPath = GetSidecarPath(locale);
+            if (!File.Exists(sidecarPath))
+                return null;
+
+            var json = File.ReadAllText(sidecarPath);
+            var model = JsonSerializer.Deserialize<PublishedSidecar>(json);
+            return model?.PublishedUtc;
+        }
+        catch
+        {
+            return null; // On error treat as first publish
+        }
+    }
+
+
+    private void PersistPublishedTimestamp(string locale, DateTime publishedUtc)
+    {
+        var sidecarPath = GetSidecarPath(locale);
+        var directory = Path.GetDirectoryName(sidecarPath)!;
+        Directory.CreateDirectory(directory);
+        var json = JsonSerializer.Serialize(new PublishedSidecar(publishedUtc));
+        File.WriteAllText(sidecarPath, json);
+    }
+
+
+    private string GetSidecarPath(string locale)
+        => Path.Combine(_options.OutputPath, locale, "reports", PublishedSidecarFileName);
+
+
+    private const string EvergreenFileName = "index.html";
+    private const string PublishedSidecarFileName = ".published.json";
 
     private readonly ApplicationDbContext _dbContext;
     private readonly ReportPrinterOptions _options;
     private readonly TemplateRenderer _templateRenderer;
+    private readonly MetadataBuilder _metadataBuilder;
+    private readonly SiteMetadataOptions _siteMetadata;
+    private readonly ILocalizationProvider _localization;
+
+    private sealed record PublishedSidecar(DateTime PublishedUtc);
 }

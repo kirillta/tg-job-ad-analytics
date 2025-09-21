@@ -1,0 +1,16 @@
+{
+  "report.title.suffix": "Salary & Job Ad Analytics",
+  "report.description.default": "Evergreen report of processed Telegram job advertisements with extracted salary statistics updated over time.",
+  "report.description.with_stats": "Evergreen report of Telegram job ads: median salary {median}, p90 {p90}, {count} processed salaries. Updated monthly.",
+  "ui.updated": "Updated",
+  "group.ads.stats": "Ad statistics",
+  "group.salary.stats": "Salary statistics",
+  "report.ads.top_months": "Top-3 months by job ads (all time)",
+  "report.ads.monthly_by_year": "Monthly job ad counts by year",
+  "report.ads.month_distribution": "Overall job ad distribution by month",
+  "report.ads.yearly_counts": "Total job ad counts by year",
+  "report.salary.min_years": "Minimum salary by year",
+  "report.salary.max_years": "Maximum salary by year",
+  "report.salary.avg_years": "Average salary by year",
+  "report.salary.median_years": "Median salary by year"
+}
