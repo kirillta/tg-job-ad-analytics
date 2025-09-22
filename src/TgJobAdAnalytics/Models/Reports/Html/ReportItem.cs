@@ -2,14 +2,16 @@
 
 internal readonly record struct ReportItem
 {
-    internal ReportItem(string title, List<KeyValuePair<string, string>> results, ChartModel? chart, Dictionary<string, ChartModel.DataModel>? variants = null)
+    internal ReportItem(string code, string title, List<KeyValuePair<string, string>> results, ChartModel? chart, Dictionary<string, ChartModel.DataModel>? variants = null)
     {
-        Chart = chart;
-        Results = results;
+        Code = code;
         Title = title;
+        Results = results;
+        Chart = chart;
         Variants = variants;
     }
 
+    public string Code { get; }
 
     public string Title { get; }
 

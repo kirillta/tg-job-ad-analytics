@@ -30,7 +30,8 @@ public static class ReportTestRenderer
                 ModifiedIso: metadata.ModifiedUtc.ToString("O"),
                 HreflangAlternates: metadata.HreflangAlternates.Select(h => (h.Locale, h.Url)).ToList(),
                 JsonLd: BuildJsonLd(metadata)
-            )
+            ),
+            localization: new Dictionary<string, object>()
         );
 
         var mainTemplatePath = Path.Combine(templatesRoot, "MainTemplate.sbn");

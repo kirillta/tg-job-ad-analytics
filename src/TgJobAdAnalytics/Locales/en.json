@@ -12,5 +12,15 @@
   "report.salary.min_years": "Minimum salary by year",
   "report.salary.max_years": "Maximum salary by year",
   "report.salary.avg_years": "Average salary by year",
-  "report.salary.median_years": "Median salary by year"
+  "report.salary.median_years": "Median salary by year",
+  "ui.button.show_table": "Show table",
+  "ui.button.hide_table": "Hide table",
+  "ui.data_sources.title": "Data sources",
+  "ui.data_sources.messages_label": "messages",
+  "ui.data_sources.salaries_label": "salaries",
+  "ui.data_sources.explainer": "Data is extracted from Telegram messages. Salary values are normalized and duplicates removed. Aggregations are limited to the last full month. Invalid or ambiguous salary records are excluded, ensuring clean, normalized, deduplicated ads for reliable comparative analysis.",
+  "ui.footer.author": "Author",
+  "ui.footer.source": "Source",
+  "ui.footer.built_with": "Built with",
+  "ui.footer.and": "and"
 }

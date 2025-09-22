@@ -6,8 +6,8 @@
     {{ end }}
 
     {{ for report in report_group.reports }}
-        {{ if report.title == 'Количество вакансий по месяцам' }}
-            <div class="bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-5" data-report-card>
+        {{ if report.code == 'report.ads.monthly_by_year' }}
+            <div class="report-card bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-5">
                 {{ include "ReportTemplate.sbn" report }}
             </div>
         {{ end }}
@@ -15,8 +15,8 @@
 
     <div class="grid gap-8 md:grid-cols-2">
         {{ for report in report_group.reports }}
-            {{ if report.title != 'Количество вакансий по месяцам' }}
-                <div class="bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-5" data-report-card>
+            {{ if report.code != 'report.ads.monthly_by_year' }}
+                <div class="report-card bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-5">
                     {{ include "ReportTemplate.sbn" report }}
                 </div>
             {{ end }}

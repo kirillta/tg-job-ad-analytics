@@ -6,12 +6,13 @@ namespace TgJobAdAnalytics.Services.Reports.Html;
 
 internal class ReportModelBuilder
 {
-    public static ReportModel Build(List<ReportItemGroup> groups, List<DataSourceModel> dataSources, MetadataModel metadata) 
+    public static ReportModel Build(List<ReportItemGroup> groups, List<DataSourceModel> dataSources, MetadataModel metadata, Dictionary<string, object>? localization = null) 
         => new(
             reportGroups: groups,
             reportDate: DateOnly.FromDateTime(DateTime.UtcNow),
             dataSources: dataSources,
-            metadata: BuildMetadata(metadata)
+            metadata: BuildMetadata(metadata),
+            localization: localization ?? new Dictionary<string, object>()
         );
 
 

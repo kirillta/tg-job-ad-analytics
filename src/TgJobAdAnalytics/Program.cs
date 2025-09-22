@@ -112,7 +112,7 @@ static IHost BuildHost(string[] args) =>
         {
             options.BaseUrl = context.Configuration["SiteMetadata:BaseUrl"]!;
             options.SiteName = context.Configuration["SiteMetadata:SiteName"]!;
-            options.DefaultOgImagePath = context.Configuration["SiteMetadata:DefaultOgImagePath"]!;
+            options.DefaultOgImagePath = context.Configuration["SiteMetadata:DefaultOgImagePath"] ?? string.Empty;
             options.Locales = [.. context.Configuration.GetSection("SiteMetadata:Locales").Get<string[]>()!];
             options.PrimaryLocale = context.Configuration["SiteMetadata:PrimaryLocale"]!;
             options.JsonLdType = Enum.Parse<JsonLdType>(context.Configuration["SiteMetadata:JsonLdType"]!);

@@ -1,6 +1,7 @@
 ﻿using Scriban;
 using Scriban.Runtime;
 using System.Text.Json;
+using TgJobAdAnalytics.Models.Reports.Html;
 
 namespace TgJobAdAnalytics.Services.Reports.Html.Scriban;
 
@@ -42,13 +43,38 @@ internal class TemplateRenderer
             EnableRelaxedMemberAccess = true
         };
 
-        var scriptObjectWithFunctions = new ScriptObject();
-        scriptObjectWithFunctions.Import("dump", new Func<object, string>(DumpObject));
-       
-        context.PushGlobal(scriptObjectWithFunctions);
+        var helpers = new ScriptObject();
+        helpers.Import("dump", new Func<object, string>(DumpObject));
+
+        if (model is ReportModel reportModel)
+        {
+            var localizationWrapper = new ScriptObject();
+            foreach (var kv in reportModel.Localization)
+                localizationWrapper.Add(kv.Key, ToScriptFriendly(kv.Value));
+            
+            helpers.Add("l", localizationWrapper);
+        }
+
+        context.PushGlobal(helpers);
         context.PushGlobal(scriptObject);
 
         return context;
+    }
+
+
+    private static object ToScriptFriendly(object value)
+    {
+        if (value is Dictionary<string, object> dict)
+        {
+            var so = new ScriptObject();
+
+            foreach (var kv in dict)
+                so.Add(kv.Key, ToScriptFriendly(kv.Value));
+            
+            return so;
+        }
+
+        return value;
     }
 
 

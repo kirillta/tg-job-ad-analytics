@@ -41,8 +41,6 @@ public class ReportHtmlPresenceTests
             DefaultOgImagePath = "/assets/og/default.png",
             Locales = new List<string> { "en", "ru" },
             PrimaryLocale = "en",
-            AuthorOrg = "AuthorOrg",
-            PublisherOrg = "PublisherOrg",
             JsonLdType = JsonLdType.Article
         });
 
@@ -72,8 +70,6 @@ public class ReportHtmlPresenceTests
             DefaultOgImagePath = "/img.png",
             Locales = new List<string> { "en" },
             PrimaryLocale = "en",
-            AuthorOrg = "AuthorOrg",
-            PublisherOrg = "PublisherOrg",
             JsonLdType = JsonLdType.Article
         });
 

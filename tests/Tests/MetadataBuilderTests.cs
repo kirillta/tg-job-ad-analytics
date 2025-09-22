@@ -33,8 +33,6 @@ public class MetadataBuilderTests
             DefaultOgImagePath = "/assets/og/default.png",
             Locales = new List<string> { "en" },
             PrimaryLocale = "en",
-            AuthorOrg = "AuthorOrg",
-            PublisherOrg = "PublisherOrg",
             JsonLdType = JsonLdType.Article
         });
 
@@ -60,8 +58,6 @@ public class MetadataBuilderTests
             DefaultOgImagePath = "/assets/og/default.png",
             Locales = new List<string> { "en" },
             PrimaryLocale = "en",
-            AuthorOrg = "AuthorOrg",
-            PublisherOrg = "PublisherOrg",
             JsonLdType = JsonLdType.Article
         });
 

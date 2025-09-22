@@ -1,19 +1,16 @@
 ﻿<div class="bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-6">
-    <h5 class="text-lg font-semibold mb-4 text-gray-900">Источники данных</h5>
+    <h5 class="text-lg font-semibold mb-4 text-gray-900">{{ l.ui.data_sources.title }}</h5>
   
     <ol class="mb-4 list-decimal pl-6 space-y-1 text-sm text-gray-700">
         {{ for data_source in data_sources }}
         <li>
-            <span class="font-medium">{{ data_source.name }}</span> ({{ data_source.id }}), {{ data_source.minimal_date }}&ndash;{{ data_source.maximal_date }}, 
-            {{ data_source.processed_messages }} сообщений, {{ data_source.extracted_salaries }} зарплат.
+            <span class="font-medium">{{ data_source.name }}</span> ({{ data_source.id }}), {{ data_source.minimal_date }}-{{ data_source.maximal_date }}, 
+            {{ data_source.processed_messages }} {{ l.ui.data_sources.messages_label }}, {{ data_source.extracted_salaries }} {{ l.ui.data_sources.salaries_label }}.
         </li>
         {{ end }}
     </ol>
   
     <p class="text-sm text-gray-600 leading-relaxed">
-        Данные извлекаются из Telegram-сообщений, где зарплатные значения нормализуются и проходят фильтрацию на дубликаты. 
-        Для обеспечения консистентности агрегирование метрик ограничено последним днём предыдущего месяца — это исключает влияние неполных периодов. 
-        Записи с некорректными или неоднозначными значениями зарплаты исключаются из выборки. Все финальные показатели отражают очищенные, 
-        нормализованные и дедуплицированные объявления, что позволяет проводить корректный сравнительный анализ.
+        {{ l.ui.data_sources.explainer }}
     </p>
 </div>

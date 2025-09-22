@@ -12,5 +12,15 @@
   "report.salary.min_years": "Минимальная зарплата по годам",
   "report.salary.max_years": "Максимальная зарплата по годам",
   "report.salary.avg_years": "Средняя зарплата по годам",
-  "report.salary.median_years": "Медианная зарплата по годам"
+  "report.salary.median_years": "Медианная зарплата по годам",
+  "ui.button.show_table": "Показать таблицу",
+  "ui.button.hide_table": "Скрыть таблицу",
+  "ui.data_sources.title": "Источники данных",
+  "ui.data_sources.messages_label": "сообщений",
+  "ui.data_sources.salaries_label": "зарплат",
+  "ui.data_sources.explainer": "Данные извлекаются из Telegram-сообщений. Значения зарплат нормализуются и дубликаты удаляются. Агрегирование ограничено последним полным месяцем. Некорректные или неоднозначные записи исключаются, обеспечивая очищенный, нормализованный и дедуплицированный набор объявлений для корректного сравнительного анализа.",
+  "ui.footer.author": "Автор",
+  "ui.footer.source": "Исходный код",
+  "ui.footer.built_with": "Создано с использованием",
+  "ui.footer.and": "и"
 }

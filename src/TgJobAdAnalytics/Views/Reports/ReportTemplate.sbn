@@ -1,52 +1,48 @@
-<div class="mb-4">
-    <h4 class="text-lg font-semibold text-gray-900">{{ report.title }}</h4>
+<div class="report-fragment">
+  <div class="mb-4">
+      <h4 class="text-lg font-semibold text-gray-900">{{ report.title }}</h4>
+  </div>
+
+  {{ if report.chart != null }}
+  <div class="relative">
+      {{ include "Chart.sbn" report }}
+      <div class="mt-4">
+          <button onclick="toggleTable(this)" class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-show="{{ l.ui.button.show_table }}" data-hide="{{ l.ui.button.hide_table }}">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="8" height="8" rx="1"/>
+                  <rect x="13" y="3" width="8" height="8" rx="1"/>
+                  <rect x="3" y="13" width="8" height="8" rx="1"/>
+                  <rect x="13" y="13" width="8" height="8" rx="1"/>
+              </svg>
+              <span class="toggle-label">{{ l.ui.button.show_table }}</span>
+          </button>
+      </div>
+  </div>
+  {{ end }}
+
+  <div class="mt-4">
+      <table class="min-w-full table-auto border-collapse border border-gray-200 text-sm {{ if report.chart != null }}hidden{{ end }}">
+          <tbody class="divide-y divide-gray-200">
+              {{ for result in report.results }}
+              <tr class="hover:bg-gray-50">
+                  <td class="border border-gray-200 px-4 py-2 w-1/2 align-top text-gray-700">{{ result.key }}</td>
+                  <td class="border border-gray-200 px-4 py-2 w-1/2 text-right font-medium text-gray-900">{{ result.value }}</td>
+              </tr>
+              {{ end }}
+          </tbody>
+      </table>
+  </div>
+
+  <script>
+  function toggleTable(button) {
+      var card = button.closest('.report-card') || document;
+      var table = card.querySelector('table');
+      var label = button.querySelector('.toggle-label');
+      if (!table) return;
+      var hidden = table.classList.toggle('hidden');
+      var showLabel = button.getAttribute('data-show');
+      var hideLabel = button.getAttribute('data-hide');
+      if (label) label.textContent = hidden ? showLabel : hideLabel;
+  }
+  </script>
 </div>
-
-{{ if report.chart != null }}
-    <div class="relative">
-        {{ include "Chart.sbn" report }}
-        <div class="mt-4">
-            <button onclick="toggleTable(this)" class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="3" y="3" width="8" height="8" rx="1"/>
-                    <rect x="13" y="3" width="8" height="8" rx="1"/>
-                    <rect x="3" y="13" width="8" height="8" rx="1"/>
-                    <rect x="13" y="13" width="8" height="8" rx="1"/>
-                </svg>
-                <span class="toggle-label">Показать таблицу</span>
-            </button>
-        </div>
-    </div>
-{{ end }}
-
-<div class="mt-4">
-    <table class="min-w-full table-auto border-collapse border border-gray-200 text-sm {{ if report.chart != null }}hidden{{ end }}">
-        <tbody class="divide-y divide-gray-200">
-            {{ for result in report.results }}
-            <tr class="hover:bg-gray-50">
-                <td class="border border-gray-200 px-4 py-2 w-1/2 align-top text-gray-700">
-                    {{ result.key }}
-                </td>
-                <td class="border border-gray-200 px-4 py-2 w-1/2 text-right font-medium text-gray-900">
-                    {{ result.value }}
-                </td>
-            </tr>
-            {{ end }}
-        </tbody>
-    </table>
-</div>
-
-<script>
-    function toggleTable(button) {
-        var card = button.closest('[data-report-card]') || button.closest('div');
-        var table = card.querySelector('table');
-        var label = button.querySelector('.toggle-label');
-        
-        if (!table) 
-            return;
-            
-        var hidden = table.classList.toggle('hidden');
-        if (label) 
-            label.textContent = hidden ? 'Показать таблицу' : 'Скрыть таблицу';
-    }
-</script>

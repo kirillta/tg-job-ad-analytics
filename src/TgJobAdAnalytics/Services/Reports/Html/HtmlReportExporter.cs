@@ -13,7 +13,11 @@ namespace TgJobAdAnalytics.Services.Reports.Html;
 
 public sealed class HtmlReportExporter : IReportExporter
 {
-    public HtmlReportExporter(ApplicationDbContext dbContext, IOptions<ReportPrinterOptions> options, MetadataBuilder metadataBuilder, IOptions<SiteMetadataOptions> siteMetadataOptions, ILocalizationProvider localizationProvider)
+    public HtmlReportExporter(ApplicationDbContext dbContext, 
+        IOptions<ReportPrinterOptions> options, 
+        MetadataBuilder metadataBuilder, 
+        IOptions<SiteMetadataOptions> siteMetadataOptions, 
+        ILocalizationProvider localizationProvider)
     {
         _dbContext = dbContext;
         _options = options.Value;
@@ -80,7 +84,8 @@ public sealed class HtmlReportExporter : IReportExporter
             .ToDictionary(g => g.ChatId, g => g.Count);
 
         List<DataSourceModel> results = [];
-        foreach (var chat in chats) {
+        foreach (var chat in chats)
+        {
             if (!dates.TryGetValue(chat.TelegramId, out var minDate))
                 continue;
 
@@ -116,7 +121,7 @@ public sealed class HtmlReportExporter : IReportExporter
             }
         }
 
-        return new(title: report.Title, results: results, chart: chart, variants: variants);
+        return new(code: report.Title, title: report.Title, results: results, chart: chart, variants: variants);
     }
 
 
@@ -128,17 +133,21 @@ public sealed class HtmlReportExporter : IReportExporter
     {
         var dataSources = BuildDataSourceModels();
         var generationTime = DateTime.UtcNow;
+        var runFolderName = generationTime.ToString("yyyyMMdd-HHmmss'Z'");
+        var runRoot = Path.Combine(_options.OutputPath, runFolderName);
 
         foreach (var locale in _siteMetadata.Locales)
         {
             var localizedGroups = LocalizeGroups(reportItemGroups, locale);
-            var persistedPublishedUtc = ReadPublishedTimestamp(locale);
+            var persistedPublishedUtc = ReadPublishedTimestamp(locale); // stable sidecar outside run-specific folder
             var metadata = _metadataBuilder.Build(locale: locale, kpis: null, persistedPublishedUtc: persistedPublishedUtc, generatedUtc: generationTime);
-            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata);
+            var localizationDict = BuildLocalizationDictionary(locale);
+            localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict); // debug helper
+            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, localizationDict);
             var html = _templateRenderer.Render(reportModel);
 
-            WriteToFile(html, locale);
-            PersistPublishedTimestamp(locale, metadata.PublishedUtc);
+            WriteToFile(html, locale, runRoot);
+            PersistPublishedTimestamp(locale, metadata.PublishedUtc); // keep stable
         }
     }
 
@@ -151,8 +160,8 @@ public sealed class HtmlReportExporter : IReportExporter
             var localizedReports = new List<ReportItem>(g.Reports.Count);
             foreach (var r in g.Reports)
             {
-                var title = _localization.Get(locale, r.Title);
-                localizedReports.Add(new ReportItem(title, r.Results, r.Chart, r.Variants));
+                var localizedTitle = _localization.Get(locale, r.Code);
+                localizedReports.Add(new ReportItem(r.Code, localizedTitle, r.Results, r.Chart, r.Variants));
             }
 
             var groupTitle = _localization.Get(locale, g.Title);
@@ -169,9 +178,9 @@ public sealed class HtmlReportExporter : IReportExporter
             : value.ToString("N2");
 
 
-    private void WriteToFile(string content, string locale)
+    private void WriteToFile(string content, string locale, string runRoot)
     {
-        var path = Path.Combine(_options.OutputPath, locale, "reports", EvergreenFileName);
+        var path = Path.Combine(runRoot, locale, EvergreenFileName);
         var directory = Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(directory);
         File.WriteAllText(path, content);
@@ -192,7 +201,7 @@ public sealed class HtmlReportExporter : IReportExporter
         }
         catch
         {
-            return null; // On error treat as first publish
+            return null;
         }
     }
 
@@ -208,7 +217,68 @@ public sealed class HtmlReportExporter : IReportExporter
 
 
     private string GetSidecarPath(string locale)
-        => Path.Combine(_options.OutputPath, locale, "reports", PublishedSidecarFileName);
+        => Path.Combine(_options.OutputPath, "stable", locale, PublishedSidecarFileName);
+
+
+    private Dictionary<string, object> BuildLocalizationDictionary(string locale)
+    {
+        // Build nested structure so template paths like l.ui.button.show_table resolve.
+        Dictionary<string, object> uiRoot = new(StringComparer.OrdinalIgnoreCase);
+
+        string[] keys =
+        [
+            "ui.updated",
+            "ui.button.show_table",
+            "ui.button.hide_table",
+            "ui.data_sources.title",
+            "ui.data_sources.messages_label",
+            "ui.data_sources.salaries_label",
+            "ui.data_sources.explainer",
+            "ui.footer.author",
+            "ui.footer.source",
+            "ui.footer.built_with",
+            "ui.footer.and"
+        ];
+
+        foreach (var fullKey in keys)
+        {
+            if (!fullKey.StartsWith("ui."))
+                continue;
+
+            var path = fullKey.Substring(3).Split('.'); // remove leading 'ui.'
+            Dictionary<string, object> current = uiRoot;
+            for (int i = 0; i < path.Length; i++)
+            {
+                var segment = path[i];
+                var isLeaf = i == path.Length - 1;
+
+                if (isLeaf)
+                {
+                    string localizedValue;
+                    try
+                    {
+                        localizedValue = _localization.Get(locale, fullKey);
+                    }
+                    catch
+                    {
+                        localizedValue = fullKey; // fallback
+                    }
+                    current[segment] = localizedValue;
+                }
+                else
+                {
+                    if (!current.TryGetValue(segment, out var next) || next is not Dictionary<string, object> nextDict)
+                    {
+                        nextDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                        current[segment] = nextDict;
+                    }
+                    current = nextDict;
+                }
+            }
+        }
+
+        return new Dictionary<string, object> { ["ui"] = uiRoot };
+    }
 
 
     private const string EvergreenFileName = "index.html";

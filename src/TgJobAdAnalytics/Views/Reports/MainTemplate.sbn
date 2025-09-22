@@ -18,14 +18,14 @@
         <meta property="og:type" content="article" />
         <meta property="og:url" content="{{ metadata.canonical_url }}" />
         <meta property="og:locale" content="{{ metadata.locale }}" />
-        {{ if metadata.og_image_url and metadata.og_image_url.size > 0 }}
+        {{ if metadata.og_image_url.size != "" }}
         <meta property="og:image" content="{{ metadata.og_image_url }}" />
         {{ end }}
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="{{ metadata.title }}" />
         <meta name="twitter:description" content="{{ metadata.description }}" />
-        {{ if metadata.og_image_url and metadata.og_image_url.size > 0 }}
+        {{ if metadata.og_image_url.size != "" }}
         <meta name="twitter:image" content="{{ metadata.og_image_url }}" />
         {{ end }}
 
@@ -40,7 +40,7 @@
         <header class="bg-white shadow-sm">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
                 <h1 class="text-3xl font-bold tracking-tight">{{ metadata.title }}</h1>
-                <p class="mt-1 text-sm text-gray-500">Updated: {{ report_date }}</p>
+                <p class="mt-1 text-sm text-gray-500">{{ l.ui.updated }}: {{ report_date }}</p>
             </div>
         </header>
 
@@ -61,13 +61,13 @@
         <footer class="border-t border-gray-200">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 text-center text-sm text-gray-600">
                 <p class="mb-4">
-                    Author: <a href="https://www.linkedin.com/in/kirillta/?locale=en_US" class="text-blue-600 hover:text-blue-800">Kirill Taran</a>. 
-                    Source: <a href="https://github.com/kirillta/tg-job-ad-analytics" class="text-blue-600 hover:text-blue-800">GitHub</a>.
+                    {{ l.ui.footer.author }}: <a href="https://www.linkedin.com/in/kirillta/?locale=en_US" class="text-blue-600 hover:text-blue-800">Kirill Taran</a>. 
+                    {{ l.ui.footer.source }}: <a href="https://github.com/kirillta/tg-job-ad-analytics" class="text-blue-600 hover:text-blue-800">GitHub</a>.
                 </p>
                 <p>
-                    Built with 
+                    {{ l.ui.footer.built_with }} 
                     <a href="https://tailwindcss.com/" class="text-blue-600 hover:text-blue-800">Tailwind CSS</a>, 
-                    <a href="https://www.chartjs.org/" class="text-blue-600 hover:text-blue-800">Chart.js</a> and 
+                    <a href="https://www.chartjs.org/" class="text-blue-600 hover:text-blue-800">Chart.js</a> {{ l.ui.footer.and }} 
                     <a href="https://github.com/scriban/scriban" class="text-blue-600 hover:text-blue-800">Scriban</a>.
                 </p>
             </div>
