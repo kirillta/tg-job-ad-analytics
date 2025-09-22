@@ -39,7 +39,7 @@ public sealed class SalaryStatisticsCalculator
 
         var variants = new Dictionary<string, Dictionary<string, double>>
         {
-            ["Все"] = baseResults // localization of variants deferred
+            ["All"] = baseResults // neutral key for localization later
         };
 
         foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
@@ -82,7 +82,7 @@ public sealed class SalaryStatisticsCalculator
 
         var variants = new Dictionary<string, Dictionary<string, double>>
         {
-            ["Все"] = baseResults
+            ["All"] = baseResults
         };
 
         foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
@@ -127,7 +127,7 @@ public sealed class SalaryStatisticsCalculator
 
         var variants = new Dictionary<string, Dictionary<string, double>>
         {
-            ["Все"] = baseResults
+            ["All"] = baseResults
         };
 
         foreach (var level in Enum.GetValues<PositionLevel>().Where(l => l != PositionLevel.Unknown))
@@ -173,7 +173,7 @@ public sealed class SalaryStatisticsCalculator
             .ToDictionary(group => group.Year.ToString(), group => group.MedianSalary);
 
         var variants = new Dictionary<string, Dictionary<string, double>>();
-        variants["Все"] = baseResults;
+        variants["All"] = baseResults;
 
         var knownLevels = Enum.GetValues<PositionLevel>()
             .Where(l => l != PositionLevel.Unknown)

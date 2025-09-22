@@ -1,7 +1,7 @@
 <div class="max-w-full">
     {{ if report.variants != null }}
     <div class="mb-3 flex items-center gap-2">
-        <label for="{{ report.chart.id_token }}-variant" class="text-sm text-gray-700">Позиция:</label>
+        <label for="{{ report.chart.id_token }}-variant" class="text-sm text-gray-700">{{ l.ui.chart.position_label }}:</label>
         <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm"></select>
     </div>
     {{ end }}
@@ -128,8 +128,7 @@
                 opt.value = k; opt.text = k; selector.appendChild(opt);
             });
 
-            // Prefer "Все" if present
-            var preferred = keys.indexOf('Все') >= 0 ? 'Все' : keys[0];
+            var preferred = keys.indexOf('{{ l.variant.all }}') >= 0 ? '{{ l.variant.all }}' : (keys.indexOf('Все') >= 0 ? 'Все' : keys[0]);
             selector.value = preferred;
 
             function applyVariant(name) {

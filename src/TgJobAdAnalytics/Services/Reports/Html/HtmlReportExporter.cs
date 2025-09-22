@@ -8,15 +8,17 @@ using TgJobAdAnalytics.Services.Reports.Html.Scriban;
 using TgJobAdAnalytics.Services.Reports.Metadata;
 using TgJobAdAnalytics.Models.Reports.Metadata;
 using TgJobAdAnalytics.Services.Localization;
+using TgJobAdAnalytics.Models.Levels.Enums;
+using System.Text.RegularExpressions;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
 public sealed class HtmlReportExporter : IReportExporter
 {
-    public HtmlReportExporter(ApplicationDbContext dbContext, 
-        IOptions<ReportPrinterOptions> options, 
-        MetadataBuilder metadataBuilder, 
-        IOptions<SiteMetadataOptions> siteMetadataOptions, 
+    public HtmlReportExporter(ApplicationDbContext dbContext,
+        IOptions<ReportPrinterOptions> options,
+        MetadataBuilder metadataBuilder,
+        IOptions<SiteMetadataOptions> siteMetadataOptions,
         ILocalizationProvider localizationProvider)
     {
         _dbContext = dbContext;
@@ -44,7 +46,7 @@ public sealed class HtmlReportExporter : IReportExporter
     }
 
 
-    public void Write(Report report) 
+    public void Write(Report report)
         => Write([report]);
 
 
@@ -92,7 +94,6 @@ public sealed class HtmlReportExporter : IReportExporter
             var processedMessages = messageCounts.TryGetValue(chat.TelegramId, out var mc) ? mc : 0;
             var extractedSalaries = salaryCounts.TryGetValue(chat.TelegramId, out var sc) ? sc : 0;
 
-            // Trim dates to the last day of the previous month to avoid showing incomplete interval
             results.Add(new DataSourceModel(id: chat.TelegramId, name: chat.Name, minimalDate: DateOnly.FromDateTime(minDate), maximalDate: lastDayOfThePreviousMonth, processedMessages: processedMessages, extractedSalaries: extractedSalaries));
         }
 
@@ -139,15 +140,15 @@ public sealed class HtmlReportExporter : IReportExporter
         foreach (var locale in _siteMetadata.Locales)
         {
             var localizedGroups = LocalizeGroups(reportItemGroups, locale);
-            var persistedPublishedUtc = ReadPublishedTimestamp(locale); // stable sidecar outside run-specific folder
+            var persistedPublishedUtc = ReadPublishedTimestamp(locale);
             var metadata = _metadataBuilder.Build(locale: locale, kpis: null, persistedPublishedUtc: persistedPublishedUtc, generatedUtc: generationTime);
             var localizationDict = BuildLocalizationDictionary(locale);
-            localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict); // debug helper
+            localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict);
             var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, localizationDict);
             var html = _templateRenderer.Render(reportModel);
 
             WriteToFile(html, locale, runRoot);
-            PersistPublishedTimestamp(locale, metadata.PublishedUtc); // keep stable
+            PersistPublishedTimestamp(locale, metadata.PublishedUtc);
         }
     }
 
@@ -161,7 +162,48 @@ public sealed class HtmlReportExporter : IReportExporter
             foreach (var r in g.Reports)
             {
                 var localizedTitle = _localization.Get(locale, r.Code);
-                localizedReports.Add(new ReportItem(r.Code, localizedTitle, r.Results, r.Chart, r.Variants));
+
+                Dictionary<string, ChartModel.DataModel>? localizedVariants = null;
+                if (r.Variants is not null)
+                {
+                    localizedVariants = new Dictionary<string, ChartModel.DataModel>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var kv in r.Variants)
+                    {
+                        var variantKey = kv.Key;
+                        var localizedVariantKey = LocalizeVariantKey(locale, variantKey);
+
+                        // Localize labels inside variant dataset
+                        var localizedVariantLabels = kv.Value.Labels.Select(l => LocalizeMonthKey(locale, l)).ToList();
+                        var origDataset = kv.Value.Dataset;
+                        var localizedVariantDataset = new ChartModel.DatasetModel(
+                            label: localizedTitle + " — " + localizedVariantKey,
+                            data: origDataset.Data,
+                            backgroundColor: origDataset.BackgroundColor,
+                            borderColor: origDataset.BorderColor);
+                        var localizedVariantDataModel = new ChartModel.DataModel(localizedVariantLabels, localizedVariantDataset);
+                        localizedVariants[localizedVariantKey] = localizedVariantDataModel;
+                    }
+                }
+
+                var localizedResults = r.Results
+                    .Select(kv => new KeyValuePair<string, string>(LocalizeMonthKey(locale, kv.Key), kv.Value))
+                    .ToList();
+
+                ChartModel? localizedChart = null;
+                if (r.Chart is ChartModel chart)
+                {
+                    var localizedLabels = chart.Data.Labels.Select(l => LocalizeMonthKey(locale, l)).ToList();
+                    var orig = chart.Data.Dataset;
+                    var localizedDataset = new ChartModel.DatasetModel(
+                        label: localizedTitle,
+                        data: orig.Data,
+                        backgroundColor: orig.BackgroundColor,
+                        borderColor: orig.BorderColor);
+                    var localizedData = new ChartModel.DataModel(localizedLabels, localizedDataset);
+                    localizedChart = new ChartModel(chart.Id, chart.Type, localizedData);
+                }
+
+                localizedReports.Add(new ReportItem(r.Code, localizedTitle, localizedResults, localizedChart, localizedVariants));
             }
 
             var groupTitle = _localization.Get(locale, g.Title);
@@ -172,9 +214,94 @@ public sealed class HtmlReportExporter : IReportExporter
     }
 
 
+    private string LocalizeMonthKey(string locale, string rawKey)
+    {
+        if (string.IsNullOrWhiteSpace(rawKey))
+            return rawKey;
+
+        var yearMonthMatch = _yearMonthRegex.Match(rawKey);
+        if (yearMonthMatch.Success)
+        {
+            var year = yearMonthMatch.Groups[1].Value;
+            var monthDigits = yearMonthMatch.Groups[2].Value;
+            var monthName = ResolveMonth(locale, monthDigits);
+            return year + " " + monthName;
+        }
+
+        var monthOnlyMatch = _monthOnlyRegex.Match(rawKey);
+        if (monthOnlyMatch.Success)
+        {
+            var monthDigits = monthOnlyMatch.Groups[1].Value;
+            return ResolveMonth(locale, monthDigits);
+        }
+
+        return rawKey;
+    }
+
+
+    private string ResolveMonth(string locale, string monthDigits)
+    {
+        if (!int.TryParse(monthDigits, out var m) || m < 1 || m > 12)
+            return monthDigits;
+
+        var key = m switch
+        {
+            1 => "month.january",
+            2 => "month.february",
+            3 => "month.march",
+            4 => "month.april",
+            5 => "month.may",
+            6 => "month.june",
+            7 => "month.july",
+            8 => "month.august",
+            9 => "month.september",
+            10 => "month.october",
+            11 => "month.november",
+            12 => "month.december",
+            _ => null
+        };
+
+        if (key is null)
+            return monthDigits;
+
+        try { return _localization.Get(locale, key); } catch { return monthDigits; }
+    }
+
+
+    private string LocalizeVariantKey(string locale, string key)
+    {
+        if (string.Equals(key, "Все", StringComparison.OrdinalIgnoreCase) || string.Equals(key, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            try { return _localization.Get(locale, "variant.all"); } catch { return key; }
+        }
+
+        if (Enum.TryParse<PositionLevel>(key, ignoreCase: true, out var level))
+        {
+            var mapKey = level switch
+            {
+                PositionLevel.Intern => "level.intern",
+                PositionLevel.Junior => "level.junior",
+                PositionLevel.Middle => "level.middle",
+                PositionLevel.Senior => "level.senior",
+                PositionLevel.Lead => "level.lead",
+                PositionLevel.Architect => "level.architect",
+                PositionLevel.Manager => "level.manager",
+                _ => null
+            };
+
+            if (mapKey is not null)
+            {
+                try { return _localization.Get(locale, mapKey); } catch { }
+            }
+        }
+
+        return key;
+    }
+
+
     private static string FormatNumericalValue(double value)
-        => value % 1 == 0 
-            ? value.ToString("N0") 
+        => value % 1 == 0
+            ? value.ToString("N0")
             : value.ToString("N2");
 
 
@@ -222,10 +349,9 @@ public sealed class HtmlReportExporter : IReportExporter
 
     private Dictionary<string, object> BuildLocalizationDictionary(string locale)
     {
-        // Build nested structure so template paths like l.ui.button.show_table resolve.
         Dictionary<string, object> uiRoot = new(StringComparer.OrdinalIgnoreCase);
 
-        string[] keys =
+        string[] uiKeys =
         [
             "ui.updated",
             "ui.button.show_table",
@@ -237,15 +363,13 @@ public sealed class HtmlReportExporter : IReportExporter
             "ui.footer.author",
             "ui.footer.source",
             "ui.footer.built_with",
-            "ui.footer.and"
+            "ui.footer.and",
+            "ui.chart.position_label"
         ];
 
-        foreach (var fullKey in keys)
+        foreach (var fullKey in uiKeys)
         {
-            if (!fullKey.StartsWith("ui."))
-                continue;
-
-            var path = fullKey.Substring(3).Split('.'); // remove leading 'ui.'
+            var path = fullKey.Substring(3).Split('.');
             Dictionary<string, object> current = uiRoot;
             for (int i = 0; i < path.Length; i++)
             {
@@ -255,14 +379,8 @@ public sealed class HtmlReportExporter : IReportExporter
                 if (isLeaf)
                 {
                     string localizedValue;
-                    try
-                    {
-                        localizedValue = _localization.Get(locale, fullKey);
-                    }
-                    catch
-                    {
-                        localizedValue = fullKey; // fallback
-                    }
+                    try { localizedValue = _localization.Get(locale, fullKey); }
+                    catch { localizedValue = fullKey; }
                     current[segment] = localizedValue;
                 }
                 else
@@ -277,7 +395,32 @@ public sealed class HtmlReportExporter : IReportExporter
             }
         }
 
-        return new Dictionary<string, object> { ["ui"] = uiRoot };
+        var variantRoot = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        try { variantRoot["all"] = _localization.Get(locale, "variant.all"); } catch { variantRoot["all"] = "All"; }
+
+        var levelRoot = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        string[] levelKeys =
+        [
+            "level.intern",
+            "level.junior",
+            "level.middle",
+            "level.senior",
+            "level.lead",
+            "level.architect",
+            "level.manager"
+        ];
+        foreach (var lk in levelKeys)
+        {
+            var shortKey = lk.Split('.')[1];
+            try { levelRoot[shortKey] = _localization.Get(locale, lk); } catch { levelRoot[shortKey] = shortKey; }
+        }
+
+        return new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ui"] = uiRoot,
+            ["variant"] = variantRoot,
+            ["level"] = levelRoot
+        };
     }
 
 
@@ -290,6 +433,8 @@ public sealed class HtmlReportExporter : IReportExporter
     private readonly MetadataBuilder _metadataBuilder;
     private readonly SiteMetadataOptions _siteMetadata;
     private readonly ILocalizationProvider _localization;
+    private static readonly Regex _yearMonthRegex = new("^(\\d{4}) (\\d{2})$", RegexOptions.Compiled);
+    private static readonly Regex _monthOnlyRegex = new("^(\\d{2})$", RegexOptions.Compiled);
 
     private sealed record PublishedSidecar(DateTime PublishedUtc);
 }

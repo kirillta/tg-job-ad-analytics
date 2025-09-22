@@ -1,4 +1,5 @@
-﻿using TgJobAdAnalytics.Data.Salaries;
+﻿using System.Globalization;
+using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Enums;
 
@@ -32,7 +33,7 @@ public sealed class AdStatsCalculator
             })
             .OrderByDescending(group => group.Count)
             .Take(3)
-            .ToDictionary(group => group.Year + " " + new DateTime(1, group.Month, 1).ToString("MMMM"), group => (double) group.Count);
+            .ToDictionary(group => group.Year + " " + group.Month.ToString("00"), group => (double) group.Count); // key: "YYYY MM"
 
         return new Report("report.ads.top_months", results, ChartType.None);
     }
@@ -63,7 +64,7 @@ public sealed class AdStatsCalculator
             .SelectMany(group => group.AdsByMonth)
             .OrderBy(group => group.Value.Year)
             .ThenBy(group => group.Value.Month)
-            .ToDictionary(pair => pair.Value.Year + " " + new DateTime(1, pair.Value.Month, 1).ToString("MMMM"), pair => (double) pair.Value.Count);
+            .ToDictionary(pair => pair.Value.Year + " " + pair.Value.Month.ToString("00"), pair => (double) pair.Value.Count); // key: "YYYY MM"
 
         return new Report("report.ads.monthly_by_year", results);
     }
@@ -79,7 +80,7 @@ public sealed class AdStatsCalculator
                 Count = group.Count()
             })
             .OrderBy(group => group.Key)
-            .ToDictionary(group => new DateTime(1, group.Key, 1).ToString("MMMM"), group => (double) group.Count);
+            .ToDictionary(group => group.Key.ToString("00"), group => (double) group.Count); // key: "MM"
 
         return new Report("report.ads.month_distribution", results, ChartType.PolarArea);
     }
