@@ -10,7 +10,9 @@
         <meta name="robots" content="index,follow" />
 
         {{ for alt in metadata.hreflang_alternates }}
-        <link rel="alternate" hreflang="{{ alt.locale }}" href="{{ alt.url }}" />
+        {{ if alt.item1 != 'x-default' }}
+        <link rel="alternate" hreflang="{{ alt.item1 }}" href="{{ alt.item2 }}" />
+        {{ end }}
         {{ end }}
 
         <meta property="og:title" content="{{ metadata.title }}" />
@@ -38,9 +40,34 @@
     </head>
     <body class="min-h-full bg-gray-50 text-gray-900">
         <header class="bg-white shadow-sm">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-                <h1 class="text-3xl font-bold tracking-tight">{{ metadata.title }}</h1>
-                <p class="mt-1 text-sm text-gray-500">{{ l.ui.updated }}: {{ report_date }}</p>
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight">{{ metadata.title }}</h1>
+                    <p class="mt-1 text-sm text-gray-500">{{ l.ui.updated }}: {{ report_date }}</p>
+                </div>
+                {{ if locales.size > 1 }}
+                <div class="text-sm">
+                    <label for="locale-select" class="sr-only">Language</label>
+                    <select id="locale-select" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm">
+                        <option value="{{ metadata.canonical_url }}" {{ if metadata.locale == current_locale }}selected{{ end }}>{{ metadata.locale }}</option>
+                        {{ for alt in metadata.hreflang_alternates }}
+                        {{ if alt.item1 != 'x-default' && alt.item1 != metadata.locale }}
+                        <option value="{{ alt.item2 }}" {{ if alt.item1 == current_locale }}selected{{ end }}>{{ alt.item1 }}</option>
+                        {{ end }}
+                        {{ end }}
+                    </select>
+                </div>
+                <script>
+                    (function(){
+                        var sel = document.getElementById('locale-select');
+                        if(!sel) return;
+                        sel.addEventListener('change', function(){
+                            var v = this.value;
+                            if(v) window.location.href = v;
+                        });
+                    })();
+                </script>
+                {{ end }}
             </div>
         </header>
 

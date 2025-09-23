@@ -19,7 +19,7 @@
             var initialRawData = {{ report.chart.data.dataset.data }};
             function toNumericArray(arr){
                 return (Array.isArray(arr) ? arr : []).map(function(v){
-                    if (v && typeof v === 'object') {
+                    if (v &amp;&amp; typeof v === 'object') {
                         if ('y' in v) return Number(v.y);
                         if ('value' in v) return Number(v.value);
                     }
@@ -30,7 +30,7 @@
                 var raw = (max || 1) / (tickTarget || 6);
                 var pow = Math.pow(10, Math.floor(Math.log10(raw)));
                 var norm = raw / pow;
-                var s = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+                var s = norm &lt;= 1 ? 1 : norm &lt;= 2 ? 2 : norm &lt;= 5 ? 5 : 10;
                 return s * pow;
             }
             function computeYAxis(data){
@@ -70,12 +70,12 @@
                         tooltip: {
                             callbacks: {
                                 title: function(items){
-                                    return items && items.length ? String(items[0].label) : '';
+                                    return items &amp;&amp; items.length ? String(items[0].label) : '';
                                 },
                                 label: function(context) {
                                     var idx = context.dataIndex;
-                                    var raw = context.dataset && context.dataset.data ? context.dataset.data[idx] : context.raw;
-                                    var value = (raw && typeof raw === 'object' && 'y' in raw) ? raw.y : raw;
+                                    var raw = context.dataset &amp;&amp; context.dataset.data ? context.dataset.data[idx] : context.raw;
+                                    var value = (raw &amp;&amp; typeof raw === 'object' &amp;&amp; 'y' in raw) ? raw.y : raw;
                                     var num = Number(value);
                                     return Number.isFinite(num)
                                         ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(num)
@@ -142,14 +142,12 @@
                 chart.data.datasets[0].borderWidth = v.dataset.borderWidth;
                 chart.data.datasets[0].fill = v.dataset.fill;
                 chart.data.datasets[0].tension = v.dataset.tension;
-                // Recompute Y axis suggestion and step size for new data
                 var yConf = computeYAxis(v.dataset.data);
                 chart.options.scales.y.suggestedMax = yConf.max;
                 chart.update();
             }
 
             selector.addEventListener('change', function(){ applyVariant(this.value); });
-            // Initialize with preferred variant so UI matches data
             applyVariant(preferred);
             {{ end }}
         })();

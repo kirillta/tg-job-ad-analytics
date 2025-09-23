@@ -15,6 +15,7 @@ public static class ReportTestRenderer
     {
         var groups = new List<ReportItemGroup>();
         var dataSources = new List<DataSourceModel>();
+        var locales = metadata.HreflangAlternates.Select(h => h.Locale).Prepend(metadata.Locale).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var reportModel = new ReportModel(
             reportGroups: groups,
             reportDate: DateOnly.FromDateTime(DateTime.UtcNow),
@@ -31,7 +32,9 @@ public static class ReportTestRenderer
                 HreflangAlternates: metadata.HreflangAlternates.Select(h => (h.Locale, h.Url)).ToList(),
                 JsonLd: BuildJsonLd(metadata)
             ),
-            localization: new Dictionary<string, object>()
+            localization: new Dictionary<string, object>(),
+            locales: locales,
+            currentLocale: metadata.Locale
         );
 
         var mainTemplatePath = Path.Combine(templatesRoot, "MainTemplate.sbn");
