@@ -18,5 +18,3 @@ public sealed record MetadataModel(
     [JsonIgnore]
     public string KeywordsCsv => string.Join(", ", Keywords);
 }
-
-public sealed record HreflangAlternate(string Locale, string Url);

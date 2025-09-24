@@ -1,6 +1,6 @@
 ﻿namespace TgJobAdAnalytics.Models.Reports.Html;
 
-internal readonly record struct ReportItemGroup
+public readonly record struct ReportItemGroup
 {
     internal ReportItemGroup(string title, List<ReportItem> reports)
     {

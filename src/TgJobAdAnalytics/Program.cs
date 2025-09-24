@@ -157,7 +157,11 @@ static IHost BuildHost(string[] args) =>
         services.AddSingleton<SalaryPersistenceService>();
         services.AddTransient<SalaryExtractionProcessor>();
         services.AddTransient<SalaryLevelUpdateProcessor>();
-
+        
+        services.AddTransient<MetadataBuilder>();
+        services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
+        services.AddSingleton<ReportGroupLocalizer>();
+        services.AddSingleton<UiLocalizer>();
         services.AddTransient<ReportGenerationService>();
         services.AddTransient<IReportExporter, HtmlReportExporter>();
 
@@ -174,8 +178,6 @@ static IHost BuildHost(string[] args) =>
         services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
         services.AddTransient<ProcessOrchestrator>();
-        services.AddTransient<MetadataBuilder>();
-        services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
     })
     .Build();
 

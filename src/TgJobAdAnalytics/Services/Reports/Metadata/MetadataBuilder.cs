@@ -99,7 +99,9 @@ public sealed partial class MetadataBuilder
         if (double.IsNaN(value) || double.IsInfinity(value))
             return null;
 
-        return value % 1 == 0 ? value.ToString("N0") : value.ToString("N2");
+        return value % 1 == 0 
+            ? value.ToString("N0") 
+            : value.ToString("N2");
     }
 
 

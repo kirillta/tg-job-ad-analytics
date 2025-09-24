@@ -14,12 +14,12 @@
         (function(){
             var ctx = document.getElementById('{{ report.chart.id_token }}').getContext('2d');
 
-            // Prepare initial labels and data as numbers
-            var initialLabels = {{ report.chart.data.labels }};
-            var initialRawData = {{ report.chart.data.dataset.data }};
+            // Prepare initial labels and data as numbers (serialized to JSON)
+            var initialLabels = {{ dump report.chart.data.labels }};
+            var initialRawData = {{ dump report.chart.data.dataset.data }};
             function toNumericArray(arr){
                 return (Array.isArray(arr) ? arr : []).map(function(v){
-                    if (v &amp;&amp; typeof v === 'object') {
+                    if (v && typeof v === 'object') {
                         if ('y' in v) return Number(v.y);
                         if ('value' in v) return Number(v.value);
                     }
@@ -30,7 +30,7 @@
                 var raw = (max || 1) / (tickTarget || 6);
                 var pow = Math.pow(10, Math.floor(Math.log10(raw)));
                 var norm = raw / pow;
-                var s = norm &lt;= 1 ? 1 : norm &lt;= 2 ? 2 : norm &lt;= 5 ? 5 : 10;
+                var s = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
                 return s * pow;
             }
             function computeYAxis(data){
@@ -48,10 +48,10 @@
                 data: {
                     labels: initialLabels,
                     datasets: [{
-                        label: '{{ report.chart.data.dataset.label }}',
+                        label: {{ dump report.chart.data.dataset.label }},
                         data: initialRawData,
-                        backgroundColor: {{ report.chart.data.dataset.background_color }},
-                        borderColor: {{ report.chart.data.dataset.border_color }},
+                        backgroundColor: {{ dump report.chart.data.dataset.background_color }},
+                        borderColor: {{ dump report.chart.data.dataset.border_color }},
                         borderWidth: {{ report.chart.data.dataset.border_width }},
                         fill: {{ report.chart.data.dataset.fill }},
                         tension: {{ report.chart.data.dataset.tension }}
@@ -70,12 +70,12 @@
                         tooltip: {
                             callbacks: {
                                 title: function(items){
-                                    return items &amp;&amp; items.length ? String(items[0].label) : '';
+                                    return items && items.length ? String(items[0].label) : '';
                                 },
                                 label: function(context) {
                                     var idx = context.dataIndex;
-                                    var raw = context.dataset &amp;&amp; context.dataset.data ? context.dataset.data[idx] : context.raw;
-                                    var value = (raw &amp;&amp; typeof raw === 'object' &amp;&amp; 'y' in raw) ? raw.y : raw;
+                                    var raw = context.dataset && context.dataset.data ? context.dataset.data[idx] : context.raw;
+                                    var value = (raw && typeof raw === 'object' && 'y' in raw) ? raw.y : raw;
                                     var num = Number(value);
                                     return Number.isFinite(num)
                                         ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(num)
@@ -106,12 +106,12 @@
             var variantsData = {
                 {{ for v in report.variants }}
                 "{{ v.key }}": {
-                    labels: {{ v.value.labels }},
+                    labels: {{ dump v.value.labels }},
                     dataset: {
-                        label: '{{ v.value.dataset.label }}',
-                        data: {{ v.value.dataset.data }},
-                        backgroundColor: {{ v.value.dataset.background_color }},
-                        borderColor: {{ v.value.dataset.border_color }},
+                        label: {{ dump v.value.dataset.label }},
+                        data: {{ dump v.value.dataset.data }},
+                        backgroundColor: {{ dump v.value.dataset.background_color }},
+                        borderColor: {{ dump v.value.dataset.border_color }},
                         borderWidth: {{ v.value.dataset.border_width }},
                         fill: {{ v.value.dataset.fill }},
                         tension: {{ v.value.dataset.tension }}

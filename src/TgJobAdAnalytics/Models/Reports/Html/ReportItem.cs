@@ -1,8 +1,8 @@
 ﻿namespace TgJobAdAnalytics.Models.Reports.Html;
 
-internal readonly record struct ReportItem
+public readonly record struct ReportItem
 {
-    internal ReportItem(string code, string title, List<KeyValuePair<string, string>> results, ChartModel? chart, Dictionary<string, ChartModel.DataModel>? variants = null)
+    public ReportItem(string code, string title, List<KeyValuePair<string, string>> results, ChartModel? chart, Dictionary<string, ChartModel.DataModel>? variants = null)
     {
         Code = code;
         Title = title;
@@ -10,6 +10,7 @@ internal readonly record struct ReportItem
         Chart = chart;
         Variants = variants;
     }
+
 
     public string Code { get; }
 

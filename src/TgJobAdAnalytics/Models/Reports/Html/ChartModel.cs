@@ -1,6 +1,6 @@
 ﻿namespace TgJobAdAnalytics.Models.Reports.Html;
 
-internal readonly record struct ChartModel
+public readonly record struct ChartModel
 {
     public ChartModel(Guid id, string type, DataModel data)
     {
