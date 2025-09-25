@@ -152,7 +152,7 @@ public sealed partial class MetadataBuilder
     {
         var baseUrl = _options.BaseUrl.TrimEnd('/');
 
-        return $"{baseUrl}/{locale}/reports/index.html";
+        return $"{baseUrl}/{locale}/index.html";
     }
 
 

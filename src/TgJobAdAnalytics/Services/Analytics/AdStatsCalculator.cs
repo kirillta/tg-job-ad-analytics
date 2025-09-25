@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using TgJobAdAnalytics.Data.Salaries;
+﻿using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Enums;
 
