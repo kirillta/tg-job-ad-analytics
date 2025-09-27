@@ -39,12 +39,7 @@ await ApplyDatabaseMigrations(services);
 
 // Fail-fast: validate stack mapping at startup
 var stackValidator = services.GetRequiredService<StackMappingStartupValidator>();
-await stackValidator.ValidateOrThrow(CancellationToken.None);
-
-// Initialize channel stack resolver
-var resolverFactory = services.GetRequiredService<ChannelStackResolverFactory>();
-var resolver = services.GetRequiredService<ChannelStackResolver>();
-await resolverFactory.InitializeAsync(resolver, CancellationToken.None);
+stackValidator.ValidateOrThrow();
 
 var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
 var logger = services.GetRequiredService<ILogger<Program>>();
@@ -178,8 +173,15 @@ static IHost BuildHost(string[] args) =>
         // Stack mapping services
         services.AddSingleton<ChannelStackMappingLoader>();
         services.AddSingleton<ChannelStackMappingValidator>();
-        services.AddSingleton<ChannelStackResolver>();
-        services.AddSingleton<ChannelStackResolverFactory>();
+        services.AddSingleton<ChannelStackResolver>(serviceProvider => 
+        { 
+            var resolverFactory = serviceProvider.GetRequiredService<ChannelStackResolverFactory>();
+            var resolver = serviceProvider.GetRequiredService<ChannelStackResolver>();
+
+            resolverFactory.Initialize(resolver);
+
+            return resolver;
+        });
         services.AddSingleton<StackMappingStartupValidator>();
         services.AddTransient<StackBackfillService>();
         

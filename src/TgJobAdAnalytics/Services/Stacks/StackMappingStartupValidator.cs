@@ -15,10 +15,10 @@ public sealed class StackMappingStartupValidator
     }
 
 
-    public async Task ValidateOrThrow(CancellationToken cancellationToken)
+    public void ValidateOrThrow()
     {
         var mapping = _loader.Load();
-        await _validator.ValidateOrThrow(mapping, cancellationToken);
+        _validator.ValidateOrThrow(mapping);
 
         _logger.LogInformation("Stack mapping validation passed. Channels: {Count}", mapping.Channels.Count);
     }

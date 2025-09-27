@@ -19,14 +19,14 @@ public sealed class ChannelStackResolverFactory
     }
 
 
-    public async Task InitializeAsync(ChannelStackResolver resolver, CancellationToken cancellationToken)
+    public void Initialize(ChannelStackResolver resolver)
     {
         var mapping = _loader.Load();
-        await _validator.ValidateOrThrow(mapping, cancellationToken);
+        _validator.ValidateOrThrow(mapping);
 
-        var stackIdByName = await _dbContext.TechnologyStacks
+        var stackIdByName = _dbContext.TechnologyStacks
             .AsNoTracking()
-            .ToDictionaryAsync(s => s.Name.Trim().ToLowerInvariant(), s => s.Id, StringComparer.OrdinalIgnoreCase, cancellationToken);
+            .ToDictionary(s => s.Name.Trim().ToLowerInvariant(), s => s.Id, StringComparer.OrdinalIgnoreCase);
 
         resolver.Setup(mapping: mapping, stackIdByName: stackIdByName);
     }

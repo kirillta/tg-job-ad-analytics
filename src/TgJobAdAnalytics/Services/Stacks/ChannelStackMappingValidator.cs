@@ -15,7 +15,7 @@ public sealed class ChannelStackMappingValidator
     }
 
 
-    public async Task ValidateOrThrow(ChannelStackMapping mapping, CancellationToken cancellationToken)
+    public void ValidateOrThrow(ChannelStackMapping mapping)
     {
         if (mapping.Channels.Count == 0)
             throw new InvalidOperationException("Stack mapping contains no channels.");
@@ -29,10 +29,10 @@ public sealed class ChannelStackMappingValidator
         if (duplicates.Count > 0)
             throw new InvalidOperationException($"Duplicate channel entries in stack mapping: {string.Join(", ", duplicates)}");
 
-        var canonicalStacks = await _dbContext.TechnologyStacks
+        var canonicalStacks = _dbContext.TechnologyStacks
             .AsNoTracking()
             .Select(s => s.Name.ToLowerInvariant())
-            .ToHashSetAsync(cancellationToken);
+            .ToHashSet();
 
         var unknown = mapping.Channels
             .Select(c => c.Stack?.Trim().ToLowerInvariant() ?? string.Empty)
