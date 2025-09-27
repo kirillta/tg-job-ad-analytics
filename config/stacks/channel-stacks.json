@@ -1,0 +1,8 @@
+{
+  "channels": [
+    { "channel": "dotnet_jobs", "stack": "dotnet" },
+    { "channel": "javascript_jobs", "stack": "javascript" },
+    { "channel": "java_jobs", "stack": "java" },
+    { "channel": "python_jobs", "stack": "python" }
+  ]
+}

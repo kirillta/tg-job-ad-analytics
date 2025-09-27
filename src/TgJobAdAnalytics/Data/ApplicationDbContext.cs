@@ -5,6 +5,7 @@ using System.Text.Json;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Messages.Converters;
 using TgJobAdAnalytics.Data.Salaries;
+using TgJobAdAnalytics.Data.Stacks;
 using TgJobAdAnalytics.Data.Vectors;
 
 namespace TgJobAdAnalytics.Data;
@@ -64,9 +65,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Date).IsRequired();
             entity.Property(e => e.Text).IsRequired();
             entity.Property(e => e.MessageId).IsRequired();
+            entity.Property(e => e.StackId).IsRequired(false);
             
             entity.HasIndex(e => e.MessageId);
             entity.HasIndex(e => e.IsUnique);
+            entity.HasIndex(e => e.StackId);
         });
         modelBuilder.Entity<AdEntity>()
             .HasQueryFilter(ad => ad.IsUnique);
@@ -117,6 +120,13 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.Version, e.Band, e.Key });
             entity.HasIndex(e => e.AdId);
         });
+
+        modelBuilder.Entity<TechnologyStackEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(64);
+            entity.HasIndex(e => e.Name).IsUnique();
+        });
     }
     
     
@@ -133,6 +143,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AdVectorEntity> AdVectors { get; set; }
 
     public DbSet<LshBucketEntity> LshBuckets { get; set; }
+
+    public DbSet<TechnologyStackEntity> TechnologyStacks { get; set; }
 
 
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()

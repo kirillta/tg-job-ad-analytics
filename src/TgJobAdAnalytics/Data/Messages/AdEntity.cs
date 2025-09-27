@@ -17,6 +17,8 @@ public class AdEntity
 
     public Guid MessageId { get; set; }
 
+    public Guid? StackId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

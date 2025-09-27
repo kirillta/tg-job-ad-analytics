@@ -10,6 +10,7 @@ using TgJobAdAnalytics.Models.Telegram.Enums;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Services.Messages;
+using TgJobAdAnalytics.Services.Stacks;
 using TgJobAdAnalytics.Services.Vectors;
 using TgJobAdAnalytics.Utils;
 
@@ -24,10 +25,12 @@ public sealed class TelegramAdPersistenceService
         IOptions<UploadOptions> uploadOptions,
         MinHashVectorizer minHashVectorizer,
         VectorStore vectorStore,
-        VectorIndex vectorIndex)
+        VectorIndex vectorIndex,
+        ChannelStackResolver channelStackResolver)
     {
-        _logger = logger;
+        _channelStackResolver = channelStackResolver;
         _dbContext = dbContext;
+        _logger = logger;
         _parallelOptions = parallelOptions.Value;
         _uploadOptions = uploadOptions.Value;
         _minHashVectorizer = minHashVectorizer;
@@ -67,7 +70,7 @@ public sealed class TelegramAdPersistenceService
             .Where(m => m.TelegramChatId == chat.Id)
             .ToListAsync(cancellationToken);
 
-        await ProcessAndInsert(messages, timeStamp, cancellationToken);
+        await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
     }
 
 
@@ -89,11 +92,11 @@ public sealed class TelegramAdPersistenceService
             .Where(m => m.TelegramChatId == chat.Id && diff.Contains(m.Id))
             .ToListAsync(cancellationToken);
 
-        await ProcessAndInsert(messages, timeStamp, cancellationToken);
+        await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
     }
 
 
-    private async Task ProcessAndInsert(List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
+    private async Task ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
     {
         var entryBag = new ConcurrentBag<AdEntity>();
         Parallel.ForEach(messages, _parallelOptions, message =>
@@ -105,6 +108,13 @@ public sealed class TelegramAdPersistenceService
             if (string.IsNullOrEmpty(normalizedText))
                 return;
 
+            if (!_channelStackResolver.TryResolve(chat.Name, out var stackId))
+            {
+                _logger.LogCritical("Unknown channel for stack mapping. channelName={ChannelName} messageId={MessageId}", chat.Name, message.Id);
+
+                return;
+            }
+
             var adId = DeterministicGuid.Create(Namespaces.Ads, $"{message.TelegramChatId}:{message.TelegramMessageId}:ad");
 
             entryBag.Add(new AdEntity
@@ -113,6 +123,7 @@ public sealed class TelegramAdPersistenceService
                 Date = DateOnly.FromDateTime(message.TelegramMessageDate),
                 Text = normalizedText,
                 MessageId = message.Id,
+                StackId = stackId,
                 CreatedAt = timeStamp,
                 UpdatedAt = timeStamp
             });
@@ -244,11 +255,13 @@ public sealed class TelegramAdPersistenceService
 
     private const int MinimalValuebleMessageLength = 300;
 
-    private readonly ILogger<TelegramAdPersistenceService> _logger;
+
+    private readonly ChannelStackResolver _channelStackResolver;
     private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<TelegramAdPersistenceService> _logger;
+    private readonly MinHashVectorizer _minHashVectorizer;
     private readonly ParallelOptions _parallelOptions;
     private readonly UploadOptions _uploadOptions;
-    private readonly MinHashVectorizer _minHashVectorizer;
     private readonly VectorStore _vectorStore;
     private readonly VectorIndex _vectorIndex;
 }

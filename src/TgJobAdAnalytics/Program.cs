@@ -11,6 +11,7 @@ using TgJobAdAnalytics.Models.Messages;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Metadata;
 using TgJobAdAnalytics.Models.Salaries;
+using TgJobAdAnalytics.Models.Stacks;
 using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Models.Vectors;
@@ -24,6 +25,7 @@ using TgJobAdAnalytics.Services.Reports;
 using TgJobAdAnalytics.Services.Reports.Html;
 using TgJobAdAnalytics.Services.Reports.Metadata;
 using TgJobAdAnalytics.Services.Salaries;
+using TgJobAdAnalytics.Services.Stacks;
 using TgJobAdAnalytics.Services.Uploads;
 using TgJobAdAnalytics.Services.Vectors;
 
@@ -34,6 +36,15 @@ using var scope = host.Services.CreateScope();
 var services = scope.ServiceProvider;
 
 await ApplyDatabaseMigrations(services);
+
+// Fail-fast: validate stack mapping at startup
+var stackValidator = services.GetRequiredService<StackMappingStartupValidator>();
+await stackValidator.ValidateOrThrow(CancellationToken.None);
+
+// Initialize channel stack resolver
+var resolverFactory = services.GetRequiredService<ChannelStackResolverFactory>();
+var resolver = services.GetRequiredService<ChannelStackResolver>();
+await resolverFactory.InitializeAsync(resolver, CancellationToken.None);
 
 var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
 var logger = services.GetRequiredService<ILogger<Program>>();
@@ -119,6 +130,12 @@ static IHost BuildHost(string[] args) =>
             options.LocalizationPath = GetOperationalPath(context.Configuration["SiteMetadata:LocalizationPath"]!);
         });
 
+        // Stack mapping options (resolve absolute path up-front)
+        services.Configure<StackMappingOptions>(options =>
+        {
+            options.MappingFilePath = GetOperationalPath("config", "stacks", "channel-stacks.json");
+        });
+
         services.AddSingleton(_ => 
         { 
             var credentials = new ApiKeyCredential(Environment.GetEnvironmentVariable("PNKL_OPEN_AI_KEY")!);
@@ -157,6 +174,14 @@ static IHost BuildHost(string[] args) =>
         services.AddSingleton<SalaryPersistenceService>();
         services.AddTransient<SalaryExtractionProcessor>();
         services.AddTransient<SalaryLevelUpdateProcessor>();
+        
+        // Stack mapping services
+        services.AddSingleton<ChannelStackMappingLoader>();
+        services.AddSingleton<ChannelStackMappingValidator>();
+        services.AddSingleton<ChannelStackResolver>();
+        services.AddSingleton<ChannelStackResolverFactory>();
+        services.AddSingleton<StackMappingStartupValidator>();
+        services.AddTransient<StackBackfillService>();
         
         services.AddTransient<MetadataBuilder>();
         services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
