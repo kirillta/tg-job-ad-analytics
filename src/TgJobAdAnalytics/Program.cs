@@ -185,6 +185,13 @@ static IHost BuildHost(string[] args) =>
         services.AddSingleton<StackMappingStartupValidator>();
         services.AddTransient<StackBackfillService>();
         
+        services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();
+        services.AddSingleton<IPipeline, DistinctAdsPipeline>();
+        services.AddSingleton<IPipeline, InitVectorsPipeline>();
+        services.AddSingleton<IPipeline, DeterministicIdMigrationPipeline>();
+        services.AddSingleton<IPipeline, AssignDotnetStackToChatsPipeline>();
+        services.AddSingleton<IPipelineRunner, PipelineRunner>();
+
         services.AddTransient<MetadataBuilder>();
         services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
         services.AddSingleton<ReportGroupLocalizer>();
@@ -197,12 +204,6 @@ static IHost BuildHost(string[] args) =>
         services.AddScoped<VectorStore>();
         services.AddScoped<VectorIndex>();
         services.AddTransient<VectorsBackfillService>();
-
-        services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();
-        services.AddSingleton<IPipeline, DistinctAdsPipeline>();
-        services.AddSingleton<IPipeline, InitVectorsPipeline>();
-        services.AddSingleton<IPipeline, DeterministicIdMigrationPipeline>();
-        services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
         services.AddTransient<ProcessOrchestrator>();
     })
