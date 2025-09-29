@@ -52,7 +52,7 @@ Console.CancelKeyPress += (_, e) =>
 };
 
 var startTime = Stopwatch.GetTimestamp();
-await orchestrator.Run([.. args], cancellationToken.Token);
+await orchestrator.Run(["assign-dotnet-to-chats"], cancellationToken.Token);
 
 LogExecutionDuration(logger, Stopwatch.GetElapsedTime(startTime));
 
@@ -173,7 +173,7 @@ static IHost BuildHost(string[] args) =>
         // Stack mapping services
         services.AddSingleton<ChannelStackMappingLoader>();
         services.AddSingleton<ChannelStackMappingValidator>();
-        services.AddSingleton<ChannelStackResolver>(serviceProvider => 
+        services.AddSingleton(serviceProvider => 
         { 
             var resolverFactory = serviceProvider.GetRequiredService<ChannelStackResolverFactory>();
             var resolver = serviceProvider.GetRequiredService<ChannelStackResolver>();

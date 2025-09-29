@@ -39,7 +39,7 @@ public sealed class AssignDotnetStackToChatsPipeline : IPipeline
     {
         var dotnetStackId = await _dbContext.TechnologyStacks
             .AsNoTracking()
-            .Where(s => s.Name.ToLower() == "dotnet")
+            .Where(s => s.Name.Equals("dotnet", StringComparison.CurrentCultureIgnoreCase))
             .Select(s => s.Id)
             .FirstOrDefaultAsync(cancellationToken);
 

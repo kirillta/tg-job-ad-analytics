@@ -4,9 +4,6 @@ using TgJobAdAnalytics.Models.Stacks;
 
 namespace TgJobAdAnalytics.Services.Stacks;
 
-/// <summary>
-/// Validates mapping content: duplicates, unknown stacks, empty file.
-/// </summary>
 public sealed class ChannelStackMappingValidator
 {
     public ChannelStackMappingValidator(ApplicationDbContext dbContext)
@@ -20,14 +17,14 @@ public sealed class ChannelStackMappingValidator
         if (mapping.Channels.Count == 0)
             throw new InvalidOperationException("Stack mapping contains no channels.");
 
-        var duplicates = mapping.Channels
-            .GroupBy(c => Normalize(c.Channel))
+        var duplicateChatIds = mapping.Channels
+            .GroupBy(c => c.ChatId)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
             .ToList();
 
-        if (duplicates.Count > 0)
-            throw new InvalidOperationException($"Duplicate channel entries in stack mapping: {string.Join(", ", duplicates)}");
+        if (duplicateChatIds.Count > 0)
+            throw new InvalidOperationException($"Duplicate chat ids in stack mapping: {string.Join(", ", duplicateChatIds)}");
 
         var canonicalStacks = _dbContext.TechnologyStacks
             .AsNoTracking()
@@ -35,7 +32,7 @@ public sealed class ChannelStackMappingValidator
             .ToHashSet();
 
         var unknown = mapping.Channels
-            .Select(c => c.Stack?.Trim().ToLowerInvariant() ?? string.Empty)
+            .Select(c => c.StackName?.Trim().ToLowerInvariant() ?? string.Empty)
             .Where(s => !canonicalStacks.Contains(s))
             .Distinct()
             .ToList();
@@ -43,10 +40,6 @@ public sealed class ChannelStackMappingValidator
         if (unknown.Count > 0)
             throw new InvalidOperationException($"Unknown stack names in mapping (not in canonical set): {string.Join(", ", unknown)}");
     }
-
-
-    private static string Normalize(string s)
-        => (s ?? string.Empty).Trim().ToLowerInvariant();
 
 
     private readonly ApplicationDbContext _dbContext;

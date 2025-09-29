@@ -108,7 +108,7 @@ public sealed class TelegramAdPersistenceService
             if (string.IsNullOrEmpty(normalizedText))
                 return;
 
-            if (!_channelStackResolver.TryResolve(chat.Name, out var stackId))
+            if (!_channelStackResolver.TryResolve(chat.Id, out var stackId))
             {
                 _logger.LogCritical("Unknown channel for stack mapping. channelName={ChannelName} messageId={MessageId}", chat.Name, message.Id);
 

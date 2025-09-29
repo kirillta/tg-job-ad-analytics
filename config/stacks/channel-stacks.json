@@ -1,8 +1,19 @@
 {
   "channels": [
-    { "channel": "dotnet_jobs", "stack": "dotnet" },
-    { "channel": "javascript_jobs", "stack": "javascript" },
-    { "channel": "java_jobs", "stack": "java" },
-    { "channel": "python_jobs", "stack": "python" }
+    {
+      "chatId": 1360727685,
+      "channel": "Вакансии .NET",
+      "stackName": "dotnet"
+    },
+    {
+      "chatId": 1119539411,
+      "channel": "Microsoft Stack Jobs",
+      "stackName": "dotnet"
+    },
+    {
+      "chatId": 1050008285,
+      "channel": "JavaScript Jobs — чат",
+      "stackName": "javascript"
+    }
   ]
 }

@@ -26,10 +26,10 @@ public class ProcessOrchestrator
     {
         //await ImportData(cancellationToken);
 
-        //if (pipelineNames.Count != 0)
-            //await ExecutePipelines(pipelineNames, cancellationToken);
+        if (pipelineNames.Count != 0)
+            await ExecutePipelines(pipelineNames, cancellationToken);
 
-        GenerateAndExportReport();
+        //GenerateAndExportReport();
     }
 
 
