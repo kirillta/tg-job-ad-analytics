@@ -11,8 +11,8 @@ using TgJobAdAnalytics.Data;
 namespace TgJobAdAnalytics.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250927231206_AddStackClassification")]
-    partial class AddStackClassification
+    [Migration("20250930233539_StackClassification")]
+    partial class StackClassification
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
