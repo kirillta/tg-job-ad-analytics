@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Stacks;
 
@@ -6,9 +7,10 @@ namespace TgJobAdAnalytics.Services.Stacks;
 
 public sealed class ChannelStackMappingValidator
 {
-    public ChannelStackMappingValidator(ApplicationDbContext dbContext)
+    public ChannelStackMappingValidator(ILoggerFactory loggerFactory, ApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
+        _logger = loggerFactory.CreateLogger<ChannelStackMappingValidator>();
     }
 
 
@@ -24,7 +26,10 @@ public sealed class ChannelStackMappingValidator
             .ToList();
 
         if (duplicateChatIds.Count > 0)
+        {
+            _logger.LogCritical("Duplicate chat ids in stack mapping: {ChatIds}", string.Join(", ", duplicateChatIds));
             throw new InvalidOperationException($"Duplicate chat ids in stack mapping: {string.Join(", ", duplicateChatIds)}");
+        }
 
         var canonicalStacks = _dbContext.TechnologyStacks
             .AsNoTracking()
@@ -38,9 +43,14 @@ public sealed class ChannelStackMappingValidator
             .ToList();
 
         if (unknown.Count > 0)
-            throw new InvalidOperationException($"Unknown stack names in mapping (not in canonical set): {string.Join(", ", unknown)}");
+        {
+            _logger.LogCritical("Unknown stack names in mapping: {StackNames}", string.Join(", ", unknown));
+            throw new InvalidOperationException($"Unknown stack names in mapping: {string.Join(", ", unknown)}");
+        }
+
     }
 
 
     private readonly ApplicationDbContext _dbContext;
+    private readonly ILogger<ChannelStackMappingValidator> _logger;
 }

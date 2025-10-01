@@ -28,7 +28,7 @@ public sealed class ChannelStackResolverFactory
             .AsNoTracking()
             .ToDictionary(s => s.Name.Trim().ToLowerInvariant(), s => s.Id, StringComparer.OrdinalIgnoreCase);
 
-        resolver.Setup(mapping: mapping, stackIdByName: stackIdByName);
+        resolver.Setup(mapping, stackIdByName);
     }
 
 
