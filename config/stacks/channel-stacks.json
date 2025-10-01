@@ -3,17 +3,17 @@
     {
       "chatId": 1360727685,
       "channel": "Вакансии .NET",
-      "stackName": "dotnet"
+      "stack": "dotnet"
     },
     {
       "chatId": 1119539411,
       "channel": "Microsoft Stack Jobs",
-      "stackName": "dotnet"
+      "stack": "dotnet"
     },
     {
       "chatId": 1050008285,
       "channel": "JavaScript Jobs — чат",
-      "stackName": "javascript"
+      "stack": "javascript"
     }
   ]
 }
