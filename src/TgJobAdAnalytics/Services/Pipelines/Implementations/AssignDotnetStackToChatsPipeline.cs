@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
+using TgJobAdAnalytics.Services.Stacks;
 
 namespace TgJobAdAnalytics.Services.Pipelines.Implementations;
 
@@ -12,10 +13,11 @@ public sealed class AssignDotnetStackToChatsPipeline : IPipeline
     /// <summary>
     /// Initializes a new instance of the <see cref="AssignDotnetStackToChatsPipeline"/> class.
     /// </summary>
-    public AssignDotnetStackToChatsPipeline(ILoggerFactory loggerFactory, ApplicationDbContext dbContext)
+    public AssignDotnetStackToChatsPipeline(ILoggerFactory loggerFactory, ApplicationDbContext dbContext, ChannelStackMappingManager mappingManager)
     {
         _logger = loggerFactory.CreateLogger<AssignDotnetStackToChatsPipeline>();
         _dbContext = dbContext;
+        _mappingManager = mappingManager;
     }
 
 
@@ -37,9 +39,12 @@ public sealed class AssignDotnetStackToChatsPipeline : IPipeline
     /// <inheritdoc/>
     public async Task<int> Run(CancellationToken cancellationToken)
     {
+        await _mappingManager.Update();
+
+        var dotnetStackToken = "dotnet".ToLowerInvariant().Normalize();
         var dotnetStackId = await _dbContext.TechnologyStacks
             .AsNoTracking()
-            .Where(s => s.Name.Equals("dotnet", StringComparison.CurrentCultureIgnoreCase))
+            .Where(s => s.Name == dotnetStackToken)
             .Select(s => s.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -72,4 +77,5 @@ public sealed class AssignDotnetStackToChatsPipeline : IPipeline
 
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<AssignDotnetStackToChatsPipeline> _logger;
+    private readonly ChannelStackMappingManager _mappingManager;
 }

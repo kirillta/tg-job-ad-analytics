@@ -10,11 +10,11 @@ namespace TgJobAdAnalytics.Services.Stacks;
 /// </summary>
 public sealed class StackBackfillService
 {
-    public StackBackfillService(ILogger<StackBackfillService> logger, ApplicationDbContext dbContext, ChannelStackResolver resolver)
+    public StackBackfillService(ILogger<StackBackfillService> logger, ApplicationDbContext dbContext, ChannelStackResolverFactory resolverFactory)
     {
-        _logger = logger;
         _dbContext = dbContext;
-        _resolver = resolver;
+        _logger = logger;
+        _resolverFactory = resolverFactory;
     }
 
 
@@ -30,12 +30,13 @@ public sealed class StackBackfillService
         if (items.Count == 0)
             return 0;
 
+        var resolver = await _resolverFactory.Create();
         var updated = 0;
         foreach (var chunk in items.Chunk(500))
         {
             foreach (var row in chunk)
             {
-                if (!_resolver.TryResolve(row.TelegramChatId, out var stackId))
+                if (!resolver.TryResolve(row.TelegramChatId, out var stackId))
                     continue;
 
                 await _dbContext.Ads
@@ -53,5 +54,5 @@ public sealed class StackBackfillService
 
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<StackBackfillService> _logger;
-    private readonly ChannelStackResolver _resolver;
+    private readonly ChannelStackResolverFactory _resolverFactory;
 }

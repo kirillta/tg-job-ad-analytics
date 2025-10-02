@@ -26,16 +26,16 @@ public sealed class TelegramAdPersistenceService
         MinHashVectorizer minHashVectorizer,
         VectorStore vectorStore,
         VectorIndex vectorIndex,
-        ChannelStackResolver channelStackResolver)
+        ChannelStackResolverFactory channelStackResolverFactory)
     {
-        _channelStackResolver = channelStackResolver;
+        _channelStackResolverFactory = channelStackResolverFactory;
         _dbContext = dbContext;
         _logger = logger;
+        _minHashVectorizer = minHashVectorizer;
         _parallelOptions = parallelOptions.Value;
         _uploadOptions = uploadOptions.Value;
-        _minHashVectorizer = minHashVectorizer;
-        _vectorStore = vectorStore;
         _vectorIndex = vectorIndex;
+        _vectorStore = vectorStore;
     }
 
 
@@ -98,8 +98,10 @@ public sealed class TelegramAdPersistenceService
 
     private async Task ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
     {
+        var resolver = await _channelStackResolverFactory.Create();
+
         var entryBag = new ConcurrentBag<AdEntity>();
-        Parallel.ForEach(messages, _parallelOptions, message =>
+        Parallel.ForEach(messages, _parallelOptions, async message =>
         {
             if (!IsProcessable(message, timeStamp))
                 return;
@@ -108,10 +110,9 @@ public sealed class TelegramAdPersistenceService
             if (string.IsNullOrEmpty(normalizedText))
                 return;
 
-            if (!_channelStackResolver.TryResolve(chat.Id, out var stackId))
+            if (!resolver.TryResolve(chat.Id, out var stackId))
             {
                 _logger.LogCritical("Unknown channel for stack mapping. channelName={ChannelName} messageId={MessageId}", chat.Name, message.Id);
-
                 return;
             }
 
@@ -256,12 +257,12 @@ public sealed class TelegramAdPersistenceService
     private const int MinimalValuebleMessageLength = 300;
 
 
-    private readonly ChannelStackResolver _channelStackResolver;
+    private readonly ChannelStackResolverFactory _channelStackResolverFactory;
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<TelegramAdPersistenceService> _logger;
     private readonly MinHashVectorizer _minHashVectorizer;
     private readonly ParallelOptions _parallelOptions;
     private readonly UploadOptions _uploadOptions;
-    private readonly VectorStore _vectorStore;
     private readonly VectorIndex _vectorIndex;
+    private readonly VectorStore _vectorStore;
 }

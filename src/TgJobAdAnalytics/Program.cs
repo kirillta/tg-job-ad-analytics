@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using TgJobAdAnalytics.Services;
-using TgJobAdAnalytics.Services.Stacks;
 using TgJobAdAnalytics.Utils;
 
 
@@ -12,9 +11,6 @@ using var scope = host.Services.CreateScope();
 var services = scope.ServiceProvider;
 
 await HostHelper.ApplyDatabaseMigrations(services);
-
-//var stackValidator = services.GetRequiredService<StackMappingStartupValidator>();
-//stackValidator.ValidateOrThrow();
 
 var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
 var logger = services.GetRequiredService<ILogger<Program>>();

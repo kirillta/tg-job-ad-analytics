@@ -140,20 +140,8 @@ public static class HostHelper
             services.AddTransient<SalaryExtractionProcessor>();
             services.AddTransient<SalaryLevelUpdateProcessor>();
         
-            services.AddSingleton<ChannelStackMappingLoader>();
-            services.AddSingleton<ChannelStackMappingValidator>();
+            services.AddSingleton<ChannelStackMappingManager>();
             services.AddScoped<ChannelStackResolverFactory>();
-            services.AddTransient(serviceProvider => 
-            { 
-                var logger = serviceProvider.GetRequiredService<ILogger<ChannelStackResolver>>();
-                var resolver = new ChannelStackResolver(logger);
-
-                var resolverFactory = serviceProvider.GetRequiredService<ChannelStackResolverFactory>();
-                resolverFactory.Initialize(resolver);
-
-                return resolver;
-            });
-            services.AddSingleton<StackMappingStartupValidator>();
             services.AddTransient<StackBackfillService>();
         
             services.AddSingleton<IPipeline, SalaryLevelUpdatePipeline>();

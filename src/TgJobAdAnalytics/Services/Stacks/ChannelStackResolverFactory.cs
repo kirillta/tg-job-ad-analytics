@@ -9,32 +9,30 @@ namespace TgJobAdAnalytics.Services.Stacks;
 /// </summary>
 public sealed class ChannelStackResolverFactory
 {
-    public ChannelStackResolverFactory(ILogger<ChannelStackResolverFactory> logger, ILoggerFactory loggerFactory, ApplicationDbContext dbContext, ChannelStackMappingLoader loader, ChannelStackMappingValidator validator)
+    public ChannelStackResolverFactory(ILoggerFactory loggerFactory, ApplicationDbContext dbContext, ChannelStackMappingManager loader)
     {
-        _logger = logger;
-        _loggerFactory = loggerFactory;
         _dbContext = dbContext;
         _loader = loader;
-        _validator = validator;
+        _loggerFactory = loggerFactory;
     }
 
 
-    public void Initialize(ChannelStackResolver resolver)
+    public async Task<ChannelStackResolver> Create()
     {
-        var mapping = _loader.Load();
-        _validator.ValidateOrThrow(mapping);
+        var mapping = await _loader.Update();
 
         var stackIdByName = _dbContext.TechnologyStacks
             .AsNoTracking()
             .ToDictionary(s => s.Name.Trim().ToLowerInvariant(), s => s.Id, StringComparer.OrdinalIgnoreCase);
-
+        
+        var resolver = new ChannelStackResolver(_loggerFactory.CreateLogger<ChannelStackResolver>());
         resolver.Setup(mapping, stackIdByName);
+
+        return resolver;
     }
 
 
-    private readonly ILogger<ChannelStackResolverFactory> _logger;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly ApplicationDbContext _dbContext;
-    private readonly ChannelStackMappingLoader _loader;
-    private readonly ChannelStackMappingValidator _validator;
+    private readonly ChannelStackMappingManager _loader;
+    private readonly ILoggerFactory _loggerFactory;
 }
