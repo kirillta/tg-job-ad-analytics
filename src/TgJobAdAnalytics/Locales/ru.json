@@ -57,5 +57,9 @@
   "ui.stack_comparison.sort_share": "Доля",
   "ui.stack_comparison.stack": "Стек",
   "ui.stack_comparison.count": "Количество",
-  "ui.stack_comparison.share": "Доля %"
+  "ui.stack_comparison.share": "Доля %",
+  "ui.stack_comparison.period": "Период",
+  "ui.stack_comparison.last_month": "Прошлый месяц",
+  "ui.stack_comparison.year": "Год",
+  "ui.stack_comparison.no_data_year": "Нет данных за выбранный год"
 }

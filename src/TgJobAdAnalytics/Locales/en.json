@@ -57,5 +57,9 @@
   "ui.stack_comparison.sort_share": "Share",
   "ui.stack_comparison.stack": "Stack",
   "ui.stack_comparison.count": "Count",
-  "ui.stack_comparison.share": "Share %"
+  "ui.stack_comparison.share": "Share %",
+  "ui.stack_comparison.period": "Period",
+  "ui.stack_comparison.last_month": "Last month",
+  "ui.stack_comparison.year": "Year",
+  "ui.stack_comparison.no_data_year": "No data for selected year"
 }

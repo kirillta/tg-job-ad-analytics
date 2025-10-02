@@ -144,8 +144,12 @@ public sealed class HtmlReportExporter : IReportExporter
             var localizationDict = _uiLocalizer.BuildLocalizationDictionary(locale);
             localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict);
 
-            var stackComparison = _stackComparisonBuilder.Build();
-            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, stackComparison, localizationDict);
+            var lastMonth = _stackComparisonBuilder.BuildLastClosedMonth();
+            var byYear = _stackComparisonBuilder.BuildByYear();
+
+            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, lastMonth, localizationDict);
+            localizationDict["stack_comparison_years"] = byYear;
+
             var html = _templateRenderer.Render(reportModel);
 
             WriteToFile(html, locale, runRoot);

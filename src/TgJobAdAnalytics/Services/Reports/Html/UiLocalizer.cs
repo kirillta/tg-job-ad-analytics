@@ -118,7 +118,11 @@ public sealed class UiLocalizer
         "ui.stack_comparison.sort_share",
         "ui.stack_comparison.stack",
         "ui.stack_comparison.count",
-        "ui.stack_comparison.share"
+        "ui.stack_comparison.share",
+        "ui.stack_comparison.year",
+        "ui.stack_comparison.period",
+        "ui.stack_comparison.last_month",
+        "ui.stack_comparison.no_data_year"
     ];
 
 
