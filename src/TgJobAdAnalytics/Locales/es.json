@@ -43,5 +43,19 @@
   "month.september": "Septiembre",
   "month.october": "Octubre",
   "month.november": "Noviembre",
-  "month.december": "Diciembre"
+  "month.december": "Diciembre",
+
+  "ui.stack_comparison.title": "Comparación de tecnologías",
+  "ui.stack_comparison.explainer": "Incluye/excluye tecnologías de forma interactiva, ordena por mediana, cantidad o cuota. Los colores son deterministas por tecnología.",
+  "ui.stack_comparison.search": "Buscar tecnologías...",
+  "ui.stack_comparison.select_all": "Seleccionar todo",
+  "ui.stack_comparison.select_none": "Deseleccionar todo",
+  "ui.stack_comparison.top_n": "Top 5 por mediana",
+  "ui.stack_comparison.sort": "Ordenar",
+  "ui.stack_comparison.sort_median": "Mediana",
+  "ui.stack_comparison.sort_count": "Cantidad",
+  "ui.stack_comparison.sort_share": "Cuota",
+  "ui.stack_comparison.stack": "Tecnología",
+  "ui.stack_comparison.count": "Cantidad",
+  "ui.stack_comparison.share": "Cuota %"
 }

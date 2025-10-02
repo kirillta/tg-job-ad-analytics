@@ -151,6 +151,7 @@ public static class HostHelper
             services.AddSingleton<IPipeline, AssignDotnetStackToChatsPipeline>();
             services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
+            services.AddTransient<StackComparisonDataBuilder>();
             services.AddTransient<MetadataBuilder>();
             services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
             services.AddSingleton<ReportGroupLocalizer>();

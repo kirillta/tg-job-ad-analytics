@@ -23,7 +23,7 @@ Console.CancelKeyPress += (_, e) =>
 };
 
 var startTime = Stopwatch.GetTimestamp();
-await orchestrator.Run(["assign-dotnet-to-chats"], cancellationToken.Token);
+await orchestrator.Run([.. args], cancellationToken.Token);
 
 LogExecutionDuration(logger, Stopwatch.GetElapsedTime(startTime));
 

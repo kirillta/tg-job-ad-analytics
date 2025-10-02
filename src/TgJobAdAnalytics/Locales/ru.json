@@ -43,5 +43,19 @@
   "month.september": "Сентябрь",
   "month.october": "Октябрь",
   "month.november": "Ноябрь",
-  "month.december": "Декабрь"
+  "month.december": "Декабрь",
+  
+  "ui.stack_comparison.title": "Сравнение стеков",
+  "ui.stack_comparison.explainer": "Интерактивно включайте/исключайте стеки, сортируйте по медиане, количеству или доле. Цвета детерминированы по названию стека.",
+  "ui.stack_comparison.search": "Поиск стеков...",
+  "ui.stack_comparison.select_all": "Выбрать все",
+  "ui.stack_comparison.select_none": "Снять выбор",
+  "ui.stack_comparison.top_n": "Топ-5 по медиане",
+  "ui.stack_comparison.sort": "Сортировка",
+  "ui.stack_comparison.sort_median": "Медиана",
+  "ui.stack_comparison.sort_count": "Количество",
+  "ui.stack_comparison.sort_share": "Доля",
+  "ui.stack_comparison.stack": "Стек",
+  "ui.stack_comparison.count": "Количество",
+  "ui.stack_comparison.share": "Доля %"
 }

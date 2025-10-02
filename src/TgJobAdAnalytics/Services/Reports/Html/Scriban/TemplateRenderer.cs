@@ -84,7 +84,8 @@ internal class TemplateRenderer
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     private readonly FileSystemLoader _loader;

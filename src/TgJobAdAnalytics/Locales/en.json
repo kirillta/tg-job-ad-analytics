@@ -43,5 +43,19 @@
   "month.september": "September",
   "month.october": "October",
   "month.november": "November",
-  "month.december": "December"
+  "month.december": "December",
+  
+  "ui.stack_comparison.title": "Stack comparison",
+  "ui.stack_comparison.explainer": "Interactively include/exclude stacks, sort by median, count, or share. Colors are deterministic per stack.",
+  "ui.stack_comparison.search": "Search stacks...",
+  "ui.stack_comparison.select_all": "Select all",
+  "ui.stack_comparison.select_none": "Select none",
+  "ui.stack_comparison.top_n": "Top 5 by median",
+  "ui.stack_comparison.sort": "Sort",
+  "ui.stack_comparison.sort_median": "Median",
+  "ui.stack_comparison.sort_count": "Count",
+  "ui.stack_comparison.sort_share": "Share",
+  "ui.stack_comparison.stack": "Stack",
+  "ui.stack_comparison.count": "Count",
+  "ui.stack_comparison.share": "Share %"
 }

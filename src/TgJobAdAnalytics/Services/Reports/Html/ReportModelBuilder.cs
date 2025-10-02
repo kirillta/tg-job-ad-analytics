@@ -6,7 +6,7 @@ namespace TgJobAdAnalytics.Services.Reports.Html;
 
 internal class ReportModelBuilder
 {
-    public static ReportModel Build(List<ReportItemGroup> groups, List<DataSourceModel> dataSources, MetadataModel metadata, Dictionary<string, object>? localization = null)
+    public static ReportModel Build(List<ReportItemGroup> groups, List<DataSourceModel> dataSources, MetadataModel metadata, List<StackComparisonItem> stackComparison, Dictionary<string, object>? localization = null)
         => new(
             reportGroups: groups,
             reportDate: DateOnly.FromDateTime(DateTime.UtcNow),
@@ -14,7 +14,8 @@ internal class ReportModelBuilder
             metadata: BuildMetadata(metadata),
             localization: localization ?? new Dictionary<string, object>(),
             locales: metadata.HreflangAlternates.Select(a => a.Locale).Prepend(metadata.Locale).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            currentLocale: metadata.Locale
+            currentLocale: metadata.Locale,
+            stackComparison: stackComparison
         );
 
 

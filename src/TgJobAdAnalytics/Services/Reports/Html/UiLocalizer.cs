@@ -2,6 +2,9 @@
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
+/// <summary>
+/// Builds a nested UI localization dictionary for Scriban templates from a flat key/value provider.
+/// </summary>
 public sealed class UiLocalizer
 { 
     public UiLocalizer(ILocalizationProvider localizationProvider)
@@ -101,7 +104,21 @@ public sealed class UiLocalizer
         "ui.footer.source",
         "ui.footer.built_with",
         "ui.footer.and",
-        "ui.chart.position_label"
+        "ui.chart.position_label",
+        // stack comparison
+        "ui.stack_comparison.title",
+        "ui.stack_comparison.explainer",
+        "ui.stack_comparison.search",
+        "ui.stack_comparison.select_all",
+        "ui.stack_comparison.select_none",
+        "ui.stack_comparison.top_n",
+        "ui.stack_comparison.sort",
+        "ui.stack_comparison.sort_median",
+        "ui.stack_comparison.sort_count",
+        "ui.stack_comparison.sort_share",
+        "ui.stack_comparison.stack",
+        "ui.stack_comparison.count",
+        "ui.stack_comparison.share"
     ];
 
 

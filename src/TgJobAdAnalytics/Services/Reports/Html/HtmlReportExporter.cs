@@ -17,7 +17,8 @@ public sealed class HtmlReportExporter : IReportExporter
         MetadataBuilder metadataBuilder,
         IOptions<SiteMetadataOptions> siteMetadataOptions,
         ReportGroupLocalizer reportGroupLocalizer,
-        UiLocalizer uiLocalizer)
+        UiLocalizer uiLocalizer,
+        StackComparisonDataBuilder stackComparisonDataBuilder)
     {
         _dbContext = dbContext;
         _options = options.Value;
@@ -25,6 +26,7 @@ public sealed class HtmlReportExporter : IReportExporter
         _metadataBuilder = metadataBuilder;
         _reportGroupLocalizer = reportGroupLocalizer;
         _siteMetadata = siteMetadataOptions.Value;
+        _stackComparisonBuilder = stackComparisonDataBuilder;
         _templateRenderer = new TemplateRenderer(_options.TemplatePath);
         _uiLocalizer = uiLocalizer;
     }
@@ -141,7 +143,9 @@ public sealed class HtmlReportExporter : IReportExporter
             var metadata = _metadataBuilder.Build(locale: locale, kpis: null, persistedPublishedUtc: persistedPublishedUtc, generatedUtc: generationTime);
             var localizationDict = _uiLocalizer.BuildLocalizationDictionary(locale);
             localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict);
-            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, localizationDict);
+
+            var stackComparison = _stackComparisonBuilder.Build();
+            var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, stackComparison, localizationDict);
             var html = _templateRenderer.Render(reportModel);
 
             WriteToFile(html, locale, runRoot);
@@ -208,6 +212,7 @@ public sealed class HtmlReportExporter : IReportExporter
     private readonly ReportPrinterOptions _options;
     private readonly ReportGroupLocalizer _reportGroupLocalizer;
     private readonly SiteMetadataOptions _siteMetadata;
+    private readonly StackComparisonDataBuilder _stackComparisonBuilder;
     private readonly TemplateRenderer _templateRenderer;
     private readonly UiLocalizer _uiLocalizer;
 
