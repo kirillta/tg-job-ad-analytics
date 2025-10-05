@@ -12,27 +12,16 @@ public sealed class VectorIndex
 {
     public VectorIndex(ApplicationDbContext dbContext, OptionVectorizationConfig vectorizationConfig)
     {
+        _activeConfig = vectorizationConfig.GetActive();
         _dbContext = dbContext;
-        _vectorizationConfig = vectorizationConfig;
     }
 
 
-    public async Task Upsert(Guid adId, uint[] signature, CancellationToken cancellationToken)
+    public async Task Upsert(Guid adId, uint[] signature, DateTime timeStamp, CancellationToken cancellationToken)
     {
-        var activeConfig = _vectorizationConfig.GetActive();
-
-        for (int band = 0; band < activeConfig.LshBandCount; band++)
+        for (var band = 0; band < _activeConfig.LshBandCount; band++)
         {
-            var key = ComputeBandKey(signature, band, activeConfig.RowsPerBand);
-            var entity = new LshBucketEntity
-            {
-                Id = Guid.CreateVersion7(),
-                Version = activeConfig.Version,
-                Band = band,
-                Key = key,
-                AdId = adId,
-                CreatedAt = DateTime.UtcNow
-            };
+            var entity = ComputeBand(signature, band, in adId, in timeStamp);
             _dbContext.LshBuckets.Add(entity);
         }
 
@@ -40,17 +29,36 @@ public sealed class VectorIndex
     }
 
 
+    public async Task UpsertBatchWithoutSave(IReadOnlyList<(Guid AdId, uint[] Signature)> items, DateTime timeStamp, CancellationToken cancellationToken)
+    {
+        if (items.Count == 0)
+            return;
+
+        var entities = new List<LshBucketEntity>(items.Count * _activeConfig.LshBandCount);
+
+        foreach (var (adId, signature) in items)
+        {
+            for (var band = 0; band < _activeConfig.LshBandCount; band++)
+            {
+                var entity = ComputeBand(signature, band, in adId, in timeStamp);
+                entities.Add(entity);
+            }
+        }
+
+        await _dbContext.LshBuckets.AddRangeAsync(entities, cancellationToken);
+    }
+
+
     public async Task<IReadOnlyCollection<Guid>> Query(uint[] signature, CancellationToken cancellationToken)
     {
-        var activeConfig = _vectorizationConfig.GetActive();
         var ids = new HashSet<Guid>();
 
-        for (int band = 0; band < activeConfig.LshBandCount; band++)
+        for (int band = 0; band < _activeConfig.LshBandCount; band++)
         {
-            var key = ComputeBandKey(signature, band, activeConfig.RowsPerBand);
+            var key = ComputeBandKey(signature, band, _activeConfig.RowsPerBand);
             var matches = await _dbContext.LshBuckets
                 .AsNoTracking()
-                .Where(x => x.Version == activeConfig.Version && x.Band == band && x.Key == key)
+                .Where(x => x.Version == _activeConfig.Version && x.Band == band && x.Key == key)
                 .Select(x => x.AdId)
                 .ToListAsync(cancellationToken);
 
@@ -60,6 +68,18 @@ public sealed class VectorIndex
 
         return [.. ids];
     }
+
+
+    private LshBucketEntity ComputeBand(uint[] signature, int band, in Guid adId, in DateTime timeStamp) 
+        => new()
+        {
+            Id = Guid.CreateVersion7(),
+            Version = _activeConfig.Version,
+            Band = band,
+            Key = ComputeBandKey(signature, band, _activeConfig.RowsPerBand),
+            AdId = adId,
+            CreatedAt = timeStamp
+        };
 
 
     private static string ComputeBandKey(uint[] signature, int bandIndex, int rowsPerBand)
@@ -77,6 +97,6 @@ public sealed class VectorIndex
     }
 
 
+    private VectorizationModelParams _activeConfig;
     private readonly ApplicationDbContext _dbContext;
-    private readonly OptionVectorizationConfig _vectorizationConfig;
 }

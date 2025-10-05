@@ -131,8 +131,8 @@ public sealed class SimilarityCalculator
 
             if (!isDuplicate)
             {
-                await _vectorStore.Upsert(ad.Id, signature, shingleCount, token);
-                await _vectorIndex.Upsert(ad.Id, signature, token);
+                await _vectorStore.Upsert(ad.Id, signature, shingleCount, ad.UpdatedAt, token);
+                await _vectorIndex.Upsert(ad.Id, signature, ad.UpdatedAt, token);
                 distinctAds.Add(ad);
             }
         });

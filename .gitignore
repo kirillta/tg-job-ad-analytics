@@ -365,3 +365,6 @@ MigrationBackup/
 FodyWeavers.xsd
 /src/TgJobAdAnalytics/Output
 /src/TgJobAdAnalytics/Analytics.db
+/db
+/config/rates
+/output

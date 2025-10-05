@@ -48,14 +48,15 @@ public sealed class VectorsBackfillService
         if (ads.Count == 0)
             return 0;
 
+        var timeStamp = DateTime.UtcNow;
         var processed = 0;
 
         foreach ( var ad in ads) 
         { 
             var (sig, count) = _minHashVectorizer.Compute(ad.Text);
 
-            await _vectorStore.Upsert(ad.Id, sig, count, cancellationToken);
-            await _vectorIndex.Upsert(ad.Id, sig, cancellationToken);
+            await _vectorStore.Upsert(ad.Id, sig, count, timeStamp, cancellationToken);
+            await _vectorIndex.Upsert(ad.Id, sig, timeStamp, cancellationToken);
 
             processed++;
         }

@@ -98,6 +98,8 @@ public sealed class TelegramAdPersistenceService
 
     private async Task ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
     {
+        _logger.LogInformation($"Processing {messages.Count} messages from chat {chat.Name}");
+
         var resolver = await _channelStackResolverFactory.Create();
 
         var entryBag = new ConcurrentBag<AdEntity>();
@@ -112,7 +114,7 @@ public sealed class TelegramAdPersistenceService
 
             if (!resolver.TryResolve(chat.Id, out var stackId))
             {
-                _logger.LogCritical("Unknown channel for stack mapping. channelName={ChannelName} messageId={MessageId}", chat.Name, message.Id);
+                _logger.LogCritical($"Unknown channel for stack mapping. channelName={chat.Name} messageId={message.Id}");
                 return;
             }
 
@@ -133,7 +135,7 @@ public sealed class TelegramAdPersistenceService
         var entries = entryBag.ToList();
         var batchSize = _uploadOptions.BatchSize;
         var addedCount = 0;
-        for (int i = 0; i < entries.Count; i += batchSize)
+        for (var i = 0; i < entries.Count; i += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -147,24 +149,34 @@ public sealed class TelegramAdPersistenceService
                 .Select(a => a.Id)
                 .ToHashSetAsync(cancellationToken);
 
-            var newBatch = batch.Where(e => !existingIds.Contains(e.Id)).ToList();
+            var newBatch = batch.Where(e => !existingIds.Contains(e.Id))
+                .ToList();
+
             if (newBatch.Count == 0)
                 continue;
 
             await _dbContext.Ads.AddRangeAsync(newBatch, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            var vectorStoreItems = new List<(Guid AdId, uint[] Signature, int ShingleCount)>(newBatch.Count);
+            var vectorIndexItems = new List<(Guid AdId, uint[] Signature)>(newBatch.Count);
 
             foreach (var ad in newBatch)
             {
                 var (signature, shingleCount) = _minHashVectorizer.Compute(ad.Text);
-                await _vectorStore.Upsert(ad.Id, signature, shingleCount, cancellationToken);
-                await _vectorIndex.Upsert(ad.Id, signature, cancellationToken);
+                vectorStoreItems.Add((ad.Id, signature, shingleCount));
+                vectorIndexItems.Add((ad.Id, signature));
             }
 
+            await _vectorStore.UpsertBatchWithoutSave(vectorStoreItems, timeStamp, cancellationToken);
+            await _vectorIndex.UpsertBatchWithoutSave(vectorIndexItems, timeStamp, cancellationToken);
+            
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
             addedCount += newBatch.Count;
+            _logger.LogInformation($"Batch added {newBatch.Count} ads into the database");
         }
 
-        _logger.LogInformation("Added {AddedCount} ads to the database", addedCount);
+        _logger.LogInformation($"Added {addedCount} ads to the database");
 
 
         string GetText(MessageEntity message)

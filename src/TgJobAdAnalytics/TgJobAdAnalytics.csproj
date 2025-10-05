@@ -10,8 +10,14 @@
 
   <ItemGroup>
     <Compile Remove="dist\**" />
+    <Compile Remove="Output\**" />
+    <Compile Remove="Sources\**" />
     <EmbeddedResource Remove="dist\**" />
+    <EmbeddedResource Remove="Output\**" />
+    <EmbeddedResource Remove="Sources\**" />
     <None Remove="dist\**" />
+    <None Remove="Output\**" />
+    <None Remove="Sources\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,13 +36,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Output\" />
-    <Folder Include="Sources\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Locales\en.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Locales\es.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Locales\ru.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Views\Reports\Chart.sbn">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

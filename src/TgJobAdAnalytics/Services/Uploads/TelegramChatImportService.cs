@@ -61,7 +61,7 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chatFileName = Path.GetFileName(fileName);
                 _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
-                await Process(chatFileName);
+                await Process(fileName);
 
                 _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
             }            

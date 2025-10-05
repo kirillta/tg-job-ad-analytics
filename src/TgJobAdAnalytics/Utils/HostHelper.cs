@@ -63,7 +63,7 @@ public static class HostHelper
             {
                 options.BatchSize = int.Parse(context.Configuration["Upload:BatchSize"]!);
                 options.Mode = Enum.Parse<UploadMode>(context.Configuration["Upload:Mode"]!);
-                options.SourcePath = GetOperationalPath("Sources");
+                options.SourcePath = GetOperationalPath("sources");
             });
 
             services.Configure<ParallelOptions>(options =>
@@ -76,12 +76,12 @@ public static class HostHelper
             services.Configure<RateOptions>(options => 
             { 
                 options.RateApiUrl = new Uri("https://www.cbr.ru/scripts/XML_dynamic.asp");
-                options.RateSourcePath = GetOperationalPath("Sources", "rates.csv");
+                options.RateSourcePath = GetOperationalPath("config", "rates", "rates.csv");
             });
 
             services.Configure<ReportPrinterOptions>(options =>
             {
-                options.OutputPath = GetOperationalPath("Output");
+                options.OutputPath = GetOperationalPath("output");
                 options.TemplatePath = Path.Combine("Views", "Reports");
             });
 
@@ -93,12 +93,12 @@ public static class HostHelper
                 options.Locales = [.. context.Configuration.GetSection("SiteMetadata:Locales").Get<string[]>()!];
                 options.PrimaryLocale = context.Configuration["SiteMetadata:PrimaryLocale"]!;
                 options.JsonLdType = Enum.Parse<JsonLdType>(context.Configuration["SiteMetadata:JsonLdType"]!);
-                options.LocalizationPath = GetOperationalPath(context.Configuration["SiteMetadata:LocalizationPath"]!);
+                options.LocalizationPath = Path.Combine(context.Configuration["SiteMetadata:LocalizationPath"]!);
             });
 
             services.Configure<StackMappingOptions>(options =>
             {
-                options.MappingFilePath = GetOperationalPath("..", "..", "config", "stacks", "channel-stacks.json");
+                options.MappingFilePath = GetOperationalPath("config", "stacks", "channel-stacks.json");
             });
 
             services.AddSingleton(_ => 
@@ -170,6 +170,6 @@ public static class HostHelper
         .Build();
 
 
-    static string GetOperationalPath(params string[] relativePathSegments) =>
-        Path.Combine([Environment.CurrentDirectory, "..", "..", "..", .. relativePathSegments]);
+    static string GetOperationalPath(params string[] relativePathSegments) 
+        => Path.GetFullPath(Path.Combine([AppContext.BaseDirectory, "..", "..", "..", "..", "..", .. relativePathSegments]));
 }
