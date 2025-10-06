@@ -15,28 +15,49 @@ public sealed class SalaryPersistenceService
     }
 
 
-    public async Task Process(SalaryEntity? entity, CancellationToken cancellationToken)
+    public async Task Initialize(CancellationToken cancellationToken)
     {
-        if (entity is null)
+        _salaryProcessingService = await _salaryProcessingServiceFactory.Create(_baseCurrency, cancellationToken);
+        _logger.LogInformation("Salary persistence service initialized with base currency: {BaseCurrency}", _baseCurrency);
+    }
+
+
+    public async Task ProcessBatch(List<SalaryEntity> entities, CancellationToken cancellationToken)
+    {
+        if (entities.Count == 0)
             return;
 
-        try
-        {
-            if (entity.Period is null || entity.Period is Period.Unknown || entity.Period is Period.Project)
-                return;
+        if (_salaryProcessingService is null)
+            throw new InvalidOperationException("SalaryPersistenceService must be initialized before processing entities. Call Initialize() first.");
 
-            var salaryService = await _salaryProcessingServiceFactory.Create(_baseCurrency, cancellationToken);
-            var entry = salaryService.Process(entity);
-            if (entry is null)
-                return;
-
-            _dbContext.Salaries.Update(entry);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (Exception ex)
+        foreach (var entity in entities)
         {
-            _logger.LogError(ex, "Error persisting salary for ad {AdId}: {Message}", entity.AdId, ex.Message);
+            try
+            {
+                if (entity.Period is null || entity.Period is Period.Unknown || entity.Period is Period.Project)
+                { 
+                    entity.Status = ProcessingStatus.Skipped;
+                    continue;    
+                }
+
+                var normalizedEntry = _salaryProcessingService.Process(entity);
+                if (normalizedEntry is not null)
+                    _dbContext.Entry(entity).CurrentValues.SetValues(normalizedEntry);
+                else
+                    entity.Status = ProcessingStatus.Failed;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error persisting salary batch: {Message}", ex.Message);
+                entity.Status = ProcessingStatus.Failed;
+            }
         }
+
+        await _dbContext.Salaries.AddRangeAsync(entities, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        Console.WriteLine();
+        _logger.LogInformation("Successfully persisted batch of {Count} salaries", entities.Count);
     }
 
 
@@ -44,5 +65,6 @@ public sealed class SalaryPersistenceService
 
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<SalaryPersistenceService> _logger;
+    private SalaryProcessingService? _salaryProcessingService;
     private readonly SalaryProcessingServiceFactory _salaryProcessingServiceFactory;
 }

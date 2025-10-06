@@ -2,7 +2,6 @@
 using OpenAI.Chat;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Salaries;
@@ -13,54 +12,33 @@ namespace TgJobAdAnalytics.Services.Salaries;
 
 public sealed class SalaryExtractionService
 {
-    public SalaryExtractionService(ILoggerFactory loggerFactory, ApplicationDbContext dbContext, ChatClient chatClient, PositionLevelResolver positionLevelResolver)
+    public SalaryExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient, PositionLevelResolver positionLevelResolver)
     {
-        _logger = loggerFactory.CreateLogger<SalaryExtractionService>();
-
         _chatClient = chatClient;
-        _dbContext = dbContext;
+        _logger = loggerFactory.CreateLogger<SalaryExtractionService>();
         _positionLevelResolver = positionLevelResolver;
     }
 
 
-    public async Task<SalaryEntity?> Process(AdEntity ad, CancellationToken cancellationToken)
+    public async Task<SalaryEntity?> Process(AdEntity ad, List<string> messageTags, CancellationToken cancellationToken)
     {
         var salaryResponse = await ExtractSalary(ad, cancellationToken);
         if (salaryResponse is null)
             return null;
 
-        var entry = await BuildEntity(salaryResponse.Value, ad, cancellationToken);
+        var level = await _positionLevelResolver.Resolve(messageTags, ad.Text, cancellationToken);
 
-        _dbContext.Salaries.Add(entry);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return entry;
-    }
-
-
-    private async Task<SalaryEntity> BuildEntity(ChatGptSalaryResponse salaryResponse, AdEntity ad, CancellationToken cancellationToken) 
-    {
-        var tags = await GetMessageTags(ad.MessageId, cancellationToken);
-        var level = await _positionLevelResolver.Resolve(tags, ad.Text, cancellationToken);
-
-        return new()
+        return new SalaryEntity
         {
             AdId = ad.Id,
             Date = ad.Date,
-            Currency = salaryResponse.Currency,
-            LowerBound = salaryResponse.LowerBound,
-            UpperBound = salaryResponse.UpperBound,
-            Period = salaryResponse.Period,
+            Currency = salaryResponse.Value.Currency,
+            LowerBound = salaryResponse.Value.LowerBound,
+            UpperBound = salaryResponse.Value.UpperBound,
+            Period = salaryResponse.Value.Period,
             Status = ProcessingStatus.Extracted,
             Level = level
         };
-    }
-
-
-    private async Task<List<string>> GetMessageTags(Guid messageId, CancellationToken cancellationToken)
-    {
-        var message = await _dbContext.Messages.FindAsync([messageId], cancellationToken);
-        return message?.Tags ?? [];
     }
 
 
@@ -72,11 +50,12 @@ public sealed class SalaryExtractionService
             var raw = completion.Value.Content[0].Text;
             var response = JsonSerializer.Deserialize<ChatGptSalaryResponse>(raw, JsonSerializerOptions);
 
-            Console.Write($"\rSalary extracted for ad {ad.Id}                ");
+            Console.Write($"\rSalary extracted for ad {ad.Id}                                                ");
             return response;
         }
         catch (Exception ex)
         {
+            Console.WriteLine();
             _logger.LogError(ex, "Error extracting salary from ad {AdId}: {Message}", ad.Id, ex.Message);
         }
 
@@ -182,7 +161,6 @@ public sealed class SalaryExtractionService
     };
 
     
-    private readonly ApplicationDbContext _dbContext;
     private readonly ChatClient _chatClient;
     private readonly ILogger<SalaryExtractionService> _logger;
     private readonly PositionLevelResolver _positionLevelResolver;

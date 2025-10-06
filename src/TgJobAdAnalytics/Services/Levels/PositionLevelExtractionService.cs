@@ -34,12 +34,13 @@ public sealed class PositionLevelExtractionService
             var raw = completion.Value.Content[0].Text;
             var response = JsonSerializer.Deserialize<ChatGptPositionLevelResponse>(raw);
 
-            Console.Write($"\rPosition level extracted: {response.Level}                ");
+            Console.Write($"\rPosition level extracted: {response.Level}                                                                ");
 
             return response;
         }
         catch (Exception ex) 
         {
+            Console.WriteLine();
             _logger.LogError(ex, "Error extracting position level from text: {Text}", text);
         }
 
