@@ -48,33 +48,31 @@ public sealed class TelegramAdPersistenceService
     }
 
 
-    public async Task Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken)
+    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken)
     {
         switch (state)
         {
             case UploadedDataState.New:
-                await AddAll(chat, timeStamp, cancellationToken);
-                break;
+                return await AddAll(chat, timeStamp, cancellationToken);
             case UploadedDataState.Existing:
-                await AddOnlyNew(chat, timeStamp, cancellationToken);
-                break;
+                return await AddOnlyNew(chat, timeStamp, cancellationToken);
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, null);
         }
     }
 
 
-    private async Task AddAll(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
+    private async Task<int> AddAll(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
     {
         var messages = await _dbContext.Messages
             .Where(m => m.TelegramChatId == chat.Id)
             .ToListAsync(cancellationToken);
 
-        await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
+        return await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
     }
 
 
-    private async Task AddOnlyNew(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
+    private async Task<int> AddOnlyNew(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
     {
         var existingMessageIds = await _dbContext.Messages
             .Where(m => m.TelegramChatId == chat.Id)
@@ -92,11 +90,11 @@ public sealed class TelegramAdPersistenceService
             .Where(m => m.TelegramChatId == chat.Id && diff.Contains(m.Id))
             .ToListAsync(cancellationToken);
 
-        await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
+        return await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
     }
 
 
-    private async Task ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
+    private async Task<int> ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
     {
         _logger.LogInformation($"Processing {messages.Count} messages from chat {chat.Name}");
 
@@ -177,6 +175,7 @@ public sealed class TelegramAdPersistenceService
         }
 
         _logger.LogInformation($"Added {addedCount} ads to the database");
+        return addedCount;
 
 
         string GetText(MessageEntity message)

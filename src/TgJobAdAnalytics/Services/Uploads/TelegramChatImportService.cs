@@ -50,6 +50,7 @@ namespace TgJobAdAnalytics.Services.Uploads
 
             var timeStamp = DateTime.UtcNow;
             var fileNames = Directory.GetFiles(_options.SourcePath);
+            var totalAddedAds = 0;
             foreach (string fileName in fileNames)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -61,27 +62,39 @@ namespace TgJobAdAnalytics.Services.Uploads
                 var chatFileName = Path.GetFileName(fileName);
                 _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
-                await Process(fileName);
+                var addedAds = await Process(fileName);
+                totalAddedAds += addedAds;
 
                 _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
             }            
         
             _logger.LogInformation("Chat processing completed");
-            await DeduplicateAds(cancellationToken);
+
+            if (totalAddedAds > 0)
+            {
+                _logger.LogInformation("Deduplicating {TotalAddedAds} new ads", totalAddedAds);
+                await DeduplicateAds(cancellationToken);
+            }
+            else
+            {
+                _logger.LogInformation("No new ads added. Skipping deduplication.");
+            }
 
 
-            async Task Process(string fileName)
+            async Task<int> Process(string fileName)
             { 
                 var chat = await ReadChatFromFile(fileName, cancellationToken);
                 var chatState = await _telegramChatPersistenceService.DetermineState(chat, cancellationToken);
 
                 var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
-                await _telegramAdPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+                var addedAds = await _telegramAdPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
 
                 if (chatState == UploadedDataState.New || addedMessages > 0)
                     await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
                 else
                     _logger.LogInformation("No new messages for chat '{ChatName}'. Skipping chat update.", chat.Name);
+
+                return addedAds;
             }
 
 
