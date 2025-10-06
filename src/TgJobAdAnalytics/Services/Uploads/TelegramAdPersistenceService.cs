@@ -101,7 +101,7 @@ public sealed class TelegramAdPersistenceService
         var resolver = await _channelStackResolverFactory.Create();
 
         var entryBag = new ConcurrentBag<AdEntity>();
-        Parallel.ForEach(messages, _parallelOptions, async message =>
+        Parallel.ForEach(messages, _parallelOptions, message =>
         {
             if (!IsProcessable(message, timeStamp))
                 return;
