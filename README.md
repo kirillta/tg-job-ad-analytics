@@ -465,7 +465,7 @@ pwsh -NoProfile -File ./dist.ps1
 ### Examples
 
 ```powershell
-powershell -NoProfile -File ./dist.ps1 -OutputRoot ./src/TgJobAdAnalytics/Output -DistRoot ./dist
+powershell -NoProfile -File ./dist.ps1 -OutputRoot ./output -DistRoot ./dist
 ```
 
 ### Visual Studio (Optional)
