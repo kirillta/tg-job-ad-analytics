@@ -40,7 +40,6 @@ public sealed class SalaryExtractionProcessor
         var persistenceTask = ConsumeAndPersistBatches(channel.Reader, cancellationToken);
 
         using var rateLimiter = new AdaptiveRateLimiter(_loggerFactory, _openAiOptions);
-
         await foreach (var chunk in GetAdsInChunks(cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -154,7 +153,7 @@ public sealed class SalaryExtractionProcessor
     private static bool IsRateLimitException(Exception ex)
     {
         var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
-        return message.Contains("rate limit") || 
+        return message.Contains("rate_limit_exceeded") || 
             message.Contains("429") || 
             ex.GetType().Name.Contains("RateLimit", StringComparison.OrdinalIgnoreCase);
     }
