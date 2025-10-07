@@ -6,24 +6,24 @@ using System.Threading.Channels;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
-using TgJobAdAnalytics.Models.Uploads;
+using TgJobAdAnalytics.Models.OpenAI;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
 public sealed class SalaryExtractionProcessor
 {
-    public SalaryExtractionProcessor(ILoggerFactory loggerFactory, ApplicationDbContext dbContext, SalaryExtractionService salaryExtractionService, SalaryPersistenceService salaryPersistenceService, IOptions<UploadOptions> uploadOptions)
+    public SalaryExtractionProcessor(
+        ILoggerFactory loggerFactory, 
+        ApplicationDbContext dbContext, 
+        SalaryExtractionService salaryExtractionService, 
+        SalaryPersistenceService salaryPersistenceService, 
+        IOptions<OpenAiOptions> openAiOptions)
     {
         _logger = loggerFactory.CreateLogger<SalaryExtractionProcessor>();
         _loggerFactory = loggerFactory;
 
-        const int minimumBatchSize = 20;
-        var batchSize = uploadOptions.Value.BatchSize / 200;
-        _batchSize = batchSize < minimumBatchSize 
-            ? minimumBatchSize 
-            : batchSize;
-
         _dbContext = dbContext;
+        _openAiOptions = openAiOptions.Value;
         _salaryExtractionService = salaryExtractionService;
         _salaryPersistenceService = salaryPersistenceService;
     }
@@ -33,13 +33,13 @@ public sealed class SalaryExtractionProcessor
     {
         await _salaryPersistenceService.Initialize(cancellationToken);
 
-        var channel = Channel.CreateBounded<SalaryEntity>(new BoundedChannelOptions(_batchSize * 2)
+        var channel = Channel.CreateBounded<SalaryEntity>(new BoundedChannelOptions(_openAiOptions.ProcessingChunkSize * 2)
         {
             FullMode = BoundedChannelFullMode.Wait
         });
         var persistenceTask = ConsumeAndPersistBatches(channel.Reader, cancellationToken);
 
-        using var rateLimiter = new AdaptiveRateLimiter(_loggerFactory, _uploadOptions);
+        using var rateLimiter = new AdaptiveRateLimiter(_loggerFactory, _openAiOptions);
 
         await foreach (var chunk in GetAdsInChunks(cancellationToken))
         {
@@ -87,13 +87,13 @@ public sealed class SalaryExtractionProcessor
 
         async Task ConsumeAndPersistBatches(ChannelReader<SalaryEntity> reader, CancellationToken cancellationToken)
         {
-            var batch = new List<SalaryEntity>(_batchSize);
+            var batch = new List<SalaryEntity>(_openAiOptions.ProcessingChunkSize);
 
             await foreach (var salary in reader.ReadAllAsync(cancellationToken))
             {
                 batch.Add(salary);
 
-                if (batch.Count >= _batchSize)
+                if (batch.Count >= _openAiOptions.ProcessingChunkSize)
                 {
                     await _salaryPersistenceService.ProcessBatch(batch, cancellationToken);
                     batch.Clear();
@@ -108,16 +108,16 @@ public sealed class SalaryExtractionProcessor
 
     private async IAsyncEnumerable<List<AdEntity>> GetAdsInChunks([EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var chunk = new List<AdEntity>(_uploadOptions.SalaryExtractionChunkSize);
+        var chunk = new List<AdEntity>(_openAiOptions.ProcessingChunkSize);
 
         await foreach (var ad in GetAdsWithoutSalariesStream(cancellationToken))
         {
             chunk.Add(ad);
 
-            if (chunk.Count >= _uploadOptions.SalaryExtractionChunkSize)
+            if (chunk.Count >= _openAiOptions.ProcessingChunkSize)
             {
                 yield return chunk;
-                chunk = new List<AdEntity>(_uploadOptions.SalaryExtractionChunkSize);
+                chunk = new List<AdEntity>(_openAiOptions.ProcessingChunkSize);
             }
         }
 
@@ -160,11 +160,10 @@ public sealed class SalaryExtractionProcessor
     }
 
     
-    private readonly int _batchSize;
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<SalaryExtractionProcessor> _logger;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly UploadOptions _uploadOptions;
+    private readonly OpenAiOptions _openAiOptions;
     private readonly SalaryExtractionService _salaryExtractionService;
     private readonly SalaryPersistenceService _salaryPersistenceService;
 }

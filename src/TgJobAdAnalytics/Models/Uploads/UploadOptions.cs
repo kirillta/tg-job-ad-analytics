@@ -22,34 +22,4 @@ public class UploadOptions
     /// Specifies the path to the source directory containing the data to be uploaded.
     /// </summary>
     public string SourcePath { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the chunk size for streaming ads during salary extraction. Affects memory usage and database query batching.
-    /// </summary>
-    public int SalaryExtractionChunkSize { get; set; } = 1000;
-
-    /// <summary>
-    /// Gets or sets the initial concurrency level for parallel salary extraction API calls.
-    /// </summary>
-    public int SalaryExtractionInitialConcurrency { get; set; } = 5;
-
-    /// <summary>
-    /// Gets or sets the maximum concurrency level for parallel salary extraction API calls.
-    /// </summary>
-    public int SalaryExtractionMaxConcurrency { get; set; } = 20;
-
-    /// <summary>
-    /// Gets or sets the success rate threshold for adaptive throttling. When success rate exceeds this value, concurrency may be increased.
-    /// </summary>
-    public double AdaptiveThrottleSuccessThreshold { get; set; } = 0.95;
-
-    /// <summary>
-    /// Gets or sets the time window size for calculating success rate in adaptive throttling.
-    /// </summary>
-    public TimeSpan AdaptiveThrottleWindowSize { get; set; } = TimeSpan.FromMinutes(1);
-
-    /// <summary>
-    /// Gets or sets the adaptive rate limiter configuration options.
-    /// </summary>
-    public AdaptiveRateLimiterOptions AdaptiveRateLimiter { get; set; } = new();
 }

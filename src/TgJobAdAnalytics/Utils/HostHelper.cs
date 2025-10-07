@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using System.ClientModel;
 using TgJobAdAnalytics.Models.Messages;
+using TgJobAdAnalytics.Models.OpenAI;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Metadata;
 using TgJobAdAnalytics.Models.Salaries;
@@ -65,6 +66,8 @@ public static class HostHelper
                 options.Mode = Enum.Parse<UploadMode>(context.Configuration["Upload:Mode"]!);
                 options.SourcePath = GetOperationalPath("sources");
             });
+
+            services.Configure<OpenAiOptions>(context.Configuration.GetSection("OpenAI"));
 
             services.Configure<ParallelOptions>(options =>
             {

@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using TgJobAdAnalytics.Models.Uploads;
+using TgJobAdAnalytics.Models.OpenAI;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
@@ -11,25 +11,21 @@ public sealed class AdaptiveRateLimiter : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="AdaptiveRateLimiter"/> class.
     /// </summary>
-    /// <param name="logger">Logger for recording concurrency adjustments.</param>
-    /// <param name="initialConcurrency">Starting number of concurrent operations allowed.</param>
-    /// <param name="maxConcurrency">Maximum number of concurrent operations allowed.</param>
-    /// <param name="successThreshold">Success rate threshold (0.0-1.0) required to increase concurrency.</param>
-    /// <param name="windowSize">Time window for calculating success rates.</param>
-    /// <param name="options">Additional configuration options for rate limiter behavior.</param>
-    public AdaptiveRateLimiter(ILoggerFactory loggerFactory, UploadOptions uploadOptions)
+    /// <param name="loggerFactory">Logger factory for creating loggers.</param>
+    /// <param name="openAiOptions">OpenAI API configuration options.</param>
+    public AdaptiveRateLimiter(ILoggerFactory loggerFactory, OpenAiOptions openAiOptions)
     {
         _logger = loggerFactory.CreateLogger<AdaptiveRateLimiter>();
 
-        _maxConcurrency = uploadOptions.SalaryExtractionMaxConcurrency;
-        _successThreshold = uploadOptions.AdaptiveThrottleSuccessThreshold;
-        _windowSize = uploadOptions.AdaptiveThrottleWindowSize;
-        _currentConcurrency = uploadOptions.SalaryExtractionInitialConcurrency;
+        _maxConcurrency = openAiOptions.MaxConcurrency;
+        _successThreshold = openAiOptions.AdaptiveThrottleSuccessThreshold;
+        _windowSize = openAiOptions.AdaptiveThrottleWindowSize;
+        _currentConcurrency = openAiOptions.InitialConcurrency;
         
         _semaphore = new SemaphoreSlim(_currentConcurrency, _maxConcurrency);
         _results = new Queue<(DateTime timestamp, bool success)>();
 
-        _options = uploadOptions.AdaptiveRateLimiter;
+        _rateLimiterOptions = openAiOptions.AdaptiveRateLimiter;
     }
 
 
@@ -77,7 +73,7 @@ public sealed class AdaptiveRateLimiter : IDisposable
             _results.Enqueue((DateTime.UtcNow, false));
             _consecutiveFailures++;
 
-            if (isRateLimitError || _consecutiveFailures >= _options.CircuitBreakerFailureThreshold)
+            if (isRateLimitError || _consecutiveFailures >= _rateLimiterOptions.CircuitBreakerFailureThreshold)
                 DecreaseConcurrency();
             else
                 AdjustConcurrency();
@@ -96,7 +92,7 @@ public sealed class AdaptiveRateLimiter : IDisposable
     {
         CleanupOldResults();
 
-        if (_results.Count < _options.MinimumSampleSize)
+        if (_results.Count < _rateLimiterOptions.MinimumSampleSize)
             return;
 
         var successCount = _results.Count(r => r.success);
@@ -104,7 +100,7 @@ public sealed class AdaptiveRateLimiter : IDisposable
 
         if (successRate >= _successThreshold && _currentConcurrency < _maxConcurrency)
             IncreaseConcurrency();
-        else if (successRate < _successThreshold * _options.LowSuccessRateMultiplier)
+        else if (successRate < _successThreshold * _rateLimiterOptions.LowSuccessRateMultiplier)
             DecreaseConcurrency();
     }
 
@@ -112,7 +108,7 @@ public sealed class AdaptiveRateLimiter : IDisposable
     private void IncreaseConcurrency()
     {
         var oldConcurrency = _currentConcurrency;
-        _currentConcurrency = Math.Min(_currentConcurrency + _options.ConcurrencyIncrement, _maxConcurrency);
+        _currentConcurrency = Math.Min(_currentConcurrency + _rateLimiterOptions.ConcurrencyIncrement, _maxConcurrency);
 
         if (_currentConcurrency > oldConcurrency)
         {
@@ -125,8 +121,8 @@ public sealed class AdaptiveRateLimiter : IDisposable
     private void DecreaseConcurrency()
     {
         var oldConcurrency = _currentConcurrency;
-        var decrease = Math.Max(_options.MinimumConcurrencyDecrement, (int)(_currentConcurrency * _options.ConcurrencyDecreaseRatio));
-        _currentConcurrency = Math.Max(_options.MinimumConcurrency, _currentConcurrency - decrease);
+        var decrease = Math.Max(_rateLimiterOptions.MinimumConcurrencyDecrement, (int)(_currentConcurrency * _rateLimiterOptions.ConcurrencyDecreaseRatio));
+        _currentConcurrency = Math.Max(_rateLimiterOptions.MinimumConcurrency, _currentConcurrency - decrease);
 
         _logger.LogInformation("Adaptive limiter: decreased concurrency from {OldConcurrency} to {NewConcurrency}", oldConcurrency, _currentConcurrency);
     }
@@ -168,5 +164,5 @@ public sealed class AdaptiveRateLimiter : IDisposable
     private readonly Lock _lock = new();
 
     private readonly ILogger<AdaptiveRateLimiter> _logger;
-    private readonly AdaptiveRateLimiterOptions _options;
+    private readonly AdaptiveRateLimiterOptions _rateLimiterOptions;
 }
