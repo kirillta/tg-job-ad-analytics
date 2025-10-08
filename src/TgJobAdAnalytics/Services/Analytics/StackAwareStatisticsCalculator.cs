@@ -12,9 +12,7 @@ namespace TgJobAdAnalytics.Services.Analytics;
 /// </summary>
 public sealed class StackAwareStatisticsCalculator
 {
-    public StackAwareStatisticsCalculator(
-        ApplicationDbContext dbContext,
-        IOptions<StackFilteringConfiguration> stackFilteringOptions)
+    public StackAwareStatisticsCalculator(ApplicationDbContext dbContext, IOptions<StackFilteringConfiguration> stackFilteringOptions)
     {
         _dbContext = dbContext;
         _stackFilteringConfig = stackFilteringOptions.Value;
@@ -30,27 +28,21 @@ public sealed class StackAwareStatisticsCalculator
         var endDateOnly = DateOnly.FromDateTime(endDate);
 
         var salariesQuery = from s in _dbContext.Salaries
-                            join a in _dbContext.Ads on s.AdId equals a.Id
-                            where s.Date >= startDateOnly && s.Date <= endDateOnly
-                            select new SalaryWithStack { Salary = s, StackId = a.StackId };
+            join a in _dbContext.Ads on s.AdId equals a.Id
+            where s.Date >= startDateOnly && s.Date <= endDateOnly
+            select new SalaryWithStack { Salary = s, StackId = a.StackId };
 
         var salariesWithStack = salariesQuery.AsNoTracking().ToList();
 
-        // Remove outliers for accurate statistics
-        var filteredSalaries = RemoveOutliers(salariesWithStack.Select(x => x.Salary).ToList());
+        var filteredSalaries = RemoveOutliers([.. salariesWithStack.Select(x => x.Salary)]);
         var filteredSalariesWithStack = salariesWithStack
             .Where(s => filteredSalaries.Any(f => f.Id == s.Salary.Id))
             .ToList();
 
-        var global = CalculateGlobalStatistics(filteredSalaries, startDate, endDate);
-
-        var byStack = CalculatePerStackStatistics(filteredSalariesWithStack, startDate, endDate);
-
+        var global = CalculateGlobalStatistics(filteredSalaries);
+        var byStack = CalculatePerStackStatistics(filteredSalariesWithStack);
         var stacksSummary = CalculateStacksSummary(salariesWithStack);
-
         var yearlyStats = CalculateYearlyStatistics(filteredSalaries);
-
-        // New: per-stack yearly statistics for accurate overlays per metric
         var yearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack);
 
         return new MultiSeriesSalaryStatistics
@@ -72,10 +64,7 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private GlobalSalaryStatistics CalculateGlobalStatistics(
-        List<Data.Salaries.SalaryEntity> salaries,
-        DateTime startDate,
-        DateTime endDate)
+    private GlobalSalaryStatistics CalculateGlobalStatistics(List<Data.Salaries.SalaryEntity> salaries)
     {
         var trends = CalculateTrends(salaries);
         var distribution = CalculateDistribution(salaries);
@@ -90,19 +79,16 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private Dictionary<string, StackSalaryStatistics> CalculatePerStackStatistics(
-        List<SalaryWithStack> salariesWithStack,
-        DateTime startDate,
-        DateTime endDate)
+    private Dictionary<string, StackSalaryStatistics> CalculatePerStackStatistics(List<SalaryWithStack> salariesWithStack)
     {
         var stacksQuery = from item in salariesWithStack
-                          where item.StackId != null
-                          group item by item.StackId into g
-                          select new
-                          {
-                              StackId = g.Key.Value,
-                              Count = g.Count()
-                          };
+            where item.StackId != null
+            group item by item.StackId into g
+            select new
+            {
+                StackId = g.Key!.Value,
+                Count = g.Count()
+            };
 
         var topStacks = stacksQuery
             .OrderByDescending(x => x.Count)
@@ -149,13 +135,13 @@ public sealed class StackAwareStatisticsCalculator
     private Dictionary<string, YearlySalaryStatistics> CalculateYearlyByStack(List<SalaryWithStack> salariesWithStack)
     {
         var stacksQuery = from item in salariesWithStack
-                          where item.StackId != null
-                          group item by item.StackId into g
-                          select new
-                          {
-                              StackId = g.Key.Value,
-                              Count = g.Count()
-                          };
+            where item.StackId != null
+            group item by item.StackId into g
+            select new
+            {
+                StackId = g.Key!.Value,
+                Count = g.Count()
+            };
 
         var topStacks = stacksQuery
             .OrderByDescending(x => x.Count)
@@ -192,15 +178,14 @@ public sealed class StackAwareStatisticsCalculator
     private List<StackSummary> CalculateStacksSummary(List<SalaryWithStack> salariesWithStack)
     {
         var totalCount = salariesWithStack.Count;
-
         var stackGroups = from item in salariesWithStack
-                          where item.StackId != null
-                          group item by item.StackId into g
-                          select new
-                          {
-                              StackId = g.Key.Value,
-                              Count = g.Count()
-                          };
+            where item.StackId != null
+            group item by item.StackId into g
+            select new
+            {
+                StackId = g.Key!.Value,
+                Count = g.Count()
+            };
 
         var topStacks = stackGroups
             .OrderByDescending(x => x.Count)
@@ -213,7 +198,7 @@ public sealed class StackAwareStatisticsCalculator
             .Where(ts => stackIds.Contains(ts.Id))
             .ToDictionary(ts => ts.Id, ts => ts.Name);
 
-        return topStacks.Select(s =>
+        return [.. topStacks.Select(s =>
         {
             if (!stackNameMap.TryGetValue(s.StackId, out var stackName))
                 stackName = "Unknown";
@@ -225,12 +210,11 @@ public sealed class StackAwareStatisticsCalculator
                 JobCount = s.Count,
                 Percentage = totalCount > 0 ? (double)s.Count / totalCount * 100 : 0
             };
-        })
-        .ToList();
+        })];
     }
 
 
-    private List<TrendDataPoint> CalculateTrends(List<Data.Salaries.SalaryEntity> salaries)
+    private static List<TrendDataPoint> CalculateTrends(List<Data.Salaries.SalaryEntity> salaries)
     {
         var trendData = salaries
             .GroupBy(s => new { s.Date.Year, s.Date.Month })
@@ -262,14 +246,14 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private List<DistributionBucket> CalculateDistribution(List<Data.Salaries.SalaryEntity> salaries)
+    private static List<DistributionBucket> CalculateDistribution(List<Data.Salaries.SalaryEntity> salaries)
     {
         var values = salaries.Select(GetNormalizedValue)
             .Where(v => !double.IsNaN(v))
             .ToList();
 
         if (values.Count == 0)
-            return new List<DistributionBucket>();
+            return [];
 
         var buckets = new List<(string Label, double Min, double Max)>
         {
@@ -284,7 +268,7 @@ public sealed class StackAwareStatisticsCalculator
 
         var totalCount = values.Count;
 
-        return buckets.Select(bucket =>
+        return [.. buckets.Select(bucket =>
         {
             var count = values.Count(v => v >= bucket.Min && v < bucket.Max);
             return new DistributionBucket
@@ -293,12 +277,11 @@ public sealed class StackAwareStatisticsCalculator
                 Count = count,
                 Percentage = totalCount > 0 ? (double)count / totalCount * 100 : 0
             };
-        })
-        .ToList();
+        })];
     }
 
 
-    private AggregateStatistics CalculateAggregates(List<Data.Salaries.SalaryEntity> salaries)
+    private static AggregateStatistics CalculateAggregates(List<Data.Salaries.SalaryEntity> salaries)
     {
         var values = salaries.Select(GetNormalizedValue)
             .Where(v => !double.IsNaN(v))
@@ -350,9 +333,8 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private YearlySalaryStatistics CalculateYearlyStatistics(List<Data.Salaries.SalaryEntity> salaries)
+    private static YearlySalaryStatistics CalculateYearlyStatistics(List<Data.Salaries.SalaryEntity> salaries)
     {
-        // Calculate global yearly statistics
         var minimumByYear = salaries
             .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance)
             .GroupBy(s => s.Date.Year)
@@ -389,7 +371,6 @@ public sealed class StackAwareStatisticsCalculator
                 g => g.Select(GetNormalizedValue).Where(v => !double.IsNaN(v)).Median()
             );
 
-        // Calculate per-level yearly statistics
         var byLevel = new Dictionary<string, LevelYearlyStatistics>();
         var levels = salaries.Select(s => s.Level).Distinct().Where(l => l != Models.Levels.Enums.PositionLevel.Unknown);
 
