@@ -1,8 +1,22 @@
 <div class="max-w-full">
     {{ if report.variants != null }}
-    <div class="mb-3 flex items-center gap-2">
-        <label for="{{ report.chart.id_token }}-variant" class="text-sm text-gray-700">{{ l.ui.chart.position_label }}:</label>
-        <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm"></select>
+    <div class="mb-3 flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-2">
+            <label for="{{ report.chart.id_token }}-variant" class="text-sm text-gray-700">{{ l.ui.chart.position_label }}:</label>
+            <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm"></select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label for="{{ report.chart.id_token }}-stack" class="text-sm text-gray-700">{{ l.ui.chart.stack_label }}:</label>
+            <select id="{{ report.chart.id_token }}-stack" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm">
+                <option value="">{{ l.ui.chart.all_stacks }}</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox" id="{{ report.chart.id_token }}-show-percentiles" class="rounded" />
+                <span>{{ l.ui.chart.show_percentiles }}</span>
+            </label>
+        </div>
     </div>
     {{ end }}
 
@@ -13,6 +27,13 @@
     <script>
         (function(){
             var ctx = document.getElementById('{{ report.chart.id_token }}').getContext('2d');
+            var metricCode = '{{ report.code }}'; // e.g., report.salary.max_years
+
+            // Check if comprehensive salary data is available
+            var salaryData = window.salaryData || null;
+            var hasSalaryData = !!(salaryData && salaryData.yearlyStats && salaryData.yearlyStats.byLevel);
+            var hasStackData = !!(salaryData && salaryData.byStack && salaryData.stacks);
+            var hasYearlyByStack = !!(salaryData && salaryData.yearlyByStack);
 
             // Prepare initial labels and data as numbers (serialized to JSON)
             var initialLabels = {{ dump report.chart.data.labels }};
@@ -25,6 +46,28 @@
                     }
                     return Number(v);
                 });
+            }
+            function isYearLabels(labels){
+                return Array.isArray(labels) && labels.length > 0 && labels.every(function(l){ return /^\d{4}$/.test(String(l)); });
+            }
+            function padYearSeries(labels, data){
+                if (!isYearLabels(labels)) return { labels: labels, data: data };
+                var years = labels.map(function(l){ return parseInt(String(l), 10); });
+                var minY = Math.min.apply(null, years);
+                var maxY = Math.max.apply(null, years);
+                var currentY = (new Date()).getFullYear();
+                var endY = Math.max(maxY, currentY);
+                var map = new Map();
+                for (var i = 0; i < labels.length; i++) { map.set(String(labels[i]), Number(data[i])); }
+                var paddedLabels = [];
+                var paddedData = [];
+                for (var y = minY; y <= endY; y++) {
+                    var key = String(y);
+                    paddedLabels.push(key);
+                    var val = map.has(key) ? map.get(key) : 0;
+                    paddedData.push(val);
+                }
+                return { labels: paddedLabels, data: paddedData };
             }
             function niceStep(max, tickTarget){
                 var raw = (max || 1) / (tickTarget || 6);
@@ -41,6 +84,12 @@
                 var yMax = Math.ceil((suggested || 1) / step) * step;
                 return { step: step, max: yMax };
             }
+
+            // Pad year-only series to current year
+            var padded = padYearSeries(initialLabels, initialRawData);
+            initialLabels = padded.labels;
+            initialRawData = padded.data;
+
             var yAxis = computeYAxis(initialRawData);
         
             var chart = new Chart(ctx, {
@@ -120,34 +169,218 @@
                 {{ end }}
             };
 
-            // Populate selector
+            // Populate position level selector
             var selector = document.getElementById('{{ report.chart.id_token }}-variant');
+            var stackSelector = document.getElementById('{{ report.chart.id_token }}-stack');
+            var percentilesCheckbox = document.getElementById('{{ report.chart.id_token }}-show-percentiles');
+            
+            // Debug: Check what data we have
+            if (console && console.log) {
+                console.log('Chart {{ report.chart.id_token }}: salaryData =', salaryData);
+                console.log('Chart {{ report.chart.id_token }}: hasSalaryData =', hasSalaryData);
+                console.log('Chart {{ report.chart.id_token }}: hasStackData =', hasStackData);
+                console.log('Chart {{ report.chart.id_token }}: hasYearlyByStack =', hasYearlyByStack);
+            }
+            
             var keys = Object.keys(variantsData);
             keys.forEach(function(k){
                 var opt = document.createElement('option');
                 opt.value = k; opt.text = k; selector.appendChild(opt);
             });
 
-            var preferred = keys.indexOf('{{ l.variant.all }}') >= 0 ? '{{ l.variant.all }}' : (keys.indexOf('Все') >= 0 ? 'Все' : keys[0]);
+            // Populate stack selector if we have stack data
+            if (hasStackData && stackSelector) {
+                var stacks = (salaryData && salaryData.stacks) ? salaryData.stacks : [];
+                stacks.forEach(function(stack) {
+                    var opt = document.createElement('option');
+                    opt.value = stack.name;
+                    opt.text = stack.name + ' (' + stack.jobCount + ')';
+                    stackSelector.appendChild(opt);
+                });
+            }
+
+            var preferredLabel = {{ if l.variant.all != null }}{{ dump l.variant.all }}{{ else }}null{{ end }};
+            var preferred = (preferredLabel && keys.indexOf(preferredLabel) >= 0) ? preferredLabel : (keys.indexOf('Все') >= 0 ? 'Все' : keys[0]);
             selector.value = preferred;
 
+            var currentVariant = preferred;
+            var currentStack = '';
+            var showPercentiles = false;
+
+            function weightedMedian(values, weights) {
+                var pairs = values.map(function(v, i){ return { v: v, w: weights[i] || 0 }; })
+                                  .filter(function(p){ return Number.isFinite(p.v) && p.w > 0; })
+                                  .sort(function(a,b){ return a.v - b.v; });
+                var total = pairs.reduce(function(s,p){ return s + p.w; }, 0);
+                if (total === 0 || pairs.length === 0) return NaN;
+                var cum = 0;
+                for (var i = 0; i < pairs.length; i++) {
+                    cum += pairs[i].w;
+                    if (cum >= total / 2) return pairs[i].v;
+                }
+                return pairs[pairs.length - 1].v;
+            }
+
+            function aggregateYearMetricFromTrends(pointsByYear) {
+                if (/max_years$/i.test(metricCode)) {
+                    var out = {};
+                    Object.keys(pointsByYear).forEach(function(y){
+                        var arr = pointsByYear[y].map(function(p){ return p.median; }).filter(Number.isFinite);
+                        out[y] = arr.length ? Math.max.apply(null, arr) : null;
+                    });
+                    return out;
+                }
+                if (/min_years$/i.test(metricCode)) {
+                    var outMin = {};
+                    Object.keys(pointsByYear).forEach(function(y){
+                        var arr = pointsByYear[y].map(function(p){ return p.median; }).filter(Number.isFinite);
+                        outMin[y] = arr.length ? Math.min.apply(null, arr) : null;
+                    });
+                    return outMin;
+                }
+                if (/avg_years$/i.test(metricCode)) {
+                    var outAvg = {};
+                    Object.keys(pointsByYear).forEach(function(y){
+                        var pts = pointsByYear[y];
+                        var sumW = pts.reduce(function(s, p){ return s + (p.count || 0); }, 0);
+                        if (!sumW) { outAvg[y] = null; return; }
+                        var num = pts.reduce(function(s, p){ return s + (p.mean * (p.count || 0)); }, 0);
+                        outAvg[y] = num / sumW;
+                    });
+                    return outAvg;
+                }
+                var outMed = {};
+                Object.keys(pointsByYear).forEach(function(y){
+                    var pts = pointsByYear[y];
+                    var vals = pts.map(function(p){ return p.median; });
+                    var w = pts.map(function(p){ return p.count || 0; });
+                    var wm = weightedMedian(vals, w);
+                    outMed[y] = Number.isFinite(wm) ? wm : (vals.length ? vals.sort(function(a,b){return a-b;})[Math.floor(vals.length/2)] : null);
+                });
+                return outMed;
+            }
+
             function applyVariant(name) {
+                currentVariant = name;
                 var v = variantsData[name];
                 if (!v) return;
-                chart.data.labels = v.labels;
+
+                var paddedV = padYearSeries(v.labels, v.dataset.data);
+                var vLabels = paddedV.labels;
+                var vData = paddedV.data;
+                
+                chart.data.labels = vLabels;
                 chart.data.datasets[0].label = v.dataset.label;
-                chart.data.datasets[0].data = v.dataset.data;
+                chart.data.datasets[0].data = vData;
                 chart.data.datasets[0].backgroundColor = v.dataset.backgroundColor;
                 chart.data.datasets[0].borderColor = v.dataset.borderColor;
                 chart.data.datasets[0].borderWidth = v.dataset.borderWidth;
                 chart.data.datasets[0].fill = v.dataset.fill;
                 chart.data.datasets[0].tension = v.dataset.tension;
-                var yConf = computeYAxis(v.dataset.data);
+                
+                if (currentStack && (hasYearlyByStack || hasStackData)) {
+                    applyStackOverlay(currentStack, currentVariant);
+                } else {
+                    while (chart.data.datasets.length > 1) {
+                        chart.data.datasets.pop();
+                    }
+                }
+                
+                var yConf = computeYAxis(vData);
                 chart.options.scales.y.suggestedMax = yConf.max;
                 chart.update();
             }
 
+            function applyStackOverlay(stackName, levelName) {
+                if (!stackName) {
+                    while (chart.data.datasets.length > 1) {
+                        chart.data.datasets.pop();
+                    }
+                    return;
+                }
+
+                var overlay = null;
+
+                // Preferred: use precomputed yearlyByStack metrics to exactly match base chart
+                if (hasYearlyByStack && salaryData.yearlyByStack && salaryData.yearlyByStack[stackName]) {
+                    var ys = salaryData.yearlyByStack[stackName];
+                    var metricMap = null;
+                    if (/max_years$/i.test(metricCode)) metricMap = ys.maximumByYear;
+                    else if (/min_years$/i.test(metricCode)) metricMap = ys.minimumByYear;
+                    else if (/avg_years$/i.test(metricCode)) metricMap = ys.averageByYear;
+                    else metricMap = ys.medianByYear;
+
+                    overlay = chart.data.labels.map(function(lbl){
+                        if (/^\d{4}$/.test(String(lbl))) {
+                            var y = String(lbl);
+                            var v = metricMap && Object.prototype.hasOwnProperty.call(metricMap, y) ? metricMap[y] : null;
+                            return (v == null || Number.isNaN(v)) ? null : v;
+                        }
+                        return null;
+                    });
+                }
+
+                // Fallback: derive from monthly trends
+                if (!overlay) {
+                    if (!hasStackData || !salaryData.byStack || !salaryData.byStack[stackName] || !salaryData.byStack[stackName].trends) return;
+                    var trends = salaryData.byStack[stackName].trends;
+                    var pointsByYear = {};
+                    trends.forEach(function(trend) {
+                        var year = trend.date.substring(0, 4);
+                        if (!pointsByYear[year]) pointsByYear[year] = [];
+                        pointsByYear[year].push({ median: trend.median, mean: trend.mean, count: trend.count });
+                    });
+                    var metricByYear = aggregateYearMetricFromTrends(pointsByYear);
+                    overlay = chart.data.labels.map(function(lbl){
+                        if (/^\d{4}$/.test(String(lbl))) {
+                            var y = String(lbl);
+                            var v = metricByYear.hasOwnProperty(y) ? metricByYear[y] : null;
+                            return (v == null || Number.isNaN(v)) ? null : v;
+                        }
+                        return null;
+                    });
+                }
+
+                while (chart.data.datasets.length > 1) {
+                    chart.data.datasets.pop();
+                }
+
+                chart.data.datasets.push({
+                    label: stackName + ' (' + levelName + ')',
+                    data: overlay,
+                    backgroundColor: 'transparent',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.1,
+                    type: 'line'
+                });
+
+                var allData = chart.data.datasets.flatMap(function(ds) { return ds.data; });
+                var yConf = computeYAxis(allData);
+                chart.options.scales.y.suggestedMax = yConf.max;
+                chart.update();
+            }
+
+            function togglePercentiles() {
+                showPercentiles = percentilesCheckbox ? percentilesCheckbox.checked : false;
+                applyVariant(currentVariant);
+            }
+
+            function handleStackChange() {
+                currentStack = stackSelector ? stackSelector.value : '';
+                applyVariant(currentVariant);
+            }
+
             selector.addEventListener('change', function(){ applyVariant(this.value); });
+            if (stackSelector) {
+                stackSelector.addEventListener('change', handleStackChange);
+            }
+            if (percentilesCheckbox) {
+                percentilesCheckbox.addEventListener('change', togglePercentiles);
+            }
+            
             applyVariant(preferred);
             {{ end }}
         })();

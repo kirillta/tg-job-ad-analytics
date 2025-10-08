@@ -10,7 +10,7 @@ public sealed class ChartBuilder
     internal static ChartModel Build(Report report)
     {
         var data = GetData(report);
-        return new ChartModel(Guid.NewGuid(), report.Type.ToChartJsType(), data);
+        return new ChartModel(id: Guid.NewGuid(), type: report.Type.ToChartJsType(), data: data);
     }
 
 
@@ -18,7 +18,8 @@ public sealed class ChartBuilder
     {
         var labels = results.Keys.ToList();
         var datasetData = results.Values.Select(x => x.ToString(CultureInfo.InvariantCulture)).ToList();
-        var dataset = new ChartModel.DatasetModel(label: label, data: datasetData, backgroundColor: _backgroundColors, borderColor: _borderColors);
+        var colors = GetPalette(datasetData.Count);
+        var dataset = new ChartModel.DatasetModel(label: label, data: datasetData, backgroundColor: colors.bg, borderColor: colors.border);
 
         return new ChartModel.DataModel(labels: labels, dataset: dataset);
     }
@@ -32,20 +33,20 @@ public sealed class ChartBuilder
         return new ChartModel.DataModel(labels, dataset);
 
 
-        ChartModel.DatasetModel GetBarDataset(Report report) 
-            => new(report.Title, GetDatasetData(report), _backgroundColors, _borderColors);
+        ChartModel.DatasetModel GetBarDataset(Report report)
+            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
 
 
         ChartModel.DatasetModel GetDoughnutDataset(Report report)
-            => new(report.Title, GetDatasetData(report), _backgroundColors, _borderColors);
+            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
 
 
         ChartModel.DatasetModel GetLineDataset(Report report)
-            => new(report.Title, GetDatasetData(report), _backgroundColors, _borderColors);
+            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
 
 
         ChartModel.DatasetModel GetPolarAreaDataset(Report report)
-            => new(report.Title, GetDatasetData(report), _backgroundColors, _borderColors);
+            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
 
 
         ChartModel.DatasetModel GetDataset(Report report)
@@ -65,6 +66,21 @@ public sealed class ChartBuilder
             => report.Results.Values
                 .Select(x => x.ToString(CultureInfo.InvariantCulture))
                 .ToList();
+    }
+
+
+    private static (List<string> bg, List<string> border) GetPalette(int count)
+    {
+        // Repeat base palette to match required length
+        var bg = new List<string>(capacity: count);
+        var border = new List<string>(capacity: count);
+        for (var i = 0; i < count; i++)
+        {
+            var idx = i % _backgroundColors.Count;
+            bg.Add(_backgroundColors[idx]);
+            border.Add(_borderColors[idx]);
+        }
+        return (bg, border);
     }
 
 

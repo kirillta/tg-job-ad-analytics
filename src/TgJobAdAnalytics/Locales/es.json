@@ -3,6 +3,7 @@
   "report.description.default": "Informe evergreen de anuncios de empleo procesados en Telegram con estadísticas salariales extraídas y actualizadas en el tiempo.",
   "report.description.with_stats": "Informe de ofertas en Telegram: salario mediano {median}, p90 {p90}, {count} salarios procesados. Actualizado mensualmente.",
   "ui.updated": "Actualizado",
+  "ui.language": "Idioma",
   "group.ads.stats": "Estadísticas de ofertas",
   "group.salary.stats": "Estadísticas salariales",
   "report.ads.top_months": "Top-3 meses por número de ofertas (todo el período)",
@@ -24,6 +25,9 @@
   "ui.footer.built_with": "Construido con",
   "ui.footer.and": "y",
   "ui.chart.position_label": "Posición",
+  "ui.chart.show_percentiles": "Mostrar todos los percentiles",
+  "ui.chart.stack_label": "Tecnología",
+  "ui.chart.all_stacks": "Todas",
   "variant.all": "Todos",
   "level.intern": "Prácticas",
   "level.junior": "Junior",
@@ -61,5 +65,13 @@
   "ui.stack_comparison.period": "Periodo",
   "ui.stack_comparison.last_month": "Último mes",
   "ui.stack_comparison.year": "Año",
-  "ui.stack_comparison.no_data_year": "No hay datos para el año seleccionado"
+  "ui.stack_comparison.no_data_year": "No hay datos para el año seleccionado",
+  "ui.stack_comparison.level_label": "Nivel de posición",
+  "ui.stack_comparison.show_percentiles": "Mostrar todos los percentiles",
+
+  "ui.label.p10": "P10",
+  "ui.label.p25": "P25",
+  "ui.label.median": "Mediana",
+  "ui.label.p75": "P75",
+  "ui.label.p90": "P90"
 }

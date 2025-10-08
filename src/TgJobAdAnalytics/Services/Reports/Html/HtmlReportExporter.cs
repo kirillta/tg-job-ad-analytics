@@ -7,6 +7,7 @@ using TgJobAdAnalytics.Models.Reports.Html;
 using TgJobAdAnalytics.Services.Reports.Html.Scriban;
 using TgJobAdAnalytics.Services.Reports.Metadata;
 using TgJobAdAnalytics.Models.Reports.Metadata;
+using TgJobAdAnalytics.Services.Analytics;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
@@ -18,7 +19,9 @@ public sealed class HtmlReportExporter : IReportExporter
         IOptions<SiteMetadataOptions> siteMetadataOptions,
         ReportGroupLocalizer reportGroupLocalizer,
         UiLocalizer uiLocalizer,
-        StackComparisonDataBuilder stackComparisonDataBuilder)
+        StackComparisonDataBuilder stackComparisonDataBuilder,
+        StackAwareStatisticsCalculator stackAwareStatisticsCalculator,
+        IOptions<StackFilteringConfiguration> stackFilteringOptions)
     {
         _dbContext = dbContext;
         _options = options.Value;
@@ -27,6 +30,8 @@ public sealed class HtmlReportExporter : IReportExporter
         _reportGroupLocalizer = reportGroupLocalizer;
         _siteMetadata = siteMetadataOptions.Value;
         _stackComparisonBuilder = stackComparisonDataBuilder;
+        _stackAwareStatisticsCalculator = stackAwareStatisticsCalculator;
+        _stackFilteringConfig = stackFilteringOptions.Value;
         _templateRenderer = new TemplateRenderer(_options.TemplatePath);
         _uiLocalizer = uiLocalizer;
     }
@@ -136,6 +141,17 @@ public sealed class HtmlReportExporter : IReportExporter
         var runFolderName = generationTime.ToString("yyyyMMdd-HHmmss'Z'");
         var runRoot = Path.Combine(_options.OutputPath, runFolderName);
 
+        // Calculate multi-series salary statistics for filtering
+        var lastDayOfPreviousMonth = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddDays(-1);
+        // Determine the earliest year present in salaries to cover full historical range
+        var earliestSalaryDate = _dbContext.Salaries.Any()
+            ? _dbContext.Salaries.Min(s => s.Date)
+            : new DateOnly(DateTime.UtcNow.Year, 1, 1);
+        var firstDayOfFirstYear = new DateOnly(earliestSalaryDate.Year, 1, 1);
+        var multiSeriesStats = _stackAwareStatisticsCalculator.CalculateStatistics(
+            startDate: firstDayOfFirstYear.ToDateTime(TimeOnly.MinValue), 
+            endDate: lastDayOfPreviousMonth.ToDateTime(TimeOnly.MaxValue));
+
         foreach (var locale in _siteMetadata.Locales)
         {
             var localizedGroups = _reportGroupLocalizer.Localize(reportItemGroups, locale);
@@ -149,6 +165,14 @@ public sealed class HtmlReportExporter : IReportExporter
 
             var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, lastMonth, localizationDict);
             localizationDict["stack_comparison_years"] = byYear;
+
+            // Add multi-series statistics for filtering
+            var statisticsJson = JsonSerializer.Serialize(multiSeriesStats, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            });
+            localizationDict["multi_series_stats_json"] = statisticsJson;
 
             var html = _templateRenderer.Render(reportModel);
 
@@ -217,6 +241,8 @@ public sealed class HtmlReportExporter : IReportExporter
     private readonly ReportGroupLocalizer _reportGroupLocalizer;
     private readonly SiteMetadataOptions _siteMetadata;
     private readonly StackComparisonDataBuilder _stackComparisonBuilder;
+    private readonly StackAwareStatisticsCalculator _stackAwareStatisticsCalculator;
+    private readonly StackFilteringConfiguration _stackFilteringConfig;
     private readonly TemplateRenderer _templateRenderer;
     private readonly UiLocalizer _uiLocalizer;
 

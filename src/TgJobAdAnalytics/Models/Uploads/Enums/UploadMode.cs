@@ -11,9 +11,9 @@ public enum UploadMode
     Skip,        
     
     /// <summary>
-    /// OnlyNewMessages update that adds new messages while preserving existing ones.
+    /// Append new messages while preserving existing ones.
     /// </summary>
-    OnlyNewMessages,
+    Append,
 
     /// <summary>
     /// Clean update with removal of all message data before updating.

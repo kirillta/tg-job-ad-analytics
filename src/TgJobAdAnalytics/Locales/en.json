@@ -3,6 +3,7 @@
   "report.description.default": "Evergreen report of processed Telegram job advertisements with extracted salary statistics updated over time.",
   "report.description.with_stats": "Evergreen report of Telegram job ads: median salary {median}, p90 {p90}, {count} processed salaries. Updated monthly.",
   "ui.updated": "Updated",
+  "ui.language": "Language",
   "group.ads.stats": "Ad statistics",
   "group.salary.stats": "Salary statistics",
   "report.ads.top_months": "Top-3 months by job ads (all time)",
@@ -24,6 +25,9 @@
   "ui.footer.built_with": "Built with",
   "ui.footer.and": "and",
   "ui.chart.position_label": "Position",
+  "ui.chart.show_percentiles": "Show Full Percentiles",
+  "ui.chart.stack_label": "Stack",
+  "ui.chart.all_stacks": "All Stacks",
   "variant.all": "All",
   "level.intern": "Intern",
   "level.junior": "Junior",
@@ -61,5 +65,13 @@
   "ui.stack_comparison.period": "Period",
   "ui.stack_comparison.last_month": "Last month",
   "ui.stack_comparison.year": "Year",
-  "ui.stack_comparison.no_data_year": "No data for selected year"
+  "ui.stack_comparison.no_data_year": "No data for selected year",
+  "ui.stack_comparison.level_label": "Position Level",
+  "ui.stack_comparison.show_percentiles": "Show Full Percentiles",
+
+  "ui.label.p10": "P10",
+  "ui.label.p25": "P25",
+  "ui.label.median": "Median",
+  "ui.label.p75": "P75",
+  "ui.label.p90": "P90"
 }

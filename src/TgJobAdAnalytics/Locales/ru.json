@@ -3,6 +3,7 @@
   "report.description.default": "Постоянно обновляемый отчёт по обработанным вакансиям Telegram с извлечённой статистикой зарплат.",
   "report.description.with_stats": "Отчёт по вакансиям Telegram: медианная зарплата {median}, p90 {p90}, {count} обработанных зарплат. Обновление ежемесячно.",
   "ui.updated": "Обновлено",
+  "ui.language": "Язык",
   "group.ads.stats": "Статистика по вакансиям",
   "group.salary.stats": "Статистика по зарплатам",
   "report.ads.top_months": "Топ-3 лучших месяца по предложениям за всё время",
@@ -24,6 +25,9 @@
   "ui.footer.built_with": "Создано с использованием",
   "ui.footer.and": "и",
   "ui.chart.position_label": "Позиция",
+  "ui.chart.show_percentiles": "Показать все процентили",
+  "ui.chart.stack_label": "Стек",
+  "ui.chart.all_stacks": "Все стеки",
   "variant.all": "Все",
   "level.intern": "Стажёр",
   "level.junior": "Джуниор",
@@ -61,5 +65,13 @@
   "ui.stack_comparison.period": "Период",
   "ui.stack_comparison.last_month": "Прошлый месяц",
   "ui.stack_comparison.year": "Год",
-  "ui.stack_comparison.no_data_year": "Нет данных за выбранный год"
+  "ui.stack_comparison.no_data_year": "Нет данных за выбранный год",
+  "ui.stack_comparison.level_label": "Уровень позиции",
+  "ui.stack_comparison.show_percentiles": "Показать все процентили",
+
+  "ui.label.p10": "P10",
+  "ui.label.p25": "P25",
+  "ui.label.median": "Медиана",
+  "ui.label.p75": "P75",
+  "ui.label.p90": "P90"
 }

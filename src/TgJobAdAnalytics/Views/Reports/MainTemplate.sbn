@@ -37,6 +37,12 @@
         
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        
+        <script>
+            // Multi-series salary statistics for comprehensive filtering
+            // Ensure valid JS even if the JSON is empty or missing and `l` is not defined
+            window.salaryData = {{ if l != null && l.multi_series_stats_json != null && l.multi_series_stats_json != "" }}{{ l.multi_series_stats_json }}{{ else }}null{{ end }};
+        </script>
     </head>
     <body class="min-h-full bg-gray-50 text-gray-900">
         <header class="bg-white shadow-sm">
@@ -87,28 +93,51 @@
                         <div class="text-xs text-gray-500">{{ l.ui.stack_comparison.explainer }}</div>
                     </div>
 
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
-                        <div class="flex items-center gap-2">
-                            <input id="stack-filter" type="text" placeholder="{{ l.ui.stack_comparison.search }}" class="border border-gray-300 rounded-md px-2 py-1 text-sm" />
-                            <button id="select-all" class="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200">{{ l.ui.stack_comparison.select_all }}</button>
-                            <button id="select-none" class="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200">{{ l.ui.stack_comparison.select_none }}</button>
-                            <button id="top-5" class="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200">{{ l.ui.stack_comparison.top_n }}</button>
+                    <div class="flex flex-col gap-3 mb-4">
+                        <!-- First row: Search, buttons, sort -->
+                        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <input id="stack-filter" type="text" placeholder="{{ l.ui.stack_comparison.search }}" class="border border-gray-300 rounded-md px-2 py-1 text-sm" />
+                                <button id="select-all" class="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200">{{ l.ui.stack_comparison.select_all }}</button>
+                                <button id="select-none" class="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200">{{ l.ui.stack_comparison.select_none }}</button>
+                                <button id="top-5" class="px-2 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200">{{ l.ui.stack_comparison.top_n }}</button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-600">{{ l.ui.stack_comparison.sort }}</label>
+                                <select id="sort-mode" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                                    <option value="median_desc">{{ l.ui.stack_comparison.sort_median }}</option>
+                                    <option value="count_desc">{{ l.ui.stack_comparison.sort_count }}</option>
+                                    <option value="share_desc">{{ l.ui.stack_comparison.sort_share }}</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <label class="text-sm text-gray-600">{{ l.ui.stack_comparison.sort }}</label>
-                            <select id="sort-mode" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                                <option value="median_desc">{{ l.ui.stack_comparison.sort_median }}</option>
-                                <option value="count_desc">{{ l.ui.stack_comparison.sort_count }}</option>
-                                <option value="share_desc">{{ l.ui.stack_comparison.sort_share }}</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <label class="text-sm text-gray-600">{{ l.ui.stack_comparison.period }}</label>
-                            <select id="period-mode" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                                <option value="last_month">{{ l.ui.stack_comparison.last_month }}</option>
-                                <option value="year">{{ l.ui.stack_comparison.year }}</option>
-                            </select>
-                            <select id="year-select" class="border border-gray-300 rounded-md px-2 py-1 text-sm hidden"></select>
+
+                        <!-- Second row: Period and Level filters -->
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-600">{{ l.ui.stack_comparison.period }}</label>
+                                <select id="period-mode" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                                    <option value="last_month">{{ l.ui.stack_comparison.last_month }}</option>
+                                    <option value="year">{{ l.ui.stack_comparison.year }}</option>
+                                </select>
+                                <select id="year-select" class="border border-gray-300 rounded-md px-2 py-1 text-sm hidden"></select>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-600">Position Level</label>
+                                <select id="level-filter" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                                    <option value="">All Levels</option>
+                                    <option value="Junior">Junior</option>
+                                    <option value="Middle">Middle</option>
+                                    <option value="Senior">Senior</option>
+                                    <option value="Lead">Lead</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
+                                    <input type="checkbox" id="show-percentiles" class="rounded" />
+                                    <span>Show Full Percentiles</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -118,7 +147,7 @@
                         <div class="overflow-x-auto">
                             <table class="min-w-full table-auto border-collapse border border-gray-200 text-sm">
                                 <thead class="bg-gray-50">
-                                    <tr>
+                                    <tr id="table-header-row">
                                         <th class="border border-gray-200 px-4 py-2 text-left">{{ l.ui.stack_comparison.stack }}</th>
                                         <th class="border border-gray-200 px-4 py-2 text-right">{{ l.ui.stack_comparison.count }}</th>
                                         <th class="border border-gray-200 px-4 py-2 text-right">P25</th>
@@ -139,17 +168,49 @@
 
                 <script>
                     window.StackComparison = {{ dump stack_comparison }};
-                    window.StackComparisonByYear = {{ dump l.stack_comparison_years }};
+                    window.StackComparisonByYear = {{ if l != null && l.stack_comparison_years != null }}{{ dump l.stack_comparison_years }}{{ else }}[]{{ end }};
                     (function(){
+                        // Check if comprehensive salary data is available
+                        var salaryData = window.salaryData || null;
+                        var hasSalaryData = !!(salaryData && salaryData.byStack && salaryData.stacks);
+                        
                         var lastMonth = window.StackComparison || [];
                         var yearly = window.StackComparisonByYear || [];
+                        
+                        // Transform new data structure if available
+                        if (hasSalaryData) {
+                            lastMonth = salaryData.stacks.map(function(stack) {
+                                var stackData = salaryData.byStack[stack.name];
+                                if (!stackData) return null;
+                                return {
+                                    name: stack.name,
+                                    label: stack.name,
+                                    count: stack.jobCount,
+                                    median: stackData.aggregates.medianSalary,
+                                    mean: stackData.aggregates.meanSalary,
+                                    p10: stackData.aggregates.percentiles.p10,
+                                    p25: stackData.aggregates.percentiles.p25,
+                                    p50: stackData.aggregates.percentiles.p50,
+                                    p75: stackData.aggregates.percentiles.p75,
+                                    p90: stackData.aggregates.percentiles.p90,
+                                    _share: stack.percentage
+                                };
+                            }).filter(Boolean);
+                        }
+                        
                         var data = lastMonth;
+                        var currentLevel = '';
+                        var showPercentiles = false;
+                        
                         var filterInput = document.getElementById('stack-filter');
                         var pills = document.getElementById('stack-pills');
                         var tbody = document.getElementById('stack-rows');
+                        var tableHeader = document.getElementById('table-header-row');
                         var sortSel = document.getElementById('sort-mode');
                         var periodSel = document.getElementById('period-mode');
                         var yearSel = document.getElementById('year-select');
+                        var levelFilter = document.getElementById('level-filter');
+                        var percentilesCheckbox = document.getElementById('show-percentiles');
                         var btnAll = document.getElementById('select-all');
                         var btnNone = document.getElementById('select-none');
                         var btnTop = document.getElementById('top-5');
@@ -173,6 +234,26 @@
                             return rows.map(function(x){ var share = total? (x.count/total*100) : 0; x._share = share; return x; });
                         }
 
+                        function updateTableHeaders() {
+                            if (showPercentiles && hasSalaryData) {
+                                tableHeader.innerHTML = '<th class="border border-gray-200 px-4 py-2 text-left">Stack</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">Count</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">P10</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">P25</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">Median</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">P75</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">P90</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">Share</th>';
+                            } else {
+                                tableHeader.innerHTML = '<th class="border border-gray-200 px-4 py-2 text-left">Stack</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">Count</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">P25</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">Median</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">P75</th>' +
+                                                       '<th class="border border-gray-200 px-4 py-2 text-right">Share</th>';
+                            }
+                        }
+
                         function renderPills(items){
                             pills.innerHTML='';
                             items.forEach(function(x){
@@ -194,13 +275,25 @@
                             computeShare(items).forEach(function(x){
                                 if(!selected.has(x.name)) return;
                                 var color=nameColor(x.name);
+                                
                                 var tr=document.createElement('tr');
-                                tr.innerHTML='<td class="border border-gray-200 px-4 py-2"><span class="inline-block w-2 h-2 rounded-full mr-2" style="background:'+color+'"></span>'+ (x.label||x.name) +'</td>'+
-                                             '<td class="border border-gray-200 px-4 py-2 text-right">'+x.count.toLocaleString()+'</td>'+
-                                             '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p25)+'</td>'+
-                                             '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.median)+'</td>'+
-                                             '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p75)+'</td>'+
-                                             '<td class="border border-gray-200 px-4 py-2 text-right">'+x._share.toFixed(1)+'%'+ '</td>';
+                                if (showPercentiles && hasSalaryData) {
+                                    tr.innerHTML='<td class="border border-gray-200 px-4 py-2"><span class="inline-block w-2 h-2 rounded-full mr-2" style="background:'+color+'"></span>'+ (x.label||x.name) +'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+x.count.toLocaleString()+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p10)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p25)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.median)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p75)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p90)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+x._share.toFixed(1)+'%'+ '</td>';
+                                } else {
+                                    tr.innerHTML='<td class="border border-gray-200 px-4 py-2"><span class="inline-block w-2 h-2 rounded-full mr-2" style="background:'+color+'"></span>'+ (x.label||x.name) +'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+x.count.toLocaleString()+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p25)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.median)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p75)+'</td>'+
+                                                 '<td class="border border-gray-200 px-4 py-2 text-right">'+x._share.toFixed(1)+'%'+ '</td>';
+                                }
                                 tbody.appendChild(tr);
                             });
                         }
@@ -234,6 +327,22 @@
                             });
                         }
 
+                        function getDataForLevel(level) {
+                            if (!level || !hasSalaryData || !salaryData.yearlyStats.byLevel[level]) {
+                                return lastMonth;
+                            }
+                            
+                            // Get latest year from level data
+                            var levelStats = salaryData.yearlyStats.byLevel[level];
+                            var years = Object.keys(levelStats.medianByYear || {}).sort();
+                            if (years.length === 0) return [];
+                            
+                            var latestYear = years[years.length - 1];
+                            
+
+                            return lastMonth;
+                        }
+
                         function render(){
                             var filter=filterInput.value.toLowerCase();
                             var rows=data.filter(function(x){ return x.name.toLowerCase().indexOf(filter)>=0 || (x.label||'').toLowerCase().indexOf(filter)>=0; });
@@ -241,6 +350,8 @@
                             if(mode==='median_desc') rows.sort(function(a,b){return (b.median||0)-(a.median||0)});
                             else if(mode==='count_desc') rows.sort(function(a,b){return (b.count||0)-(a.count||0)});
                             else if(mode==='share_desc') rows.sort(function(a,b){return (b._share||0)-(a._share||0)});
+                            
+                            updateTableHeaders();
                             renderPills(rows);
                             renderRows(rows);
                             var chartData = buildBarChartData(rows);
@@ -267,7 +378,7 @@
                                 render();
                             } else {
                                 yearSel.classList.add('hidden');
-                                data = lastMonth;
+                                data = getDataForLevel(currentLevel);
                                 render();
                             }
                         });
@@ -280,6 +391,17 @@
                             } else {
                                 data = group.items || [];
                             }
+                            render();
+                        });
+
+                        levelFilter.addEventListener('change', function(){
+                            currentLevel = this.value;
+                            data = getDataForLevel(currentLevel);
+                            render();
+                        });
+
+                        percentilesCheckbox.addEventListener('change', function(){
+                            showPercentiles = this.checked;
                             render();
                         });
 

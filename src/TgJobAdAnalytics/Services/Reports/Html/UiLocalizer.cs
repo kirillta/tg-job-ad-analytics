@@ -94,6 +94,7 @@ public sealed class UiLocalizer
     private static readonly string[] _uiKeys =
     [
         "ui.updated",
+        "ui.language",
         "ui.button.show_table",
         "ui.button.hide_table",
         "ui.data_sources.title",
@@ -105,6 +106,9 @@ public sealed class UiLocalizer
         "ui.footer.built_with",
         "ui.footer.and",
         "ui.chart.position_label",
+        "ui.chart.show_percentiles",
+        "ui.chart.stack_label",
+        "ui.chart.all_stacks",
         // stack comparison
         "ui.stack_comparison.title",
         "ui.stack_comparison.explainer",
@@ -122,7 +126,15 @@ public sealed class UiLocalizer
         "ui.stack_comparison.year",
         "ui.stack_comparison.period",
         "ui.stack_comparison.last_month",
-        "ui.stack_comparison.no_data_year"
+        "ui.stack_comparison.no_data_year",
+        "ui.stack_comparison.level_label",
+        "ui.stack_comparison.show_percentiles",
+        // generic labels
+        "ui.label.p10",
+        "ui.label.p25",
+        "ui.label.median",
+        "ui.label.p75",
+        "ui.label.p90"
     ];
 
 

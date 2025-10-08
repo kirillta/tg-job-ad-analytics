@@ -16,7 +16,7 @@ public class UploadOptions
     /// <summary>
     /// Gets or sets the mode of operation for the upload process.
     /// </summary>
-    public UploadMode Mode { get; set; } = UploadMode.OnlyNewMessages;
+    public UploadMode Mode { get; set; } = UploadMode.Append;
 
     /// <summary>
     /// Specifies the path to the source directory containing the data to be uploaded.

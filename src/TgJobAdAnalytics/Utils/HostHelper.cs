@@ -28,6 +28,7 @@ using TgJobAdAnalytics.Services.Salaries;
 using TgJobAdAnalytics.Services.Stacks;
 using TgJobAdAnalytics.Services.Uploads;
 using TgJobAdAnalytics.Services.Vectors;
+using TgJobAdAnalytics.Services.Analytics;
 
 namespace TgJobAdAnalytics.Utils;
 
@@ -104,6 +105,9 @@ public static class HostHelper
                 options.MappingFilePath = GetOperationalPath("config", "stacks", "channel-stacks.json");
             });
 
+            services.Configure<StackFilteringConfiguration>(
+                context.Configuration.GetSection("StackFiltering"));
+
             services.AddSingleton(_ => 
             { 
                 var credentials = new ApiKeyCredential(Environment.GetEnvironmentVariable("PNKL_OPEN_AI_KEY")!);
@@ -155,6 +159,7 @@ public static class HostHelper
             services.AddSingleton<IPipelineRunner, PipelineRunner>();
 
             services.AddTransient<StackComparisonDataBuilder>();
+            services.AddTransient<StackAwareStatisticsCalculator>();
             services.AddTransient<MetadataBuilder>();
             services.AddSingleton<ILocalizationProvider, InMemoryLocalizationProvider>();
             services.AddSingleton<ReportGroupLocalizer>();
