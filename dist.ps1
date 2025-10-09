@@ -59,7 +59,7 @@ try {
     }
 
     $copied = 0
-    $locales = Get-ChildItem -Path $runDir.FullName -Directory
+    $locales = Get-ChildItem -Path $runDir.FullName -Directory | Where-Object { $_.Name -ne 'js' }
     if (-not $locales -or $locales.Count -eq 0) {
         Write-Warning "No locale folders found in $($runDir.FullName)"
     }
@@ -77,8 +77,21 @@ try {
         }
     }
 
+    # Copy shared JS assets once (runRoot/js -> dist/js)
+    $jsSource = Join-Path $runDir.FullName 'js'
+    if (Test-Path $jsSource) {
+        $jsTarget = Join-Path $DistRoot 'js'
+        if (-not (Test-Path $jsTarget)) { New-Item -ItemType Directory -Path $jsTarget | Out-Null }
+        Get-ChildItem -Path $jsSource -Filter *.js -File | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination (Join-Path $jsTarget $_.Name) -Force
+        }
+        Write-Host "Copied JS assets to dist/js" -ForegroundColor Green
+    } else {
+        Write-Warning "No shared JS assets folder found at $jsSource"
+    }
+
     if ($copied -gt 0) {
-        Write-Host "Done. Copied $copied locale(s) to $DistRoot" -ForegroundColor Cyan
+        Write-Host "Done. Copied $copied locale(s) + JS assets to $DistRoot" -ForegroundColor Cyan
         exit 0
     } else {
         Write-Error "Nothing copied."

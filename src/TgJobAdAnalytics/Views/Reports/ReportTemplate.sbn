@@ -7,7 +7,7 @@
   <div class="relative">
       {{ include "Chart.sbn" report }}
       <div class="mt-4">
-          <button onclick="toggleTable(this)" class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-show="{{ l.ui.button.show_table }}" data-hide="{{ l.ui.button.hide_table }}">
+          <button class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 toggle-table-btn" data-show-label="{{ l.ui.button.show_table }}" data-hide-label="{{ l.ui.button.hide_table }}">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="3" y="3" width="8" height="8" rx="1"/>
                   <rect x="13" y="3" width="8" height="8" rx="1"/>
@@ -32,17 +32,4 @@
           </tbody>
       </table>
   </div>
-
-  <script>
-  function toggleTable(button) {
-      var card = button.closest('.report-card') || document;
-      var table = card.querySelector('table');
-      var label = button.querySelector('.toggle-label');
-      if (!table) return;
-      var hidden = table.classList.toggle('hidden');
-      var showLabel = button.getAttribute('data-show');
-      var hideLabel = button.getAttribute('data-hide');
-      if (label) label.textContent = hidden ? showLabel : hideLabel;
-  }
-  </script>
 </div>

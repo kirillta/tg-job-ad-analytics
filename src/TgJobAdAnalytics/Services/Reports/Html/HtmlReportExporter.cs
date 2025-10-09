@@ -11,6 +11,9 @@ using TgJobAdAnalytics.Services.Analytics;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
+/// <summary>
+/// Exports reports into static HTML including static JS assets.
+/// </summary>
 public sealed class HtmlReportExporter : IReportExporter
 {
     public HtmlReportExporter(ApplicationDbContext dbContext,
@@ -20,32 +23,30 @@ public sealed class HtmlReportExporter : IReportExporter
         ReportGroupLocalizer reportGroupLocalizer,
         UiLocalizer uiLocalizer,
         StackComparisonDataBuilder stackComparisonDataBuilder,
-        StackAwareStatisticsCalculator stackAwareStatisticsCalculator,
-        IOptions<StackFilteringConfiguration> stackFilteringOptions)
+        StackAwareStatisticsCalculator stackAwareStatisticsCalculator)
     {
         _dbContext = dbContext;
         _options = options.Value;
-
         _metadataBuilder = metadataBuilder;
         _reportGroupLocalizer = reportGroupLocalizer;
         _siteMetadata = siteMetadataOptions.Value;
         _stackComparisonBuilder = stackComparisonDataBuilder;
         _stackAwareStatisticsCalculator = stackAwareStatisticsCalculator;
-        _stackFilteringConfig = stackFilteringOptions.Value;
-        _templateRenderer = new TemplateRenderer(_options.TemplatePath);
         _uiLocalizer = uiLocalizer;
+        
+        _templateRenderer = new TemplateRenderer(_options.TemplatePath);
     }
 
 
+    /// <inheritdoc />
     public void Write(IEnumerable<ReportGroup> reportGroups)
     {
-        var groups = reportGroups.Select(BuildReportItemGroup)
-            .ToList();
-
+        var groups = reportGroups.Select(BuildReportItemGroup).ToList();
         GenerateReports(groups);
     }
 
 
+    /// <inheritdoc />
     public void Write(IEnumerable<Report> reports)
     {
         var group = new ReportItemGroup(string.Empty, reports.Select(BuildReportItem).ToList());
@@ -53,23 +54,18 @@ public sealed class HtmlReportExporter : IReportExporter
     }
 
 
-    public void Write(Report report)
-        => Write([report]);
+    /// <inheritdoc />
+    public void Write(Report report) => Write([report]);
 
 
     private List<DataSourceModel> BuildDataSourceModels()
     {
         var dates = _dbContext.Messages
             .GroupBy(m => m.TelegramChatId)
-            .Select(g => new
-            {
-                ChatId = g.Key,
-                MinDate = g.Min(m => m.TelegramMessageDate)
-            })
+            .Select(g => new { ChatId = g.Key, MinDate = g.Min(m => m.TelegramMessageDate) })
             .ToDictionary(x => x.ChatId, x => x.MinDate);
 
         var chats = _dbContext.Chats.ToList();
-
         var lastDayOfThePreviousMonth = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddDays(-1);
 
         var messageCounts = _dbContext.Messages
@@ -80,14 +76,8 @@ public sealed class HtmlReportExporter : IReportExporter
 
         var salaryCounts = _dbContext.Salaries
             .Where(s => s.Date <= lastDayOfThePreviousMonth)
-            .Join(_dbContext.Ads,
-                salary => salary.AdId,
-                ad => ad.Id,
-                (salary, ad) => new { salary, ad })
-            .Join(_dbContext.Messages,
-                sa => sa.ad.MessageId,
-                message => message.Id,
-                (sa, message) => new { sa.salary, message.TelegramChatId })
+            .Join(_dbContext.Ads, salary => salary.AdId, ad => ad.Id, (salary, ad) => new { salary, ad })
+            .Join(_dbContext.Messages, sa => sa.ad.MessageId, message => message.Id, (sa, message) => new { sa.salary, message.TelegramChatId })
             .GroupBy(x => x.TelegramChatId)
             .Select(g => new { ChatId = g.Key, Count = g.Count() })
             .ToDictionary(g => g.ChatId, g => g.Count);
@@ -95,7 +85,7 @@ public sealed class HtmlReportExporter : IReportExporter
         List<DataSourceModel> results = [];
         foreach (var chat in chats)
         {
-            if (!dates.TryGetValue(chat.TelegramId, out var minDate))
+            if (!dates.TryGetValue(chat.TelegramId, out var minDate)) 
                 continue;
 
             var processedMessages = messageCounts.TryGetValue(chat.TelegramId, out var mc) ? mc : 0;
@@ -110,13 +100,8 @@ public sealed class HtmlReportExporter : IReportExporter
 
     private static ReportItem BuildReportItem(Report report)
     {
-        var results = report.Results
-            .Select(kv => new KeyValuePair<string, string>(kv.Key, FormatNumericalValue(kv.Value)))
-            .ToList();
-
-        ChartModel? chart = null;
-        if (report.Type is not ChartType.None)
-            chart = ChartBuilder.Build(report);
+        var results = report.Results.Select(kv => new KeyValuePair<string, string>(kv.Key, FormatNumericalValue(kv.Value))).ToList();
+        ChartModel? chart = report.Type is not ChartType.None ? ChartBuilder.Build(report) : null;
 
         Dictionary<string, ChartModel.DataModel>? variants = null;
         if (report.Variants is not null && report.Variants.Count > 0)
@@ -130,8 +115,7 @@ public sealed class HtmlReportExporter : IReportExporter
     }
 
 
-    private static ReportItemGroup BuildReportItemGroup(ReportGroup reportGroup)
-        => new(reportGroup.Title, [.. reportGroup.Reports.Select(BuildReportItem)]);
+    private static ReportItemGroup BuildReportItemGroup(ReportGroup reportGroup) => new(reportGroup.Title, [.. reportGroup.Reports.Select(BuildReportItem)]);
 
 
     private void GenerateReports(List<ReportItemGroup> reportItemGroups)
@@ -141,16 +125,12 @@ public sealed class HtmlReportExporter : IReportExporter
         var runFolderName = generationTime.ToString("yyyyMMdd-HHmmss'Z'");
         var runRoot = Path.Combine(_options.OutputPath, runFolderName);
 
-        // Calculate multi-series salary statistics for filtering
+        CopyStaticAssets(runRoot);
+
         var lastDayOfPreviousMonth = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddDays(-1);
-        // Determine the earliest year present in salaries to cover full historical range
-        var earliestSalaryDate = _dbContext.Salaries.Any()
-            ? _dbContext.Salaries.Min(s => s.Date)
-            : new DateOnly(DateTime.UtcNow.Year, 1, 1);
+        var earliestSalaryDate = _dbContext.Salaries.Any() ? _dbContext.Salaries.Min(s => s.Date) : new DateOnly(DateTime.UtcNow.Year, 1, 1);
         var firstDayOfFirstYear = new DateOnly(earliestSalaryDate.Year, 1, 1);
-        var multiSeriesStats = _stackAwareStatisticsCalculator.CalculateStatistics(
-            startDate: firstDayOfFirstYear.ToDateTime(TimeOnly.MinValue), 
-            endDate: lastDayOfPreviousMonth.ToDateTime(TimeOnly.MaxValue));
+        var multiSeriesStats = _stackAwareStatisticsCalculator.CalculateStatistics(startDate: firstDayOfFirstYear.ToDateTime(TimeOnly.MinValue), endDate: lastDayOfPreviousMonth.ToDateTime(TimeOnly.MaxValue));
 
         foreach (var locale in _siteMetadata.Locales)
         {
@@ -166,7 +146,6 @@ public sealed class HtmlReportExporter : IReportExporter
             var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, lastMonth, localizationDict);
             localizationDict["stack_comparison_years"] = byYear;
 
-            // Add multi-series statistics for filtering
             var statisticsJson = JsonSerializer.Serialize(multiSeriesStats, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -194,6 +173,22 @@ public sealed class HtmlReportExporter : IReportExporter
         var directory = Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(directory);
         File.WriteAllText(path, content);
+    }
+
+
+    private static void CopyStaticAssets(string runRoot)
+    {
+        var srcJsRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "js");
+        if (!Directory.Exists(srcJsRoot)) 
+            return;
+        
+        var targetJsRoot = Path.Combine(runRoot, "js");
+        Directory.CreateDirectory(targetJsRoot);
+        foreach (var file in Directory.EnumerateFiles(srcJsRoot, "*.js", SearchOption.TopDirectoryOnly))
+        {
+            var fileName = Path.GetFileName(file);
+            File.Copy(file, Path.Combine(targetJsRoot, fileName), overwrite: true);
+        }
     }
 
 
@@ -242,7 +237,6 @@ public sealed class HtmlReportExporter : IReportExporter
     private readonly SiteMetadataOptions _siteMetadata;
     private readonly StackComparisonDataBuilder _stackComparisonBuilder;
     private readonly StackAwareStatisticsCalculator _stackAwareStatisticsCalculator;
-    private readonly StackFilteringConfiguration _stackFilteringConfig;
     private readonly TemplateRenderer _templateRenderer;
     private readonly UiLocalizer _uiLocalizer;
 

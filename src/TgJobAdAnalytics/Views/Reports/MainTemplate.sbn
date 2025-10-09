@@ -38,11 +38,12 @@
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         
-        <script>
-            // Multi-series salary statistics for comprehensive filtering
-            // Ensure valid JS even if the JSON is empty or missing and `l` is not defined
-            window.salaryData = {{ if l != null && l.multi_series_stats_json != null && l.multi_series_stats_json != "" }}{{ l.multi_series_stats_json }}{{ else }}null{{ end }};
-        </script>
+        <!-- Serialized salary multi-series stats (application/json for safe parsing) -->
+        <script id="salary-data" type="application/json">{{ if l != null && l.multi_series_stats_json != null && l.multi_series_stats_json != "" }}{{ l.multi_series_stats_json }}{{ else }}null{{ end }}</script>
+        <!-- JS assets shared per run (../js) -->
+        <script src="../js/mainTemplate.js"></script>
+        <script src="../js/stackComparison.js" defer></script>
+        <script src="../js/charts.js" defer></script>
     </head>
     <body class="min-h-full bg-gray-50 text-gray-900">
         <header class="bg-white shadow-sm">
@@ -63,16 +64,6 @@
                         {{ end }}
                     </select>
                 </div>
-                <script>
-                    (function(){
-                        var sel = document.getElementById('locale-select');
-                        if(!sel) return;
-                        sel.addEventListener('change', function(){
-                            var v = this.value;
-                            if(v) window.location.href = v;
-                        });
-                    })();
-                </script>
                 {{ end }}
             </div>
         </header>
