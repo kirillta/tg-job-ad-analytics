@@ -34,7 +34,7 @@ public sealed class StackComparisonDataBuilder
             .Select(g =>
             {
                 var values = g.Select(x => GetNormalizedValue(x.LowerBoundNormalized, x.UpperBoundNormalized))
-                    .Where(v => !double.IsNaN(v))
+                    .Where(v => !double.IsNaN(v) && v > 0)
                     .ToArray();
 
                 var count = values.Length;
@@ -88,7 +88,7 @@ public sealed class StackComparisonDataBuilder
                     .Select(g =>
                     {
                         var values = g.Select(x => GetNormalizedValue(x.LowerBoundNormalized, x.UpperBoundNormalized))
-                            .Where(v => !double.IsNaN(v))
+                            .Where(v => !double.IsNaN(v) && v > 0)
                             .ToArray();
 
                         var count = values.Length;
