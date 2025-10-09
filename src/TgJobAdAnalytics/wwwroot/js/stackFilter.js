@@ -164,44 +164,9 @@
             }
 
             return {
-                trends: this.combineTrends(stackDatasets),
                 distribution: this.combineDistributions(stackDatasets),
                 aggregates: this.combineAggregates(stackDatasets)
             };
-        }
-
-        /**
-         * Combine trend data from multiple stacks
-         */
-        combineTrends(datasets) {
-            const trendsByDate = new Map();
-
-            datasets.forEach(dataset => {
-                if (!dataset.trends) return;
-                dataset.trends.forEach(point => {
-                    if (!trendsByDate.has(point.date)) {
-                        trendsByDate.set(point.date, []);
-                    }
-                    trendsByDate.get(point.date).push(point);
-                });
-            });
-
-            return Array.from(trendsByDate.entries())
-                .map(([date, points]) => {
-                    const totalCount = points.reduce((sum, p) => sum + p.count, 0);
-                    if (totalCount === 0) return null;
-
-                    return {
-                        date,
-                        median: Math.round(points.reduce((sum, p) => sum + (p.median * p.count), 0) / totalCount),
-                        mean: Math.round(points.reduce((sum, p) => sum + (p.mean * p.count), 0) / totalCount),
-                        count: totalCount,
-                        p25: Math.round(points.reduce((sum, p) => sum + (p.p25 * p.count), 0) / totalCount),
-                        p75: Math.round(points.reduce((sum, p) => sum + (p.p75 * p.count), 0) / totalCount)
-                    };
-                })
-                .filter(x => x !== null)
-                .sort((a, b) => a.date.localeCompare(b.date));
         }
 
         /**
@@ -278,11 +243,8 @@
          * Update statistics display in the page
          */
         updateStatisticsDisplay(data) {
-            // This is a placeholder - actual implementation depends on your page structure
-            // You would update specific DOM elements with the filtered data
             console.log('Filtered statistics:', data);
 
-            // Example: Update a stats summary section if it exists
             const totalJobsEl = document.getElementById('filtered-total-jobs');
             if (totalJobsEl && data.aggregates) {
                 totalJobsEl.textContent = data.aggregates.totalJobs.toLocaleString();
@@ -381,7 +343,6 @@
          */
         createEmptyDataset() {
             return {
-                trends: [],
                 distribution: [],
                 aggregates: {
                     totalJobs: 0,

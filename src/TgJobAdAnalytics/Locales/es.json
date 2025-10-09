@@ -19,7 +19,7 @@
   "ui.data_sources.title": "Fuentes de datos",
   "ui.data_sources.messages_label": "mensajes",
   "ui.data_sources.salaries_label": "salarios",
-  "ui.data_sources.explainer": "Los datos se extraen de mensajes de Telegram. Los valores salariales se normalizan y se eliminan duplicados. Las agregaciones se limitan al último mes completo. Se excluyen registros inválidos o ambiguos para proporcionar un conjunto limpio, normalizado y deduplicado para análisis fiable.",
+  "ui.data_sources.explainer": "Los datos se extraen de mensajes de Telegram. Los valores salariales se normalizan y se eliminan duplicados. Las agregaciones se limitan al último mes completo. Se excluyen registros inválidos o ambiguos para proporcionar un conjunto limpio, normalizado y deduplicado para análisis fiable. También debe tenerse en cuenta que en Telegram los salarios suelen ser publicados directamente por pequeñas empresas o por reclutadores, lo que afecta al panorama general y a las características de los datos.",
   "ui.footer.author": "Autor",
   "ui.footer.source": "Código fuente",
   "ui.footer.built_with": "Construido con",

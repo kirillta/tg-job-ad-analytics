@@ -22,7 +22,7 @@ public sealed class StackAwareStatisticsCalculator
     /// <summary>
     /// Calculates salary statistics with global and per-stack breakdowns.
     /// </summary>
-    public MultiSeriesSalaryStatistics CalculateStatistics(DateTime startDate, DateTime endDate)
+    public MultiSeriesSalaryStatistics CalculateStatistics(in DateTime startDate, in DateTime endDate)
     {
         var startDateOnly = DateOnly.FromDateTime(startDate);
         var endDateOnly = DateOnly.FromDateTime(endDate);
@@ -34,15 +34,16 @@ public sealed class StackAwareStatisticsCalculator
 
         var salariesWithStack = salariesQuery.AsNoTracking().ToList();
 
-        var filteredSalaries = RemoveOutliers([.. salariesWithStack.Select(x => x.Salary)]);
+        var filteredSalaries = SalaryStatisticsCore.RemoveOutliers([.. salariesWithStack.Select(x => x.Salary)]).ToList();
+        var filteredIds = filteredSalaries.Select(s => s.Id).ToHashSet();
         var filteredSalariesWithStack = salariesWithStack
-            .Where(s => filteredSalaries.Any(f => f.Id == s.Salary.Id))
+            .Where(s => filteredIds.Contains(s.Salary.Id))
             .ToList();
 
         var global = CalculateGlobalStatistics(filteredSalaries);
         var byStack = CalculatePerStackStatistics(filteredSalariesWithStack);
         var stacksSummary = CalculateStacksSummary(salariesWithStack);
-        var yearlyStats = CalculateYearlyStatistics(filteredSalaries);
+        var yearlyStats = BuildYearly(filteredSalaries, includePerLevel: true);
         var yearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack);
 
         return new MultiSeriesSalaryStatistics
@@ -64,15 +65,13 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private GlobalSalaryStatistics CalculateGlobalStatistics(List<Data.Salaries.SalaryEntity> salaries)
+    private static GlobalSalaryStatistics CalculateGlobalStatistics(List<Data.Salaries.SalaryEntity> salaries)
     {
-        var trends = CalculateTrends(salaries);
         var distribution = CalculateDistribution(salaries);
         var aggregates = CalculateAggregates(salaries);
 
         return new GlobalSalaryStatistics
         {
-            Trends = trends,
             Distribution = distribution,
             Aggregates = aggregates
         };
@@ -116,13 +115,11 @@ public sealed class StackAwareStatisticsCalculator
             if (!stackNameMap.TryGetValue(stackId, out var stackName))
                 stackName = "Unknown";
 
-            var trends = CalculateTrends(stackSalaries);
             var distribution = CalculateDistribution(stackSalaries);
             var aggregates = CalculateAggregates(stackSalaries);
 
             result[stackName] = new StackSalaryStatistics
             {
-                Trends = trends,
                 Distribution = distribution,
                 Aggregates = aggregates
             };
@@ -166,12 +163,47 @@ public sealed class StackAwareStatisticsCalculator
             if (stackSalaries.Count == 0)
                 continue;
 
-            var y = CalculateYearlyStatistics(stackSalaries);
+            var stats = SalaryStatisticsCore.ComputeYearly(stackSalaries, includePerLevel: true);
+            var yearly = new YearlySalaryStatistics
+            {
+                MinimumByYear = stats.MinimumByYear,
+                MaximumByYear = stats.MaximumByYear,
+                AverageByYear = stats.AverageByYear,
+                MedianByYear = stats.MedianByYear,
+                ByLevel = stats.ByLevel.ToDictionary(kv => kv.Key, kv => new LevelYearlyStatistics
+                {
+                    MinimumByYear = kv.Value.MinimumByYear,
+                    MaximumByYear = kv.Value.MaximumByYear,
+                    AverageByYear = kv.Value.AverageByYear,
+                    MedianByYear = kv.Value.MedianByYear
+                })
+            };
+
             var name = stackNameMap.TryGetValue(stackId, out var n) ? n : "Unknown";
-            result[name] = y;
+            result[name] = yearly;
         }
 
         return result;
+    }
+
+
+    private static YearlySalaryStatistics BuildYearly(List<Data.Salaries.SalaryEntity> salaries, bool includePerLevel)
+    {
+        var stats = SalaryStatisticsCore.ComputeYearly(salaries, includePerLevel: includePerLevel);
+        return new YearlySalaryStatistics
+        {
+            MinimumByYear = stats.MinimumByYear,
+            MaximumByYear = stats.MaximumByYear,
+            AverageByYear = stats.AverageByYear,
+            MedianByYear = stats.MedianByYear,
+            ByLevel = stats.ByLevel.ToDictionary(kv => kv.Key, kv => new LevelYearlyStatistics
+            {
+                MinimumByYear = kv.Value.MinimumByYear,
+                MaximumByYear = kv.Value.MaximumByYear,
+                AverageByYear = kv.Value.AverageByYear,
+                MedianByYear = kv.Value.MedianByYear
+            })
+        };
     }
 
 
@@ -214,41 +246,9 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private static List<TrendDataPoint> CalculateTrends(List<Data.Salaries.SalaryEntity> salaries)
-    {
-        var trendData = salaries
-            .GroupBy(s => new { s.Date.Year, s.Date.Month })
-            .Select(g =>
-            {
-                var values = g.Select(GetNormalizedValue)
-                    .Where(v => !double.IsNaN(v))
-                    .ToArray();
-
-                if (values.Length == 0)
-                    return null;
-
-                return new TrendDataPoint
-                {
-                    Date = $"{g.Key.Year:D4}-{g.Key.Month:D2}",
-                    Median = values.Median(),
-                    Mean = values.Mean(),
-                    Count = values.Length,
-                    P25 = values.Quantile(0.25),
-                    P75 = values.Quantile(0.75)
-                };
-            })
-            .Where(x => x != null)
-            .OrderBy(x => x!.Date)
-            .Select(x => x!)
-            .ToList();
-
-        return trendData;
-    }
-
-
     private static List<DistributionBucket> CalculateDistribution(List<Data.Salaries.SalaryEntity> salaries)
     {
-        var values = salaries.Select(GetNormalizedValue)
+        var values = salaries.Select(SalaryStatisticsCore.NormalizePair)
             .Where(v => !double.IsNaN(v))
             .ToList();
 
@@ -283,7 +283,7 @@ public sealed class StackAwareStatisticsCalculator
 
     private static AggregateStatistics CalculateAggregates(List<Data.Salaries.SalaryEntity> salaries)
     {
-        var values = salaries.Select(GetNormalizedValue)
+        var values = salaries.Select(SalaryStatisticsCore.NormalizePair)
             .Where(v => !double.IsNaN(v))
             .ToArray();
 
@@ -315,182 +315,13 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private static double GetNormalizedValue(Data.Salaries.SalaryEntity salary)
-    {
-        var hasLowerBound = !double.IsNaN(salary.LowerBoundNormalized);
-        var hasUpperBound = !double.IsNaN(salary.UpperBoundNormalized);
-
-        if (!hasLowerBound && !hasUpperBound)
-            return double.NaN;
-
-        if (!hasLowerBound)
-            return salary.UpperBoundNormalized;
-
-        if (!hasUpperBound)
-            return salary.LowerBoundNormalized;
-
-        return (salary.LowerBoundNormalized + salary.UpperBoundNormalized) / 2.0;
-    }
-
-
-    private static YearlySalaryStatistics CalculateYearlyStatistics(List<Data.Salaries.SalaryEntity> salaries)
-    {
-        var minimumByYear = salaries
-            .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance)
-            .GroupBy(s => s.Date.Year)
-            .OrderBy(g => g.Key)
-            .ToDictionary(
-                g => g.Key.ToString(),
-                g => g.Select(s => s.LowerBoundNormalized).Min()
-            );
-
-        var maximumByYear = salaries
-            .Where(s => Math.Abs(s.UpperBoundNormalized) > Tolerance)
-            .GroupBy(s => s.Date.Year)
-            .OrderBy(g => g.Key)
-            .ToDictionary(
-                g => g.Key.ToString(),
-                g => g.Select(s => s.UpperBoundNormalized).Max()
-            );
-
-        var averageByYear = salaries
-            .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
-            .GroupBy(s => s.Date.Year)
-            .OrderBy(g => g.Key)
-            .ToDictionary(
-                g => g.Key.ToString(),
-                g => g.Select(GetNormalizedValue).Where(v => !double.IsNaN(v)).Average()
-            );
-
-        var medianByYear = salaries
-            .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
-            .GroupBy(s => s.Date.Year)
-            .OrderBy(g => g.Key)
-            .ToDictionary(
-                g => g.Key.ToString(),
-                g => g.Select(GetNormalizedValue).Where(v => !double.IsNaN(v)).Median()
-            );
-
-        var byLevel = new Dictionary<string, LevelYearlyStatistics>();
-        var levels = salaries.Select(s => s.Level).Distinct().Where(l => l != Models.Levels.Enums.PositionLevel.Unknown);
-
-        foreach (var level in levels)
-        {
-            var levelSalaries = salaries.Where(s => s.Level == level).ToList();
-
-            var levelMin = levelSalaries
-                .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance)
-                .GroupBy(s => s.Date.Year)
-                .OrderBy(g => g.Key)
-                .ToDictionary(
-                    g => g.Key.ToString(),
-                    g => g.Select(s => s.LowerBoundNormalized).Min()
-                );
-
-            var levelMax = levelSalaries
-                .Where(s => Math.Abs(s.UpperBoundNormalized) > Tolerance)
-                .GroupBy(s => s.Date.Year)
-                .OrderBy(g => g.Key)
-                .ToDictionary(
-                    g => g.Key.ToString(),
-                    g => g.Select(s => s.UpperBoundNormalized).Max()
-                );
-
-            var levelAvg = levelSalaries
-                .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
-                .GroupBy(s => s.Date.Year)
-                .OrderBy(g => g.Key)
-                .ToDictionary(
-                    g => g.Key.ToString(),
-                    g => g.Select(GetNormalizedValue).Where(v => !double.IsNaN(v)).Average()
-                );
-
-            var levelMedian = levelSalaries
-                .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
-                .GroupBy(s => s.Date.Year)
-                .OrderBy(g => g.Key)
-                .Where(g => g.Select(GetNormalizedValue).Where(v => !double.IsNaN(v)).Any())
-                .ToDictionary(
-                    g => g.Key.ToString(),
-                    g => g.Select(GetNormalizedValue).Where(v => !double.IsNaN(v)).Median()
-                );
-
-            if (levelMin.Count > 0 || levelMax.Count > 0 || levelAvg.Count > 0 || levelMedian.Count > 0)
-            {
-                byLevel[level.ToString()] = new LevelYearlyStatistics
-                {
-                    MinimumByYear = levelMin,
-                    MaximumByYear = levelMax,
-                    AverageByYear = levelAvg,
-                    MedianByYear = levelMedian
-                };
-            }
-        }
-
-        return new YearlySalaryStatistics
-        {
-            MinimumByYear = minimumByYear,
-            MaximumByYear = maximumByYear,
-            AverageByYear = averageByYear,
-            MedianByYear = medianByYear,
-            ByLevel = byLevel
-        };
-    }
-
-
-    private static List<Data.Salaries.SalaryEntity> RemoveOutliers(List<Data.Salaries.SalaryEntity> salaries)
-    {
-        var excludedIds = GetExcludedIds(salaries, s => s.LowerBoundNormalized)
-            .Concat(GetExcludedIds(salaries, s => s.UpperBoundNormalized))
-            .ToHashSet();
-
-        return salaries.Where(s => !excludedIds.Contains(s.Id)).ToList();
-
-
-        static IEnumerable<Guid> GetExcludedIds(List<Data.Salaries.SalaryEntity> salaries, Func<Data.Salaries.SalaryEntity, double> selector)
-        {
-            var validLogValues = salaries
-                .Select(selector)
-                .Where(v => !double.IsNaN(v) && Math.Abs(v) > Tolerance)
-                .Select(v => Math.Log(v))
-                .ToArray();
-
-            if (validLogValues.Length == 0)
-                return Enumerable.Empty<Guid>();
-
-            var q1 = validLogValues.Quantile(0.25);
-            var q3 = validLogValues.Quantile(0.75);
-            var iqr = q3 - q1;
-            var lowerThreshold = q1 - 1.5 * iqr;
-            var upperThreshold = q3 + 1.5 * iqr;
-
-            return salaries
-                .Where(s => IsOutlier(selector(s), lowerThreshold, upperThreshold))
-                .Select(s => s.Id);
-        }
-
-
-        static bool IsOutlier(double value, double lowerThreshold, double upperThreshold)
-        {
-            if (double.IsNaN(value))
-                return false;
-
-            var logValue = Math.Log(value);
-            return logValue <= lowerThreshold || logValue >= upperThreshold;
-        }
-    }
-
-
-    private const double Tolerance = 1e-10;
-
-
-    private readonly ApplicationDbContext _dbContext;
-    private readonly StackFilteringConfiguration _stackFilteringConfig;
-
-
     private sealed class SalaryWithStack
     {
         public Data.Salaries.SalaryEntity Salary { get; set; } = null!;
         public Guid? StackId { get; set; }
     }
+
+
+    private readonly ApplicationDbContext _dbContext;
+    private readonly StackFilteringConfiguration _stackFilteringConfig;
 }

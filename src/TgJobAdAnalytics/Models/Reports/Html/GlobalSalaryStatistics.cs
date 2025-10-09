@@ -5,11 +5,6 @@ namespace TgJobAdAnalytics.Models.Reports.Html;
 /// </summary>
 public sealed class GlobalSalaryStatistics
 {
-    /// <summary>
-    /// Gets or sets the salary trend data points over time.
-    /// </summary>
-    public List<TrendDataPoint> Trends { get; set; } = new();
-
 
     /// <summary>
     /// Gets or sets the salary distribution buckets.

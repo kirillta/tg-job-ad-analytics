@@ -123,19 +123,22 @@
                                 <select id="year-select" class="border border-gray-300 rounded-md px-2 py-1 text-sm hidden"></select>
                             </div>
                             <div class="flex items-center gap-2">
-                                <label class="text-sm text-gray-600">Position Level</label>
+                                <label class="text-sm text-gray-600">{{ l.ui.stack_comparison.level_label }}</label>
                                 <select id="level-filter" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                                    <option value="">All Levels</option>
-                                    <option value="Junior">Junior</option>
-                                    <option value="Middle">Middle</option>
-                                    <option value="Senior">Senior</option>
-                                    <option value="Lead">Lead</option>
+                                    <option value="">{{ l.variant.all }}</option>
+                                    <option value="Intern">{{ l.level.intern }}</option>
+                                    <option value="Junior">{{ l.level.junior }}</option>
+                                    <option value="Middle">{{ l.level.middle }}</option>
+                                    <option value="Senior">{{ l.level.senior }}</option>
+                                    <option value="Lead">{{ l.level.lead }}</option>
+                                    <option value="Architect">{{ l.level.architect }}</option>
+                                    <option value="Manager">{{ l.level.manager }}</option>
                                 </select>
                             </div>
                             <div class="flex items-center gap-2">
                                 <label class="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
                                     <input type="checkbox" id="show-percentiles" class="rounded" />
-                                    <span>Show Full Percentiles</span>
+                                    <span>{{ l.ui.stack_comparison.show_percentiles }}</span>
                                 </label>
                             </div>
                         </div>
@@ -343,6 +346,32 @@
                             return lastMonth;
                         }
 
+                        function refreshYearOptions() {
+                            yearSel.innerHTML = '';
+                            var years = yearly.map(function(y){ return y.year; });
+                            years.forEach(function(y){
+                                var opt = document.createElement('option');
+                                opt.value = String(y);
+                                opt.textContent = String(y);
+                                yearSel.appendChild(opt);
+                            });
+                            if (years.length) {
+                                yearSel.value = String(years[years.length - 1]);
+                                loadYear(years[years.length - 1]);
+                                yearSel.classList.remove('hidden');
+                            }
+                        }
+
+                        function loadYear(year) {
+                            var yr = parseInt(year, 10);
+                            var group = yearly.find(function(g){return g.year===yr;});
+                            if(!group){
+                                data = [];
+                            } else {
+                                data = group.items || [];
+                            }
+                        }
+
                         function render(){
                             var filter=filterInput.value.toLowerCase();
                             var rows=data.filter(function(x){ return x.name.toLowerCase().indexOf(filter)>=0 || (x.label||'').toLowerCase().indexOf(filter)>=0; });
@@ -354,28 +383,13 @@
                             updateTableHeaders();
                             renderPills(rows);
                             renderRows(rows);
-                            var chartData = buildBarChartData(rows);
-                            ensureChart('bar', chartData);
-                            try { localStorage.setItem('stack_selected', JSON.stringify(Array.from(selected))); } catch(e){}
-                        }
-
-                        function refreshYearOptions() {
-                            yearSel.innerHTML = '';
-                            var years = yearly.map(function(y){ return y.year; });
-                            years.forEach(function(y){
-                                var opt = document.createElement('option');
-                                opt.value = String(y);
-                                opt.textContent = String(y);
-                                yearSel.appendChild(opt);
-                            });
+                            ensureChart('bar', buildBarChartData(rows));
+                            try{ localStorage.setItem('stack_selected', JSON.stringify(Array.from(selected))); }catch(e){}
                         }
 
                         periodSel.addEventListener('change', function(){
                             if (periodSel.value === 'year') {
                                 refreshYearOptions();
-                                yearSel.classList.remove('hidden');
-                                data = [];
-                                render();
                             } else {
                                 yearSel.classList.add('hidden');
                                 data = getDataForLevel(currentLevel);
@@ -384,13 +398,7 @@
                         });
 
                         yearSel.addEventListener('change', function(){
-                            var yr = parseInt(yearSel.value, 10);
-                            var group = yearly.find(function(g){ return g.year === yr; });
-                            if (!group) {
-                                data = [];
-                            } else {
-                                data = group.items || [];
-                            }
+                            loadYear(yearSel.value);
                             render();
                         });
 

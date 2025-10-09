@@ -6,12 +6,6 @@ namespace TgJobAdAnalytics.Models.Reports.Html;
 public sealed class StackSalaryStatistics
 {
     /// <summary>
-    /// Gets or sets the salary trend data points over time.
-    /// </summary>
-    public List<TrendDataPoint> Trends { get; set; } = new();
-
-
-    /// <summary>
     /// Gets or sets the salary distribution buckets.
     /// </summary>
     public List<DistributionBucket> Distribution { get; set; } = new();
