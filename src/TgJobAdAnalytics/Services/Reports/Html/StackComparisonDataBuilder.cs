@@ -38,9 +38,11 @@ public sealed class StackComparisonDataBuilder
                     .ToArray();
 
                 var count = values.Length;
+                var p10 = count > 0 ? values.Quantile(0.10) : double.NaN;
                 var p25 = count > 0 ? values.Quantile(0.25) : double.NaN;
                 var median = count > 0 ? values.Quantile(0.50) : double.NaN;
                 var p75 = count > 0 ? values.Quantile(0.75) : double.NaN;
+                var p90 = count > 0 ? values.Quantile(0.90) : double.NaN;
 
                 return new Models.Reports.Html.StackComparisonItem
                 {
@@ -48,9 +50,11 @@ public sealed class StackComparisonDataBuilder
                     Name = g.Key.Name,
                     Label = g.Key.Name,
                     Count = count,
+                    P10 = p10,
                     P25 = p25,
                     Median = median,
-                    P75 = p75
+                    P75 = p75,
+                    P90 = p90
                 };
             })
             .OrderByDescending(x => x.Median)
@@ -88,9 +92,11 @@ public sealed class StackComparisonDataBuilder
                             .ToArray();
 
                         var count = values.Length;
+                        var p10 = count > 0 ? values.Quantile(0.10) : double.NaN;
                         var p25 = count > 0 ? values.Quantile(0.25) : double.NaN;
                         var median = count > 0 ? values.Quantile(0.50) : double.NaN;
                         var p75 = count > 0 ? values.Quantile(0.75) : double.NaN;
+                        var p90 = count > 0 ? values.Quantile(0.90) : double.NaN;
 
                         return new Models.Reports.Html.StackComparisonItem
                         {
@@ -98,9 +104,11 @@ public sealed class StackComparisonDataBuilder
                             Name = g.Key.Name,
                             Label = g.Key.Name,
                             Count = count,
+                            P10 = p10,
                             P25 = p25,
                             Median = median,
-                            P75 = p75
+                            P75 = p75,
+                            P90 = p90
                         };
                     })
                     .OrderByDescending(x => x.Median)

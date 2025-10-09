@@ -23,7 +23,7 @@
   "ui.footer.author": "Autor",
   "ui.footer.source": "Código fuente",
   "ui.footer.built_with": "Construido con",
-  "ui.footer.and": "y",
+  "ui.footer.and": "y lo que pintó en el momento",
   "ui.chart.position_label": "Posición",
   "ui.chart.show_percentiles": "Mostrar todos los percentiles",
   "ui.chart.stack_label": "Tecnología",

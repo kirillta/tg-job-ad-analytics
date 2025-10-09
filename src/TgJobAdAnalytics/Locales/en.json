@@ -23,7 +23,7 @@
   "ui.footer.author": "Author",
   "ui.footer.source": "Source",
   "ui.footer.built_with": "Built with",
-  "ui.footer.and": "and",
+  "ui.footer.and": "and some other arcane magic",
   "ui.chart.position_label": "Position",
   "ui.chart.show_percentiles": "Show Full Percentiles",
   "ui.chart.stack_label": "Stack",

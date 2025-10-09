@@ -1,7 +1,7 @@
 namespace TgJobAdAnalytics.Models.Reports.Html;
 
 /// <summary>
-/// Represents per-stack salary statistics for the last closed calendar month.
+/// Represents per-stack salary statistics for the last closed calendar month or a yearly aggregation.
 /// </summary>
 public sealed class StackComparisonItem
 {
@@ -26,6 +26,11 @@ public sealed class StackComparisonItem
     public int Count { get; set; }
 
     /// <summary>
+    /// Gets or sets the 10th percentile of normalized salary values for this stack.
+    /// </summary>
+    public double P10 { get; set; }
+
+    /// <summary>
     /// Gets or sets the 25th percentile of normalized salary values for this stack.
     /// </summary>
     public double P25 { get; set; }
@@ -39,4 +44,9 @@ public sealed class StackComparisonItem
     /// Gets or sets the 75th percentile of normalized salary values for this stack.
     /// </summary>
     public double P75 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the 90th percentile of normalized salary values for this stack.
+    /// </summary>
+    public double P90 { get; set; }
 }
