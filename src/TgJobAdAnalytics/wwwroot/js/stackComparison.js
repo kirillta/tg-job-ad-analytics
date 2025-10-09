@@ -83,7 +83,25 @@
     function fmt(v){ return (typeof v==='number' && !isNaN(v)) ? (v%1===0? v.toLocaleString() : v.toLocaleString(undefined,{maximumFractionDigits:2})) : '—'; }
     function renderRows(items){ tbody.innerHTML=''; computeShare(items).forEach(function(x){ if(!selected.has(x.name)) return; var color=nameColor(x.name); var tr=document.createElement('tr'); if (showPercentiles && hasSalaryData) { tr.innerHTML = '<td class="border border-gray-200 px-4 py-2"><span class="inline-block w-2 h-2 rounded-full mr-2" style="background:'+color+'"></span>'+ (x.label||x.name) +'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+x.count.toLocaleString()+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p10)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p25)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.median)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p75)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p90)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+x._share.toFixed(1)+'%</td>'; } else { tr.innerHTML = '<td class="border border-gray-200 px-4 py-2"><span class="inline-block w-2 h-2 rounded-full mr-2" style="background:'+color+'"></span>'+ (x.label||x.name) +'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+x.count.toLocaleString()+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p25)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.median)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+fmt(x.p75)+'</td>' + '<td class="border border-gray-200 px-4 py-2 text-right">'+x._share.toFixed(1)+'%</td>'; } tbody.appendChild(tr); }); }
     function buildBarChartData(rows){ var labels = []; var dataPoints = []; var bg = []; rows.forEach(function(x){ if(!selected.has(x.name)) return; labels.push(x.label||x.name); dataPoints.push(x.median||0); bg.push(nameColor(x.name)); }); return { labels: labels, datasets: [{ label: 'Median', data: dataPoints, backgroundColor: bg }] }; }
-    function ensureChart(type, chartData){ if(chartInstance){ chartInstance.destroy(); } chartInstance = new Chart(chartCtx, { type: type, data: chartData, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } }); }
+    function ensureChart(type, chartData){
+        if (typeof Chart !== 'undefined') {
+            if (Chart.getChart) { // Chart.js v3+
+                var existing = Chart.getChart(chartCtxEl);
+                if (existing) existing.destroy();
+            } else if (Chart.instances) { // v2 fallback
+                for (var key in Chart.instances) {
+                    if (Chart.instances.hasOwnProperty(key)) {
+                        var inst = Chart.instances[key];
+                        if (inst && inst.canvas === chartCtxEl) {
+                            inst.destroy();
+                        }
+                    }
+                }
+            }
+        }
+        if(chartInstance){ try { chartInstance.destroy(); } catch(e){} }
+        chartInstance = new Chart(chartCtx, { type: type, data: chartData, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+    }
     function getDataForLevel(level) { if (!level || !hasSalaryData || !salaryData.yearlyStats || !salaryData.yearlyStats.byLevel || !salaryData.yearlyStats.byLevel[level]) { return lastMonth; } var levelStats = salaryData.yearlyStats.byLevel[level]; var years = Object.keys(levelStats.medianByYear || {}).sort(); if (years.length === 0) return lastMonth; return lastMonth; }
     function refreshYearOptions() { yearSel.innerHTML = ''; var years = yearly.map(function(y){ return y.year; }); years.forEach(function(y){ var opt = document.createElement('option'); opt.value = String(y); opt.textContent = String(y); yearSel.appendChild(opt); }); if (years.length) { yearSel.value = String(years[years.length - 1]); loadYear(years[years.length - 1]); yearSel.classList.remove('hidden'); } }
     function loadYear(year) { var yr = parseInt(year, 10); var group = yearly.find(function(g){return g.year===yr;}); if(!group){ data = []; } else { data = group.items || []; } }

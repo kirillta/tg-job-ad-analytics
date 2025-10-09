@@ -83,5 +83,4 @@
 
     <script id="stack-comparison-data" type="application/json">{{ dump stack_comparison }}</script>
     <script id="stack-comparison-years" type="application/json">{{ if l != null && l.stack_comparison_years != null }}{{ dump l.stack_comparison_years }}{{ else }}[]{{ end }}</script>
-    <script src="/js/stackComparison.js"></script>
 </section>
