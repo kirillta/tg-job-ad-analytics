@@ -53,7 +53,7 @@ public sealed class VectorsBackfillService
 
         foreach ( var ad in ads) 
         { 
-            var (sig, count) = _minHashVectorizer.Compute(ad.Text);
+            var (sig, count) = _minHashVectorizer.GenerateMinHashSignature(ad.Text);
 
             await _vectorStore.Upsert(ad.Id, sig, count, timeStamp, cancellationToken);
             await _vectorIndex.Upsert(ad.Id, sig, timeStamp, cancellationToken);

@@ -12,8 +12,20 @@ using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
+/// <summary>
+/// Persists Telegram messages and their associated text entries / tags. Supports full ingestion and incremental mode
+/// (only new messages) determined by <see cref="UploadedDataState"/>. Uses deterministic GUIDs to avoid duplicates and
+/// batches inserts for performance.
+/// </summary>
 public sealed class TelegramMessagePersistenceService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TelegramMessagePersistenceService"/>.
+    /// </summary>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <param name="dbContext">Application database context.</param>
+    /// <param name="options">Upload options controlling batch size and behavior.</param>
+    /// <param name="parallelOptions">Parallel processing options for message transformation.</param>
     public TelegramMessagePersistenceService(ILogger<TelegramMessagePersistenceService> logger, ApplicationDbContext dbContext, IOptions<UploadOptions> options, IOptions<ParallelOptions> parallelOptions)
     {
         _logger = logger;
@@ -23,6 +35,10 @@ public sealed class TelegramMessagePersistenceService
     }
 
 
+    /// <summary>
+    /// Deletes all stored messages and commits the change.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RemoveAll(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleaning all message data...");
@@ -32,7 +48,15 @@ public sealed class TelegramMessagePersistenceService
     }
 
 
-    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken) 
+    /// <summary>
+    /// Upserts messages for the provided chat according to the given upload state.
+    /// </summary>
+    /// <param name="chat">Telegram chat model containing messages.</param>
+    /// <param name="state">Upload state (new vs existing) determining ingest strategy.</param>
+    /// <param name="timeStamp">Timestamp used for created/updated audit fields.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Count of newly persisted message records.</returns>
+    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken)
         => state switch
         {
             UploadedDataState.New => await AddAll(chat, timeStamp, cancellationToken),
@@ -74,6 +98,7 @@ public sealed class TelegramMessagePersistenceService
             var textEntries = ToRawEntries(tgMessage.TextEntities);
             if (textEntries.Count == 0)
                 return;
+
             var tags = ToRawTags(tgMessage.TextEntities);
             if (tags.Count == 0)
                 return;

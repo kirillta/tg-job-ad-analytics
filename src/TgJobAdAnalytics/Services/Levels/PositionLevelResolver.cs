@@ -3,14 +3,30 @@ using TgJobAdAnalytics.Models.Levels.Enums;
 
 namespace TgJobAdAnalytics.Services.Levels;
 
+/// <summary>
+/// Resolves a job advertisement's position level (e.g. Junior, Senior, Lead) using heuristic tag normalization,
+/// dictionary / regex pattern matching, and finally an LLM-backed extraction service as a fallback.
+/// </summary>
 public sealed class PositionLevelResolver
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PositionLevelResolver"/>.
+    /// </summary>
+    /// <param name="positionLevelExtractionService">Fallback extraction service invoked when heuristics cannot classify.</param>
     public PositionLevelResolver(PositionLevelExtractionService positionLevelExtractionService)
     {
         _positionLevelExtractionService = positionLevelExtractionService;
     }
 
 
+    /// <summary>
+    /// Attempts to resolve the most specific position level from provided tags; if inconclusive, delegates to the
+    /// model-based extraction using the full advertisement text.
+    /// </summary>
+    /// <param name="tags">Raw tag strings (e.g. hashtags) associated with the advertisement.</param>
+    /// <param name="text">Full advertisement text used only when tag heuristics fail.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Resolved <see cref="PositionLevel"/> or <see cref="PositionLevel.Unknown"/>.</returns>
     public async ValueTask<PositionLevel> Resolve(IEnumerable<string> tags, string text, CancellationToken cancellationToken)
     {
         if (tags is null)
@@ -51,7 +67,7 @@ public sealed class PositionLevelResolver
 
         if (detected != PositionLevel.Unknown)
             return detected;
-        
+
         return await _positionLevelExtractionService.Process(text, cancellationToken);
 
 

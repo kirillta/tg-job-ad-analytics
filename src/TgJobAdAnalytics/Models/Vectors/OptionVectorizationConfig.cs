@@ -13,7 +13,10 @@ public sealed class OptionVectorizationConfig
         _options = options.Value;
     }
 
-    public VectorizationModelParams GetActive() => VectorizationModelParams.FromOptions(_options);
+
+    public VectorizationModelParams GetActive() 
+        => VectorizationModelParams.FromOptions(_options);
+
 
     private readonly VectorizationOptions _options;
 }

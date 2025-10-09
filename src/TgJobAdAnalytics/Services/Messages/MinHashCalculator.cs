@@ -4,13 +4,22 @@ using TgJobAdAnalytics.Models.Messages;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
+/// <summary>
+/// Computes MinHash signatures for sets of shingles (n-grams) enabling fast Jaccard similarity approximation
+/// and downstream locality sensitive hashing (LSH) for near-duplicate detection of job advertisement messages.
+/// </summary>
 public sealed class MinHashCalculator
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MinHashCalculator"/> generating the configured family of hash functions.
+    /// </summary>
+    /// <param name="vectorizationOptions">Vectorization options providing hash function count and seed.</param>
+    /// <param name="vocabularySize">Size of the token universe (affects bit-width of produced hash values).</param>
     public MinHashCalculator(VectorizationOptions vectorizationOptions, int vocabularySize)
     {
         Debug.Assert(vectorizationOptions.HashFunctionCount > 0, "Hash function count must be positive");
         Debug.Assert(vocabularySize > 0, "Vocabulary size must be positive");
-        
+
         _vectorizationOptions = vectorizationOptions;
 
         var universeBitSize = BitsForUniverse(vocabularySize);
@@ -18,6 +27,11 @@ public sealed class MinHashCalculator
     }
 
 
+    /// <summary>
+    /// Generates a MinHash signature for the supplied set of shingles.
+    /// </summary>
+    /// <param name="shingles">Distinct set of textual shingles (n-grams) representing a document.</param>
+    /// <returns>Read-only span over the computed signature (array of hash minima across hash functions).</returns>
     public ReadOnlySpan<uint> GenerateSignature(HashSet<string> shingles)
     {
         var signature = new uint[_vectorizationOptions.HashFunctionCount];
@@ -38,6 +52,9 @@ public sealed class MinHashCalculator
     }
 
 
+    /// <summary>
+    /// Gets the number of hash functions used to compute the MinHash signature.
+    /// </summary>
     public int HashFunctionCount 
         => _vectorizationOptions.HashFunctionCount;
 
@@ -95,7 +112,7 @@ public sealed class MinHashCalculator
         return unchecked((int)hash);
     }
 
-    
+
     private const uint FNV_OFFSET = 2166136261;
     private const uint FNV_PRIME = 16777619;
 

@@ -294,7 +294,7 @@ public sealed class StackAwareStatisticsCalculator
                 TotalJobs = 0,
                 MedianSalary = 0,
                 MeanSalary = 0,
-                Percentiles = new Dictionary<string, double>()
+                Percentiles = []
             };
         }
 

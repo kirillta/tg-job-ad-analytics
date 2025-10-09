@@ -7,8 +7,17 @@ using TgJobAdAnalytics.Models.Uploads.Enums;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
+/// <summary>
+/// Persists Telegram chat metadata and determines ingestion state (new vs existing) to drive upload workflows.
+/// Provides idempotent upsert semantics and bulk removal support.
+/// </summary>
 public sealed class TelegramChatPersistenceService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TelegramChatPersistenceService"/>.
+    /// </summary>
+    /// <param name="logger">Logger for diagnostic output.</param>
+    /// <param name="dbContext">Application database context.</param>
     public TelegramChatPersistenceService(ILogger<TelegramChatPersistenceService> logger, ApplicationDbContext dbContext)
     {
         _logger = logger;
@@ -16,6 +25,10 @@ public sealed class TelegramChatPersistenceService
     }
 
 
+    /// <summary>
+    /// Deletes all chat records and commits the change.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RemoveAll(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleaning all chat data...");
@@ -25,6 +38,12 @@ public sealed class TelegramChatPersistenceService
     }
 
 
+    /// <summary>
+    /// Determines whether the provided chat should be treated as new or existing by checking for prior chat or message rows.
+    /// </summary>
+    /// <param name="chat">Telegram chat payload.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><see cref="UploadedDataState.New"/> when neither chat nor messages exist; otherwise <see cref="UploadedDataState.Existing"/>.</returns>
     public async Task<UploadedDataState> DetermineState(TgChat chat, CancellationToken cancellationToken)
     {
         var hasChat = await _dbContext.Chats
@@ -36,12 +55,19 @@ public sealed class TelegramChatPersistenceService
         var hasMessages = await _dbContext.Messages
             .AnyAsync(m => m.TelegramChatId == chat.Id, cancellationToken);
 
-        return hasMessages 
-            ? UploadedDataState.Existing 
+        return hasMessages
+            ? UploadedDataState.Existing
             : UploadedDataState.New;
     }
 
 
+    /// <summary>
+    /// Inserts a new chat or updates an existing one based on the supplied state.
+    /// </summary>
+    /// <param name="chat">Telegram chat payload.</param>
+    /// <param name="state">Previously determined upload state.</param>
+    /// <param name="timestamp">Timestamp applied to audit fields.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async ValueTask Upsert(TgChat chat, UploadedDataState state, DateTime timestamp, CancellationToken cancellationToken)
     {
         switch (state)

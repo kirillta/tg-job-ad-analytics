@@ -5,11 +5,23 @@ using TgJobAdAnalytics.Services.Uploads;
 
 namespace TgJobAdAnalytics.Services;
 
-public class ProcessOrchestrator
+/// <summary>
+/// Orchestrates the end-to-end processing workflow: imports raw Telegram chat data, extracts and persists salaries,
+/// executes selected data processing pipelines, and finally generates and exports analytical reports.
+/// </summary>
+public sealed class ProcessOrchestrator
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ProcessOrchestrator"/>.
+    /// </summary>
+    /// <param name="telegramChatImportService">Service responsible for importing chat, message, and advertisement data.</param>
+    /// <param name="salaryExtractionProcessor">Processor that extracts salary information and persists results.</param>
+    /// <param name="pipelineRunner">Pipeline runner used for executing named processing pipelines.</param>
+    /// <param name="reportGenerationService">Service that produces report groups from the processed data.</param>
+    /// <param name="reportExporter">Exporter that writes generated reports to the configured output.</param>
     public ProcessOrchestrator(
-        TelegramChatImportService telegramChatImportService, 
-        SalaryExtractionProcessor salaryExtractionProcessor, 
+        TelegramChatImportService telegramChatImportService,
+        SalaryExtractionProcessor salaryExtractionProcessor,
         IPipelineRunner pipelineRunner,
         ReportGenerationService reportGenerationService,
         IReportExporter reportExporter)
@@ -22,6 +34,11 @@ public class ProcessOrchestrator
     }
 
 
+    /// <summary>
+    /// Executes the orchestrated workflow: imports data, optionally runs the specified pipelines, and generates/export reports.
+    /// </summary>
+    /// <param name="pipelineNames">Names of pipelines to execute; when empty, pipeline execution is skipped.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task Run(List<string> pipelineNames, CancellationToken cancellationToken)
     {
         await ImportData(cancellationToken);
@@ -43,7 +60,7 @@ public class ProcessOrchestrator
     async Task ExecutePipelines(List<string> pipelineNames, CancellationToken cancellationToken)
     {
         foreach (var pipelineName in pipelineNames)
-        await _pipelineRunner.Run(pipelineName, cancellationToken);
+            await _pipelineRunner.Run(pipelineName, cancellationToken);
     }
 
 

@@ -11,14 +11,29 @@ using TgJobAdAnalytics.Services.Messages;
 
 namespace TgJobAdAnalytics.Services.Uploads
 {
+    /// <summary>
+    /// Coordinates importing Telegram chat JSON exports into the persistence layer. Handles conditional cleaning,
+    /// incremental vs. full ingestion based on <see cref="UploadOptions"/>, persists chats, messages and derived ads,
+    /// then optionally performs post-import ad deduplication using the <see cref="SimilarityCalculator"/>.
+    /// </summary>
     public sealed class TelegramChatImportService
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TelegramChatImportService"/>.
+        /// </summary>
+        /// <param name="logger">Logger for diagnostic output.</param>
+        /// <param name="dbContext">EF Core application database context.</param>
+        /// <param name="options">Upload configuration options (mode, batch size, source path).</param>
+        /// <param name="telegramAdPersistenceService">Service used to persist advertisement entities.</param>
+        /// <param name="telegramChatPersistenceService">Service used to persist chat metadata.</param>
+        /// <param name="telegramMessagePersistenceService">Service used to persist raw messages and text entries.</param>
+        /// <param name="similarityCalculator">Calculator used to mark unique ads after import.</param>
         public TelegramChatImportService(
             ILogger<TelegramChatImportService> logger,
             ApplicationDbContext dbContext,
-            IOptions<UploadOptions> options, 
+            IOptions<UploadOptions> options,
             TelegramAdPersistenceService telegramAdPersistenceService,
-            TelegramChatPersistenceService telegramChatPersistenceService, 
+            TelegramChatPersistenceService telegramChatPersistenceService,
             TelegramMessagePersistenceService telegramMessagePersistenceService,
             SimilarityCalculator similarityCalculator)
         {
@@ -32,6 +47,11 @@ namespace TgJobAdAnalytics.Services.Uploads
         }
 
 
+        /// <summary>
+        /// Imports all Telegram chat JSON files from the configured source path. Applies the configured upload mode
+        /// (skip, clean, incremental), persists new or updated chats/messages/ads, and deduplicates newly added ads.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
         public async Task ImportFromJson(CancellationToken cancellationToken)
         {
             if (_options.Mode == UploadMode.Skip)

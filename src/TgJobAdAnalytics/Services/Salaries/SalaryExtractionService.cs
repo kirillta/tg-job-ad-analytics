@@ -10,8 +10,19 @@ using TgJobAdAnalytics.Services.Levels;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
+/// <summary>
+/// Extracts structured salary information from advertisement entities using an LLM (Chat API) with a constrained JSON schema
+/// and enriches the result with a detected position level via <see cref="PositionLevelResolver"/>. Produces a fully populated
+/// <see cref="SalaryEntity"/> when salary data is present; returns null otherwise.
+/// </summary>
 public sealed class SalaryExtractionService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SalaryExtractionService"/>.
+    /// </summary>
+    /// <param name="loggerFactory">Factory used to create the service logger.</param>
+    /// <param name="chatClient">OpenAI chat client used for structured extraction.</param>
+    /// <param name="positionLevelResolver">Resolver for determining position level when salary is present.</param>
     public SalaryExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient, PositionLevelResolver positionLevelResolver)
     {
         _chatClient = chatClient;
@@ -20,6 +31,13 @@ public sealed class SalaryExtractionService
     }
 
 
+    /// <summary>
+    /// Extracts salary data and position level for the supplied advertisement.
+    /// </summary>
+    /// <param name="ad">Advertisement entity.</param>
+    /// <param name="messageTags">Associated message tag strings used for position level heuristics.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A populated <see cref="SalaryEntity"/> or null if no salary is detected.</returns>
     public async Task<SalaryEntity?> Process(AdEntity ad, List<string> messageTags, CancellationToken cancellationToken)
     {
         var salaryResponse = await ExtractSalary(ad, cancellationToken);

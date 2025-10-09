@@ -2,8 +2,20 @@
 
 namespace TgJobAdAnalytics.Services.Messages;
 
+/// <summary>
+/// Provides high-performance text normalization routines for advertisement content and individual entries (e.g. salary fragments).
+/// Operations include Unicode normalization, dash unification, removal of disallowed characters, whitespace collapsing,
+/// currency name to symbol replacement, numeric formatting cleanup, and minor punctuation spacing adjustments.
+/// </summary>
 public static class TextNormalizer
 {
+    /// <summary>
+    /// Normalizes a short free-form text entry (typically salary-related). Produces a trimmed string with:
+    /// unified dashes, only alphanumeric / currency / hashtag characters retained, multiple spaces collapsed,
+    /// currency names replaced by symbols, thousand separators removed, and spacing around ranges / currency signs tightened.
+    /// </summary>
+    /// <param name="text">Raw input text.</param>
+    /// <returns>Normalized text suitable for downstream tokenization and shingling.</returns>
     public static string NormalizeTextEntry(string text)
     {
         var rentedArray = ArrayPool<char>.Shared.Rent(text.Length);
@@ -28,6 +40,14 @@ public static class TextNormalizer
     }
 
 
+    /// <summary>
+    /// Normalizes advertisement text by removing unnecessary spaces and ensuring consistent formatting.
+    /// </summary>
+    /// <remarks>This method trims leading and trailing whitespace, removes spaces before separators, and
+    /// replaces multiple consecutive spaces with a single space. The returned string is suitable for display or further
+    /// processing in advertisement scenarios.</remarks>
+    /// <param name="text">The input text to normalize. Cannot be null.</param>
+    /// <returns>A normalized string with extraneous spaces removed and separators properly formatted.</returns>
     public static string NormalizeAdText(string text)
     {
         var rentedArray = ArrayPool<char>.Shared.Rent(text.Length);

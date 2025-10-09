@@ -7,11 +7,27 @@ using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.OpenAI;
+using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
+/// <summary>
+/// Orchestrates extraction of structured salary data from advertisement entities using an LLM-backed
+/// <see cref="SalaryExtractionService"/>, persisting results in batches. Implements adaptive concurrency
+/// via <see cref="AdaptiveRateLimiter"/> to optimize throughput while reacting to rate limits.
+/// Streams ads in configurable chunks, processes them in parallel, and writes successful salary entities
+/// to a channel consumed by the <see cref="SalaryPersistenceService"/>.
+/// </summary>
 public sealed class SalaryExtractionProcessor
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SalaryExtractionProcessor"/>.
+    /// </summary>
+    /// <param name="loggerFactory">Factory used to create loggers.</param>
+    /// <param name="dbContext">Application database context.</param>
+    /// <param name="salaryExtractionService">Service that extracts salary information from ad text.</param>
+    /// <param name="salaryPersistenceService">Service responsible for persisting extracted salary entities.</param>
+    /// <param name="openAiOptions">OpenAI processing / throttling configuration.</param>
     public SalaryExtractionProcessor(
         ILoggerFactory loggerFactory, 
         ApplicationDbContext dbContext, 
@@ -29,6 +45,12 @@ public sealed class SalaryExtractionProcessor
     }
 
 
+    /// <summary>
+    /// Extracts salaries for ads lacking salary data and persists them in batches. Uses an adaptive rate limiter
+    /// to adjust parallelism based on success / rate limit feedback. Safe for repeated execution; only ads without
+    /// existing salary records are processed.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task ExtractAndPersist(CancellationToken cancellationToken)
     {
         await _salaryPersistenceService.Initialize(cancellationToken);

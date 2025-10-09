@@ -43,10 +43,6 @@ public sealed class SalaryStatisticsCalculator
             variants[level] = data;
         }
 
-        return new Report(
-            title: title,
-            results: baseResults,
-            variants: variants
-        );
+        return new Report(title, baseResults, variants: variants);
     }
 }

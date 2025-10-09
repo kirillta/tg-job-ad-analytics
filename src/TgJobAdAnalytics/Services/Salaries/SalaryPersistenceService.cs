@@ -5,8 +5,19 @@ using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
+/// <summary>
+/// Handles persistence of extracted salary entities including post-extraction processing / normalization
+/// (currency conversion, monthly conversion, boundary validation). Must be initialized before processing
+/// to load the appropriate <see cref="SalaryProcessingService"/> for the configured base currency.
+/// </summary>
 public sealed class SalaryPersistenceService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SalaryPersistenceService"/>.
+    /// </summary>
+    /// <param name="loggerFactory">Logger factory to create the service logger.</param>
+    /// <param name="dbContext">Application database context.</param>
+    /// <param name="salaryProcessingServiceFactory">Factory for creating salary processing services.</param>
     public SalaryPersistenceService(ILoggerFactory loggerFactory, ApplicationDbContext dbContext, SalaryProcessingServiceFactory salaryProcessingServiceFactory)
     {
         _dbContext = dbContext;
@@ -15,6 +26,11 @@ public sealed class SalaryPersistenceService
     }
 
 
+    /// <summary>
+    /// Initializes the service by creating (or retrieving) a processing service for the configured base currency.
+    /// Must be called prior to <see cref="ProcessBatch"/>.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task Initialize(CancellationToken cancellationToken)
     {
         _salaryProcessingService = await _salaryProcessingServiceFactory.Create(_baseCurrency, cancellationToken);
@@ -22,6 +38,12 @@ public sealed class SalaryPersistenceService
     }
 
 
+    /// <summary>
+    /// Processes and persists a batch of salary entities. Each entity is normalized (converted to monthly/base currency)
+    /// unless its period is unknown or project-based, in which case it is skipped. Failed entities are marked accordingly.
+    /// </summary>
+    /// <param name="entities">Collection of salary entities to process.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task ProcessBatch(List<SalaryEntity> entities, CancellationToken cancellationToken)
     {
         if (entities.Count == 0)

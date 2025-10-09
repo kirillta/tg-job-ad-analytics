@@ -6,18 +6,32 @@ using TgJobAdAnalytics.Models.Levels.Enums;
 
 namespace TgJobAdAnalytics.Services.Levels;
 
+/// <summary>
+/// Service that classifies a job advertisement's position level (e.g. Junior, Senior, Lead) by invoking an LLM
+/// with a constrained JSON schema response. Provides a simple API returning a normalized <see cref="PositionLevel"/>.
+/// </summary>
 public sealed class PositionLevelExtractionService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PositionLevelExtractionService"/>.
+    /// </summary>
+    /// <param name="loggerFactory">Factory used to create a logger for this service.</param>
+    /// <param name="chatClient">OpenAI chat client used for structured extraction.</param>
     public PositionLevelExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient)
     {
         _logger = loggerFactory.CreateLogger<PositionLevelExtractionService>();
-        
         _chatClient = chatClient;
     }
 
 
+    /// <summary>
+    /// Extracts the position level from raw job advertisement text.
+    /// </summary>
+    /// <param name="adText">Full advertisement text.</param>
+    /// <param name="cancellationToken">Token to observe while awaiting the model response.</param>
+    /// <returns>The detected <see cref="PositionLevel"/> or <see cref="PositionLevel.Unknown"/> when not classifiable.</returns>
     public async Task<PositionLevel> Process(string adText, CancellationToken cancellationToken)
-    { 
+    {
         if (string.IsNullOrWhiteSpace(adText))
             return PositionLevel.Unknown;
 
@@ -27,8 +41,8 @@ public sealed class PositionLevelExtractionService
 
 
     private async Task<ChatGptPositionLevelResponse> ExtractPositionLevel(string text, CancellationToken cancellationToken)
-    { 
-        try 
+    {
+        try
         {
             var completion = await _chatClient.CompleteChatAsync([SystemPrompt, text], ChatOptions, cancellationToken);
             var raw = completion.Value.Content[0].Text;
@@ -38,7 +52,7 @@ public sealed class PositionLevelExtractionService
 
             return response;
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Console.WriteLine();
             _logger.LogError(ex, "Error extracting position level from text: {Text}", text);

@@ -9,6 +9,10 @@ namespace TgJobAdAnalytics.Services.Localization;
 /// </summary>
 public sealed class InMemoryLocalizationProvider : ILocalizationProvider
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InMemoryLocalizationProvider"/> and eagerly loads all locale resources.
+    /// </summary>
+    /// <param name="siteOptions">Site metadata options containing localization configuration (locales, resource path).</param>
     public InMemoryLocalizationProvider(IOptions<SiteMetadataOptions> siteOptions)
     {
         _siteOptions = siteOptions.Value;
@@ -18,6 +22,7 @@ public sealed class InMemoryLocalizationProvider : ILocalizationProvider
     }
 
 
+    /// <inheritdoc />
     public string Get(string locale, string key)
     {
         if (!_resources.TryGetValue(locale, out var dict))

@@ -6,7 +6,7 @@ namespace TgJobAdAnalytics.Models.Uploads;
 /// <summary>
 /// Configuration options for the <see cref="TelegramChatImportService"/>.
 /// </summary>
-public class UploadOptions
+public sealed class UploadOptions
 {
     /// <summary>
     /// Gets or sets the batch size for message uploads. Larger values can improve performance but require more memory.

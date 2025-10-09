@@ -17,6 +17,19 @@ public sealed class VectorIndex
     }
 
 
+    /// <summary>
+    /// Inserts a new or updates an existing LSH bucket entry for the specified advertisement using the provided
+    /// signature and timestamp.
+    /// </summary>
+    /// <remarks>This method processes each LSH band in the current configuration and upserts the
+    /// corresponding bucket entry in the database. If an entry for the specified advertisement and band already exists,
+    /// it will be updated; otherwise, a new entry will be created. The operation is performed asynchronously and can be
+    /// cancelled via the provided cancellation token.</remarks>
+    /// <param name="adId">The unique identifier of the advertisement to upsert.</param>
+    /// <param name="signature">An array of unsigned integers representing the LSH signature bands for the advertisement. Must not be null.</param>
+    /// <param name="timeStamp">The timestamp associated with the advertisement entry.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A task that represents the asynchronous upsert operation.</returns>
     public async Task Upsert(Guid adId, uint[] signature, DateTime timeStamp, CancellationToken cancellationToken)
     {
         for (var band = 0; band < _activeConfig.LshBandCount; band++)
@@ -29,6 +42,18 @@ public sealed class VectorIndex
     }
 
 
+    /// <summary>
+    /// Adds or updates a batch of LSH bucket entities in the database context for the specified advertisements and
+    /// signatures, without saving changes to the database.
+    /// </summary>
+    /// <remarks>This method stages the upserted entities in the database context but does not commit the
+    /// changes. To persist the changes, call the appropriate save method on the database context after invoking this
+    /// method. If the list of items is empty, no entities are added.</remarks>
+    /// <param name="items">A read-only list of tuples containing the advertisement identifier and its associated signature array. Each
+    /// tuple represents an item to be upserted.</param>
+    /// <param name="timeStamp">The timestamp to associate with each upserted entity.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A task that represents the asynchronous upsert operation.</returns>
     public async Task UpsertBatchWithoutSave(IReadOnlyList<(Guid AdId, uint[] Signature)> items, DateTime timeStamp, CancellationToken cancellationToken)
     {
         if (items.Count == 0)
@@ -49,6 +74,18 @@ public sealed class VectorIndex
     }
 
 
+    /// <summary>
+    /// Retrieves a collection of advertisement identifiers that match the specified signature using locality-sensitive
+    /// hashing (LSH).
+    /// </summary>
+    /// <remarks>This method performs an LSH-based similarity search across all configured bands. The
+    /// operation is asynchronous and may involve multiple database queries. The returned identifiers are unique within
+    /// the result set.</remarks>
+    /// <param name="signature">An array of unsigned integers representing the signature to query against the LSH buckets. The array must
+    /// contain values compatible with the current LSH configuration.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+    /// <returns>A read-only collection of <see cref="Guid"/> values representing the identifiers of matching advertisements. The
+    /// collection will be empty if no matches are found.</returns>
     public async Task<IReadOnlyCollection<Guid>> Query(uint[] signature, CancellationToken cancellationToken)
     {
         var ids = new HashSet<Guid>();
@@ -97,6 +134,6 @@ public sealed class VectorIndex
     }
 
 
-    private VectorizationModelParams _activeConfig;
+    private readonly VectorizationModelParams _activeConfig;
     private readonly ApplicationDbContext _dbContext;
 }

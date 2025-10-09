@@ -14,7 +14,17 @@ public sealed class MinHashVectorizer
     }
 
 
-    public (uint[] Signature, int ShingleCount) Compute(string text)
+    /// <summary>
+    /// Generates a MinHash signature and shingle count for the specified text using the current vectorization
+    /// configuration.
+    /// </summary>
+    /// <remarks>The method normalizes the input text and computes its MinHash signature based on the active
+    /// vectorization parameters. The shingle count reflects the number of unique text fragments used in the signature
+    /// calculation. This method is thread-safe.</remarks>
+    /// <param name="text">The input text to be normalized and processed for signature generation. Cannot be null.</param>
+    /// <returns>A tuple containing an array of unsigned integers representing the MinHash signature and an integer indicating
+    /// the number of shingles generated from the input text.</returns>
+    public (uint[] Signature, int ShingleCount) GenerateMinHashSignature(string text)
     {
         var p = _vectorizationConfig.GetActive();
         var normalized = TextNormalizer.NormalizeAdText(text);

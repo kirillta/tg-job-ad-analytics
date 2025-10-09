@@ -5,8 +5,19 @@ using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
+/// <summary>
+/// Manages persistence of historical currency exchange <see cref="Rate"/> data in a flat file source.
+/// Loads existing rates at startup and supports appending new daily ranges while forward-filling missing dates.
+/// Rates are stored internally in a dictionary keyed by (target currency, date).
+/// </summary>
 public sealed class RateSourceManager
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RateSourceManager"/> and loads any existing rate data
+    /// from the configured <see cref="RateOptions.RateSourcePath"/>. Creates the file when missing.
+    /// </summary>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <param name="rateOptions">Rate configuration (API base URL, source file path).</param>
     public RateSourceManager(ILogger<RateSourceManager> logger, IOptions<RateOptions> rateOptions)
     {
         _logger = logger;
@@ -16,11 +27,19 @@ public sealed class RateSourceManager
     }
 
 
+    /// <summary>
+    /// Appends the provided set of rates to the backing file, writing a line per (base, target, date, value).
+    /// Missing calendar dates between the minimum and maximum supplied dates are forward-filled using the
+    /// most recent prior day's rates to maintain continuity.
+    /// Duplicate (currency, date) entries already present in memory are skipped.
+    /// </summary>
+    /// <param name="rates">Collection of rate objects (should contain both forward and inverse if needed).</param>
+    /// <returns>Task representing the asynchronous append operation.</returns>
     public async Task Add(List<Rate> rates)
     {
         _logger.LogInformation("Adding {Count} rates to the source file: {RateSourcePath}", rates.Count, _rateOptions.RateSourcePath);
 
-        using var writer = new StreamWriter(_rateOptions.RateSourcePath, true);
+        using var writer = new StreamWriter(_rateOptions.RateSourcePath, append: true);
 
         var ratesByDate = rates.GroupBy(x => x.TargetDate)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -65,23 +84,33 @@ public sealed class RateSourceManager
     }
 
 
+    /// <summary>
+    /// Gets the in-memory dictionary of rates keyed by (target currency, date).
+    /// </summary>
+    /// <returns>Dictionary of rates.</returns>
     public Dictionary<(Currency Target, DateOnly Date), Rate> Get() 
         => _rates;
 
 
+    /// <summary>
+    /// Returns the maximal date currently present among loaded rates, or today (UTC) when empty.
+    /// </summary>
     public DateOnly GetMaximalDate()
     {
         if (_rates.Count == 0)
-            return DateOnly.FromDateTime(DateTime.Now);
+            return DateOnly.FromDateTime(DateTime.UtcNow);
 
         return _rates.Keys.Select(x => x.Date).Max();
     }
 
 
+    /// <summary>
+    /// Returns the minimal date currently present among loaded rates, or today (UTC) when empty.
+    /// </summary>
     public DateOnly GetMinimalDate()
     {
         if (_rates.Count == 0)
-            return DateOnly.FromDateTime(DateTime.Now);
+            return DateOnly.FromDateTime(DateTime.UtcNow);
 
         return _rates.Keys.Select(x => x.Date).Min();
     }

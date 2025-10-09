@@ -18,6 +18,15 @@ public static class SignatureSerializer
         return bytes;
     }
 
+
+    /// <summary>
+    /// Converts a byte array to an array of 32-bit unsigned integers using little-endian byte order.
+    /// </summary>
+    /// <remarks>If the length of <paramref name="bytes"/> is not a multiple of 4, the extra bytes at the end
+    /// are ignored. Each group of 4 bytes is interpreted as a single 32-bit unsigned integer in little-endian
+    /// format.</remarks>
+    /// <param name="bytes">The byte array containing the data to convert. The length must be a multiple of 4.</param>
+    /// <returns>An array of 32-bit unsigned integers representing the converted values from the input byte array.</returns>
     public static uint[] FromBytes(byte[] bytes)
     {
         var len = bytes.Length / sizeof(uint);

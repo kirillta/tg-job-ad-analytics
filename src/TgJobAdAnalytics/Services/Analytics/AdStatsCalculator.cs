@@ -4,8 +4,17 @@ using TgJobAdAnalytics.Models.Reports.Enums;
 
 namespace TgJobAdAnalytics.Services.Analytics;
 
+/// <summary>
+/// Provides analytics helpers for computing advertisement statistics and packaging them into report groups.
+/// </summary>
 public sealed class AdStatsCalculator
 {
+    /// <summary>
+    /// Generates the advertisement statistics report group composed of several individual reports
+    /// (top months, monthly distribution, yearly counts, etc.).
+    /// </summary>
+    /// <param name="salaries">Collection of salary entities extracted from advertisements.</param>
+    /// <returns>A <see cref="ReportGroup"/> containing the computed advertisement statistics reports.</returns>
     public static ReportGroup GenerateAll(List<SalaryEntity> salaries)
     {
         var reports = new List<Report>

@@ -9,10 +9,17 @@ using TgJobAdAnalytics.Models.Stacks;
 namespace TgJobAdAnalytics.Services.Stacks;
 
 /// <summary>
-/// Loads channel->stack mapping JSON from disk.
+/// Loads channel?technology stack mapping JSON from disk and ensures referenced stacks exist in the database.
+/// Adds any missing <see cref="TechnologyStackEntity"/> entries before returning the in-memory mapping model.
 /// </summary>
 public sealed class ChannelStackMappingManager
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChannelStackMappingManager"/>.
+    /// </summary>
+    /// <param name="logger">Logger for diagnostic output.</param>
+    /// <param name="dbContext">Application database context used to persist technology stack entries.</param>
+    /// <param name="options">Options providing the mapping JSON file path.</param>
     public ChannelStackMappingManager(ILogger<ChannelStackMappingManager> logger, ApplicationDbContext dbContext, IOptions<StackMappingOptions> options)
     {
         _dbContext = dbContext;
@@ -21,6 +28,10 @@ public sealed class ChannelStackMappingManager
     }
 
 
+    /// <summary>
+    /// Loads the channel?stack mapping from the configured JSON file and ensures all referenced stacks exist in the database.
+    /// </summary>
+    /// <returns>The deserialized <see cref="ChannelStackMapping"/> model.</returns>
     public async ValueTask<ChannelStackMapping> Update()
     {
         var mapping = UploadFromFile();
@@ -64,7 +75,7 @@ public sealed class ChannelStackMappingManager
 
 
     private ChannelStackMapping UploadFromFile()
-    { 
+    {
         if (!File.Exists(_options.MappingFilePath))
         {
             _logger.LogWarning("Technology stack source file not found: {MappingFilePath}. Creating a new file.", _options.MappingFilePath);

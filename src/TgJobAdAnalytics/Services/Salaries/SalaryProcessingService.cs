@@ -3,8 +3,17 @@ using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
+/// <summary>
+/// Applies validation, boundary normalization, period standardization (daily → monthly) and currency normalization
+/// to extracted salary entities. Produces enriched entities or returns null on irrecoverable failure.
+/// </summary>
 public sealed class SalaryProcessingService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SalaryProcessingService"/>.
+    /// </summary>
+    /// <param name="baseCurrency">Canonical base currency used for normalization.</param>
+    /// <param name="rateService">Exchange rate service for currency conversion.</param>
     public SalaryProcessingService(Currency baseCurrency, IRateService rateService)
     {
         _baseCyrrency = baseCurrency;
@@ -12,6 +21,12 @@ public sealed class SalaryProcessingService
     }
 
 
+    /// <summary>
+    /// Processes the supplied salary entity through validation, boundary consistency correction, period conversion
+    /// (day → month) and currency normalization producing an enriched entity, or null on failure.
+    /// </summary>
+    /// <param name="salaryResponse">Raw salary entity to process.</param>
+    /// <returns>Enriched entity or null if processing failed.</returns>
     public SalaryEntity? Process(SalaryEntity salaryResponse)
     {
         salaryResponse = Validate(salaryResponse);

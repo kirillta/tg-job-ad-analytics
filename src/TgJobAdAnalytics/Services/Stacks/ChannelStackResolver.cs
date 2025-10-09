@@ -64,7 +64,6 @@ public sealed class ChannelStackResolver
     
     private bool _initialized;
 
-
     private readonly ILogger<ChannelStackResolver> _logger;
     private Dictionary<long, string> _mapping = [];
     private Dictionary<string, Guid> _stackIdByName = new(StringComparer.OrdinalIgnoreCase);

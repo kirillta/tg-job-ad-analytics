@@ -7,8 +7,22 @@ using TgJobAdAnalytics.Services.Vectors;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
+/// <summary>
+/// Provides duplicate filtering over advertisement entities using MinHash + LSH either in ephemeral (in-memory) mode
+/// or a persistent mode backed by a vector index and store. Falls back to in-memory processing when persistence services
+/// are not supplied.
+/// </summary>
 public sealed class SimilarityCalculator
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SimilarityCalculator"/>.
+    /// </summary>
+    /// <param name="parallelOptions">Parallel execution configuration for signature generation and comparison.</param>
+    /// <param name="vectorizationOptions">Vectorization options (shingle size, MinHash parameters, etc.).</param>
+    /// <param name="vectorizer">Optional MinHash vectorizer for persistent mode; when null in-memory mode is used.</param>
+    /// <param name="vectorIndex">Optional persistent LSH index for similarity candidate lookup.</param>
+    /// <param name="vectorStore">Optional persistent store holding full signatures.</param>
+    /// <param name="vectorizationConfig">Optional active vectorization config provider (overrides raw options version).</param>
     public SimilarityCalculator(
         IOptions<ParallelOptions> parallelOptions,
         IOptions<VectorizationOptions> vectorizationOptions,
@@ -27,6 +41,11 @@ public sealed class SimilarityCalculator
     }
 
 
+    /// <summary>
+    /// Returns a list of distinct advertisements using transient in-memory MinHash + LSH filtering.
+    /// </summary>
+    /// <param name="ads">Input advertisement entities.</param>
+    /// <returns>Distinct subset (order not guaranteed).</returns>
     public List<AdEntity> Distinct(List<AdEntity> ads)
     {
         if (ads.Count == 0)
@@ -88,6 +107,13 @@ public sealed class SimilarityCalculator
     }
 
 
+    /// <summary>
+    /// Returns a list of distinct advertisements using persistent vector index + store when available;
+    /// otherwise falls back to <see cref="Distinct(List{AdEntity})"/>.
+    /// </summary>
+    /// <param name="ads">Input advertisement entities.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Distinct subset (order not guaranteed).</returns>
     public async Task<List<AdEntity>> DistinctPersistent(List<AdEntity> ads, CancellationToken ct = default)
     {
         if (_vectorizer is null || _vectorIndex is null || _vectorStore is null)
@@ -108,7 +134,7 @@ public sealed class SimilarityCalculator
 
         await Parallel.ForEachAsync(ads, options, async (ad, token) =>
         {
-            var (signature, shingleCount) = _vectorizer.Compute(ad.Text);
+            var (signature, shingleCount) = _vectorizer.GenerateMinHashSignature(ad.Text);
 
             var candidates = await _vectorIndex.Query(signature, token);
             bool isDuplicate = false;

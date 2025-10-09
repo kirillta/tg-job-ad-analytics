@@ -6,8 +6,16 @@ using TgJobAdAnalytics.Models.Salaries.Enums;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
+/// <summary>
+/// HTTP client for retrieving historical currency exchange rates from the configured remote rate API.
+/// Produces forward (base→target) and inverse (target→base) <see cref="Rate"/> entries for each returned day.
+/// </summary>
 public sealed class RateApiClient
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RateApiClient"/>.
+    /// </summary>
+    /// <param name="rateOptions">Options providing the base API URL.</param>
     public RateApiClient(IOptions<RateOptions> rateOptions)
     {
         _client = new HttpClient
@@ -17,6 +25,15 @@ public sealed class RateApiClient
     }
 
 
+    /// <summary>
+    /// Retrieves historical exchange rates between the specified base and target currencies starting at the given initial date up to today (UTC).
+    /// Returns both forward and inverse rates for convenience.
+    /// </summary>
+    /// <param name="baseCurrency">Currency considered the base for conversion.</param>
+    /// <param name="targetCurrency">Currency to convert into (API specific code is resolved internally).</param>
+    /// <param name="initialtDate">Start date (inclusive) for historical rate retrieval.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of <see cref="Rate"/> entries (forward and inverse) ordered as received from the API.</returns>
     public async Task<List<Rate>> Get(Currency baseCurrency, Currency targetCurrency, DateOnly initialtDate, CancellationToken cancellationToken)
     {
         var currencyCode = GetCurrencyCode(targetCurrency);

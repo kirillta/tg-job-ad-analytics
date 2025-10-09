@@ -5,11 +5,18 @@ using TgJobAdAnalytics.Data;
 namespace TgJobAdAnalytics.Services.Stacks;
 
 /// <summary>
-/// One-off backfill service to populate Ad.StackId based on chat->stack mapping.
-/// Produces unmapped_jobads.csv with chatId,count for missing mappings.
+/// One-off backfill service that populates missing <c>Ad.StackId</c> values based on the current channel?stack mapping.
+/// For each ad without a stack it looks up the originating chat's mapped technology stack and updates the ad in place.
+/// Logs the number of updated rows; intended for maintenance / migration scenarios.
 /// </summary>
 public sealed class StackBackfillService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StackBackfillService"/>.
+    /// </summary>
+    /// <param name="logger">Logger for diagnostic output.</param>
+    /// <param name="dbContext">Application database context.</param>
+    /// <param name="resolverFactory">Factory used to create a channel stack resolver.</param>
     public StackBackfillService(ILogger<StackBackfillService> logger, ApplicationDbContext dbContext, ChannelStackResolverFactory resolverFactory)
     {
         _dbContext = dbContext;
@@ -18,6 +25,11 @@ public sealed class StackBackfillService
     }
 
 
+    /// <summary>
+    /// Backfills missing <c>StackId</c> values for ads lacking a stack association.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of ads updated.</returns>
     public async Task<int> BackfillMissingAsync(CancellationToken cancellationToken)
     {
         var items = await _dbContext.Ads

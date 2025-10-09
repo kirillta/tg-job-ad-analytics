@@ -15,7 +15,7 @@ internal static class SalaryStatisticsCore
             .Concat(GetExcludedIds(salaries, s => s.UpperBoundNormalized))
             .ToHashSet();
 
-        return salaries.Where(s => !excludedIds.Contains(s.Id)).ToList();
+        return [.. salaries.Where(s => !excludedIds.Contains(s.Id))];
 
 
         static IEnumerable<Guid> GetExcludedIds(IReadOnlyList<SalaryEntity> source, Func<SalaryEntity, double> selector)
@@ -27,7 +27,7 @@ internal static class SalaryStatisticsCore
                 .ToArray();
 
             if (validLogValues.Length == 0)
-                return Enumerable.Empty<Guid>();
+                return [];
 
             var q1 = validLogValues.Quantile(0.25);
             var q3 = validLogValues.Quantile(0.75);
@@ -44,7 +44,9 @@ internal static class SalaryStatisticsCore
         {
             if (double.IsNaN(value))
                 return false;
+
             var logValue = Math.Log(value);
+
             return logValue <= lower || logValue >= upper;
         }
     }
@@ -146,18 +148,22 @@ internal static class SalaryStatisticsCore
     }
 
 
-    internal sealed record YearlyCoreLevelStats(
+    internal sealed record YearlyCoreLevelStats
+    (
         Dictionary<string, double> MinimumByYear,
         Dictionary<string, double> MaximumByYear,
         Dictionary<string, double> AverageByYear,
-        Dictionary<string, double> MedianByYear);
+        Dictionary<string, double> MedianByYear
+    );
 
-    internal sealed record YearlyCoreStats(
+    internal sealed record YearlyCoreStats
+    (
         Dictionary<string, double> MinimumByYear,
         Dictionary<string, double> MaximumByYear,
         Dictionary<string, double> AverageByYear,
         Dictionary<string, double> MedianByYear,
-        Dictionary<string, YearlyCoreLevelStats> ByLevel);
+        Dictionary<string, YearlyCoreLevelStats> ByLevel
+    );
 
 
     internal const double Tolerance = 1e-10;

@@ -16,8 +16,24 @@ using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Uploads;
 
+/// <summary>
+/// Persists advertisement entries derived from Telegram chat messages. Handles full or incremental ingestion modes
+/// (based on <see cref="UploadedDataState"/>) and batches inserts to the database. During persistence it computes
+/// MinHash signatures for deduplication / similarity workflows and stages both vector store and LSH index entities.
+/// </summary>
 public sealed class TelegramAdPersistenceService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TelegramAdPersistenceService"/>.
+    /// </summary>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <param name="dbContext">EF Core database context.</param>
+    /// <param name="parallelOptions">Parallel execution options for message-to-ad transformation.</param>
+    /// <param name="uploadOptions">Upload configuration (batch size, mode, etc.).</param>
+    /// <param name="minHashVectorizer">Vectorizer used to compute MinHash signatures for ad texts.</param>
+    /// <param name="vectorStore">Persistent store for raw MinHash signatures.</param>
+    /// <param name="vectorIndex">Persistent LSH index for similarity querying.</param>
+    /// <param name="channelStackResolverFactory">Factory resolving technology stack ids for channels.</param>
     public TelegramAdPersistenceService(
         ILogger<TelegramAdPersistenceService> logger,
         ApplicationDbContext dbContext,
@@ -39,6 +55,10 @@ public sealed class TelegramAdPersistenceService
     }
 
 
+    /// <summary>
+    /// Deletes all persisted advertisement entities (ignores query filters) and commits the change.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RemoveAll(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleaning all ad data...");
@@ -48,18 +68,22 @@ public sealed class TelegramAdPersistenceService
     }
 
 
-    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken)
-    {
-        switch (state)
+    /// <summary>
+    /// Upserts advertisements for the specified chat according to the upload state: full ingest for <see cref="UploadedDataState.New"/>,
+    /// or incremental ingest adding only previously unseen message-derived ads for <see cref="UploadedDataState.Existing"/>.
+    /// </summary>
+    /// <param name="chat">Telegram chat payload containing messages.</param>
+    /// <param name="state">Ingestion mode indicating whether data is new or incremental.</param>
+    /// <param name="timeStamp">Timestamp applied to created/updated fields.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of new advertisements persisted.</returns>
+    public async Task<int> Upsert(TgChat chat, UploadedDataState state, DateTime timeStamp, CancellationToken cancellationToken) 
+        => state switch
         {
-            case UploadedDataState.New:
-                return await AddAll(chat, timeStamp, cancellationToken);
-            case UploadedDataState.Existing:
-                return await AddOnlyNew(chat, timeStamp, cancellationToken);
-            default:
-                throw new ArgumentOutOfRangeException(nameof(state), state, null);
-        }
-    }
+            UploadedDataState.New => await AddAll(chat, timeStamp, cancellationToken),
+            UploadedDataState.Existing => await AddOnlyNew(chat, timeStamp, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, null)
+        };
 
 
     private async Task<int> AddAll(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
@@ -160,7 +184,7 @@ public sealed class TelegramAdPersistenceService
 
             foreach (var ad in newBatch)
             {
-                var (signature, shingleCount) = _minHashVectorizer.Compute(ad.Text);
+                var (signature, shingleCount) = _minHashVectorizer.GenerateMinHashSignature(ad.Text);
                 vectorStoreItems.Add((ad.Id, signature, shingleCount));
                 vectorIndexItems.Add((ad.Id, signature));
             }
@@ -234,7 +258,6 @@ public sealed class TelegramAdPersistenceService
         }
     }
 
-
     private static readonly HashSet<string> JobTags = 
     [
         "#резюме",
@@ -266,7 +289,6 @@ public sealed class TelegramAdPersistenceService
     ];
 
     private const int MinimalValuebleMessageLength = 300;
-
 
     private readonly ChannelStackResolverFactory _channelStackResolverFactory;
     private readonly ApplicationDbContext _dbContext;

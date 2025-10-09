@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Models.OpenAI;
 
-namespace TgJobAdAnalytics.Services.Salaries;
+namespace TgJobAdAnalytics.Utils;
 
 /// <summary>
 /// Adaptive rate limiter that dynamically adjusts concurrency based on success rates and response times.

@@ -27,7 +27,7 @@ public class MinHashVectorizerTests
     public void Compute_ReturnsExpectedSignatureSize()
     {
         var vectorizer = new MinHashVectorizer(CreateConfig(hashCount: 32, bandCount: 8));
-        var (sig, count) = vectorizer.Compute("abcdefghijk");
+        var (sig, count) = vectorizer.GenerateMinHashSignature("abcdefghijk");
 
         Assert.Equal(32, sig.Length);
         Assert.True(count > 0);
@@ -41,8 +41,8 @@ public class MinHashVectorizerTests
         var a = new MinHashVectorizer(CreateConfig(seed: 999));
         var b = new MinHashVectorizer(CreateConfig(seed: 999));
 
-        var (sig1, count1) = a.Compute(text);
-        var (sig2, count2) = b.Compute(text);
+        var (sig1, count1) = a.GenerateMinHashSignature(text);
+        var (sig2, count2) = b.GenerateMinHashSignature(text);
 
         Assert.Equal(count1, count2);
         Assert.Equal(sig1, sig2);
@@ -56,8 +56,8 @@ public class MinHashVectorizerTests
         var a = new MinHashVectorizer(CreateConfig(seed: 111));
         var b = new MinHashVectorizer(CreateConfig(seed: 222));
 
-        var (sig1, _) = a.Compute(text);
-        var (sig2, _) = b.Compute(text);
+        var (sig1, _) = a.GenerateMinHashSignature(text);
+        var (sig2, _) = b.GenerateMinHashSignature(text);
 
         Assert.NotEqual(sig1, sig2);
     }
@@ -67,7 +67,7 @@ public class MinHashVectorizerTests
     public void Compute_ShortTextNoShingles_ReturnsEmptySignatureFilled()
     {
         var vectorizer = new MinHashVectorizer(CreateConfig(shingleSize: 50));
-        var (sig, count) = vectorizer.Compute("short");
+        var (sig, count) = vectorizer.GenerateMinHashSignature("short");
 
         Assert.Equal(0, count);
         Assert.Equal(50, sig.Length); // hash function count default from config

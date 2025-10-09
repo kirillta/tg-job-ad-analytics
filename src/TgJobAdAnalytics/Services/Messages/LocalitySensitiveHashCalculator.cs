@@ -4,8 +4,18 @@ using TgJobAdAnalytics.Models.Messages;
 
 namespace TgJobAdAnalytics.Services.Messages;
 
+/// <summary>
+/// Provides an in-memory Locality Sensitive Hashing (LSH) index over MinHash signatures to rapidly
+/// identify near-duplicate / similar job advertisement messages. Signatures are partitioned into bands
+/// and stored in per-band hash tables for candidate generation.
+/// </summary>
 public sealed class LocalitySensitiveHashCalculator
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LocalitySensitiveHashCalculator"/>.
+    /// Validates band / hash function configuration and allocates per-band hash tables.
+    /// </summary>
+    /// <param name="vectorizationOptions">Vectorization options supplying LSH band and hash function counts.</param>
     public LocalitySensitiveHashCalculator(VectorizationOptions vectorizationOptions)
     {
         Debug.Assert(vectorizationOptions.HashFunctionCount > 0, "hashTableCount must be greater than 0");
@@ -23,6 +33,12 @@ public sealed class LocalitySensitiveHashCalculator
     }
 
 
+    /// <summary>
+    /// Adds a MinHash signature to the LSH index. Each band hash bucket stores the item id for candidate retrieval.
+    /// </summary>
+    /// <param name="itemId">Unique identifier of the message / item represented by the signature.</param>
+    /// <param name="signature">Complete MinHash signature (array of hash values) partitioned into bands.</param>
+    /// <exception cref="Exception">Thrown if the provided <paramref name="itemId"/> has already been added.</exception>
     public void Add(Guid itemId, ReadOnlySpan<uint> signature)
     {
         if (!_storedMessageIds.TryAdd(itemId, true))
@@ -37,6 +53,11 @@ public sealed class LocalitySensitiveHashCalculator
     }
 
 
+    /// <summary>
+    /// Returns candidate matching item identifiers that share at least one identical band hash with the provided signature.
+    /// </summary>
+    /// <param name="signature">MinHash signature to query.</param>
+    /// <returns>List of candidate item ids (may contain false positives, but not the query item unless previously added).</returns>
     public List<Guid> GetMatches(ReadOnlySpan<uint> signature)
     {
         if (signature.Length == 0)
@@ -56,10 +77,16 @@ public sealed class LocalitySensitiveHashCalculator
     }
 
 
+    /// <summary>
+    /// Gets the number of LSH bands (hash tables).
+    /// </summary>
     public int BandCount 
         => _bandCount;
 
 
+    /// <summary>
+    /// Gets the number of rows (hashes) per band.
+    /// </summary>
     public int RowCount 
         => _rowCount;
 
