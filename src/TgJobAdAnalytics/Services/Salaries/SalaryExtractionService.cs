@@ -62,22 +62,12 @@ public sealed class SalaryExtractionService
 
     private async Task<ChatGptSalaryResponse?> ExtractSalary(AdEntity ad, CancellationToken cancellationToken)
     {
-        try
-        {
-            var completion = await _chatClient.CompleteChatAsync([SystemPrompt, ad.Text], ChatOptions, cancellationToken);
-            var raw = completion.Value.Content[0].Text;
-            var response = JsonSerializer.Deserialize<ChatGptSalaryResponse>(raw, JsonSerializerOptions);
+        var completion = await _chatClient.CompleteChatAsync([SystemPrompt, ad.Text], ChatOptions, cancellationToken);
+        var raw = completion.Value.Content[0].Text;
+        var response = JsonSerializer.Deserialize<ChatGptSalaryResponse>(raw, JsonSerializerOptions);
 
-            Console.Write($"\rSalary extracted for ad {ad.Id}                                                ");
-            return response;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine();
-            _logger.LogError(ex, "Error extracting salary from ad {AdId}: {Message}", ad.Id, ex.Message);
-        }
-
-        return null;
+        Console.Write($"\rSalary extracted for ad {ad.Id}                                                ");
+        return response;
     }
 
 

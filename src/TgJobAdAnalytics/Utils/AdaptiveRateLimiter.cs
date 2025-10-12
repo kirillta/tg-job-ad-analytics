@@ -38,13 +38,45 @@ public sealed class AdaptiveRateLimiter : IDisposable
 
     /// <summary>
     /// Acquires a permit to execute an operation. Must be disposed to release the permit.
+    /// Honors any active server-provided backoff window.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token for the acquisition.</param>
     /// <returns>A disposable token that releases the permit when disposed.</returns>
-    public async Task<IDisposable> AcquireAsync(CancellationToken cancellationToken)
+    public async Task<IDisposable> Acquire(CancellationToken cancellationToken)
     {
-        await _semaphore.WaitAsync(cancellationToken);
-        return new ReleaseToken(this);
+        while (true)
+        {
+            var holdUntilTicks = Interlocked.Read(ref _holdUntilTicks);
+            if (holdUntilTicks > 0)
+            {
+                var holdUntil = new DateTime(holdUntilTicks, DateTimeKind.Utc);
+                var now = DateTime.UtcNow;
+                if (holdUntil > now)
+                {
+                    var delay = holdUntil - now;
+                    await Task.Delay(delay, cancellationToken);
+
+                    continue;
+                }
+            }
+
+            await _semaphore.WaitAsync(cancellationToken);
+            Interlocked.Increment(ref _inUse);
+
+            var recheckTicks = Interlocked.Read(ref _holdUntilTicks);
+            if (recheckTicks > 0 && new DateTime(recheckTicks, DateTimeKind.Utc) > DateTime.UtcNow)
+            {
+                Interlocked.Decrement(ref _inUse);
+                _semaphore.Release();
+
+                var delay = new DateTime(recheckTicks, DateTimeKind.Utc) - DateTime.UtcNow;
+                await Task.Delay(delay, cancellationToken);
+
+                continue;
+            }
+
+            return new ReleaseToken(this);
+        }
     }
 
 
@@ -82,6 +114,32 @@ public sealed class AdaptiveRateLimiter : IDisposable
 
 
     /// <summary>
+    /// Records a server-provided retry-after backoff to temporarily pause new acquisitions.
+    /// Also decreases concurrency proactively.
+    /// </summary>
+    /// <param name="delay">The retry delay indicated by the server.</param>
+    public void RecordRetryAfter(in TimeSpan delay)
+    {
+        if (delay <= TimeSpan.Zero)
+            return;
+
+        // Set the global hold-until to the max seen so far.
+        var untilTicks = (DateTime.UtcNow + delay).Ticks;
+        long observed;
+        do
+        {
+            observed = Interlocked.Read(ref _holdUntilTicks);
+            if (untilTicks <= observed)
+                break;
+        }
+        while (Interlocked.CompareExchange(ref _holdUntilTicks, untilTicks, observed) != observed);
+
+        lock (_lock)
+            DecreaseConcurrency();
+    }
+
+
+    /// <summary>
     /// Releases all resources used by the rate limiter.
     /// </summary>
     public void Dispose() 
@@ -108,21 +166,31 @@ public sealed class AdaptiveRateLimiter : IDisposable
     private void IncreaseConcurrency()
     {
         var oldConcurrency = _currentConcurrency;
-        _currentConcurrency = Math.Min(_currentConcurrency + _rateLimiterOptions.ConcurrencyIncrement, _maxConcurrency);
+        var increment = Math.Min(_rateLimiterOptions.ConcurrencyIncrement, _maxConcurrency - _currentConcurrency);
+        if (increment <= 0) 
+            return;
 
-        if (_currentConcurrency > oldConcurrency)
-        {
-            _semaphore.Release();
-            _logger.LogInformation("Adaptive limiter: increased concurrency from {OldConcurrency} to {NewConcurrency}", oldConcurrency, _currentConcurrency);
-        }
+        _currentConcurrency += increment;
+
+        var desiredAvailable = Math.Max(0, _currentConcurrency - Volatile.Read(ref _inUse));
+        var toRelease = Math.Max(0, desiredAvailable - _semaphore.CurrentCount);
+        if (toRelease > 0)
+            _semaphore.Release(toRelease);
+
+        _logger.LogInformation("Adaptive limiter: increased concurrency from {OldConcurrency} to {NewConcurrency}", oldConcurrency, _currentConcurrency);
     }
 
 
     private void DecreaseConcurrency()
     {
         var oldConcurrency = _currentConcurrency;
-        var decrease = Math.Max(_rateLimiterOptions.MinimumConcurrencyDecrement, (int)(_currentConcurrency * _rateLimiterOptions.ConcurrencyDecreaseRatio));
-        _currentConcurrency = Math.Max(_rateLimiterOptions.MinimumConcurrency, _currentConcurrency - decrease);
+        var decrement = Math.Max(_rateLimiterOptions.MinimumConcurrencyDecrement, (int)Math.Ceiling(_currentConcurrency * _rateLimiterOptions.ConcurrencyDecreaseRatio));
+        _currentConcurrency = Math.Max(_rateLimiterOptions.MinimumConcurrency, _currentConcurrency - decrement);
+
+        var desiredAvailable = Math.Max(0, _currentConcurrency - Volatile.Read(ref _inUse));
+        var excess = _semaphore.CurrentCount - desiredAvailable;
+        while (excess > 0 && _semaphore.Wait(0))
+            excess--;
 
         _logger.LogInformation("Adaptive limiter: decreased concurrency from {OldConcurrency} to {NewConcurrency}", oldConcurrency, _currentConcurrency);
     }
@@ -138,30 +206,31 @@ public sealed class AdaptiveRateLimiter : IDisposable
 
     private sealed class ReleaseToken : IDisposable
     {
-        public ReleaseToken(AdaptiveRateLimiter limiter)
+        public ReleaseToken(AdaptiveRateLimiter limiter) 
+            => _limiter = limiter;
+
+
+        public void Dispose()
         {
-            _limiter = limiter;
+            Interlocked.Decrement(ref _limiter._inUse);
+            _limiter._semaphore.Release();
         }
 
-
-        public void Dispose() 
-            => _limiter._semaphore.Release();
-
-
+        
         private readonly AdaptiveRateLimiter _limiter;
     }
-
+    
 
     private int _consecutiveFailures;
     private int _currentConcurrency;
+    private int _inUse;
+    private long _holdUntilTicks;
+    private readonly Lock _lock = new();
     private readonly int _maxConcurrency;
     private readonly Queue<(DateTime timestamp, bool success)> _results;
     private readonly SemaphoreSlim _semaphore;
     private readonly double _successThreshold;
     private readonly TimeSpan _windowSize;
-
-    
-    private readonly Lock _lock = new();
 
     private readonly ILogger<AdaptiveRateLimiter> _logger;
     private readonly AdaptiveRateLimiterOptions _rateLimiterOptions;

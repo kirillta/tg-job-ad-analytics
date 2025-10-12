@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
@@ -18,7 +19,7 @@ namespace TgJobAdAnalytics.Services.Salaries;
 /// Streams ads in configurable chunks, processes them in parallel, and writes successful salary entities
 /// to a channel consumed by the <see cref="SalaryPersistenceService"/>.
 /// </summary>
-public sealed class SalaryExtractionProcessor
+public sealed partial class SalaryExtractionProcessor
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SalaryExtractionProcessor"/>.
@@ -53,7 +54,9 @@ public sealed class SalaryExtractionProcessor
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task ExtractAndPersist(CancellationToken cancellationToken)
     {
-        await _salaryPersistenceService.Initialize(cancellationToken);
+        using var linkedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        await _salaryPersistenceService.Initialize(linkedCancellationSource.Token);
 
         var channel = Channel.CreateBounded<SalaryEntity>(new BoundedChannelOptions(_openAiOptions.ProcessingChunkSize * 2)
         {
@@ -64,6 +67,9 @@ public sealed class SalaryExtractionProcessor
         using var rateLimiter = new AdaptiveRateLimiter(_loggerFactory, _openAiOptions);
         await foreach (var chunk in GetAdsInChunks(cancellationToken))
         {
+            if (linkedCancellationSource.IsCancellationRequested)
+                break;
+
             cancellationToken.ThrowIfCancellationRequested();
 
             var tagsByMessageId = await PreloadMessageTags([.. chunk.Select(ad => ad.MessageId)], cancellationToken);
@@ -73,11 +79,11 @@ public sealed class SalaryExtractionProcessor
             await Parallel.ForEachAsync(chunk, new ParallelOptions
             {
                 MaxDegreeOfParallelism = rateLimiter.CurrentConcurrency,
-                CancellationToken = cancellationToken
+                CancellationToken = linkedCancellationSource.Token
             },
             async (ad, ct) =>
             {
-                using var _ = await rateLimiter.AcquireAsync(ct);
+                using var _ = await rateLimiter.Acquire(ct);
 
                 try
                 {
@@ -93,11 +99,19 @@ public sealed class SalaryExtractionProcessor
                 {
                     var isRateLimitError = IsRateLimitException(ex);
                     rateLimiter.RecordFailure(isRateLimitError);
+                    
+                    if (IsQuotaExceeded(ex))
+                    {
+                        _logger.LogError(ex, "Quota exceeded. Cancelling processing.");
+                        linkedCancellationSource.Cancel();
+
+                        return;
+                    }
 
                     _logger.LogError(ex, "Failed to process ad {AdId}. Rate limit error: {IsRateLimit}", ad.Id, isRateLimitError);
 
-                    if (isRateLimitError)
-                        await Task.Delay(TimeSpan.FromSeconds(2), ct);
+                    if (isRateLimitError && TryParseRetryAfter(ex, out var retryAfter))
+                        rateLimiter.RecordRetryAfter(delay: retryAfter);
                 }
             });
         }
@@ -159,6 +173,15 @@ public sealed class SalaryExtractionProcessor
     }
 
 
+    private static bool IsRateLimitException(Exception ex)
+    {
+        var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
+        return message.Contains("rate_limit_exceeded") || 
+            message.Contains("429") || 
+            ex.GetType().Name.Contains("RateLimit", StringComparison.OrdinalIgnoreCase);
+    }
+
+
     private async Task<Dictionary<Guid, List<string>>> PreloadMessageTags(List<Guid> messageIds, CancellationToken cancellationToken)
     {
         if (messageIds.Count == 0)
@@ -172,12 +195,43 @@ public sealed class SalaryExtractionProcessor
     }
 
 
-    private static bool IsRateLimitException(Exception ex)
+    private static bool IsQuotaExceeded(Exception ex)
     {
         var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
-        return message.Contains("rate_limit_exceeded") || 
-            message.Contains("429") || 
-            ex.GetType().Name.Contains("RateLimit", StringComparison.OrdinalIgnoreCase);
+        return message.Contains("insufficient_quota") 
+            || message.Contains("quota") && message.Contains("exceeded");
+    }
+
+
+    private static bool TryParseRetryAfter(Exception ex, out TimeSpan delay)
+    {
+        delay = TimeSpan.Zero;
+        var errorMessage = ex.Message ?? string.Empty;
+
+        var match = RateLimitRetryRegex().Match(errorMessage);
+        if (!match.Success)
+            return false;
+
+        var retryAfterValue = int.Parse(match.Groups["val"].Value);
+        var unit = match.Groups["unit"].Value.ToLowerInvariant();
+
+        delay = unit switch
+        {
+            "ms" => TimeSpan.FromMilliseconds(retryAfterValue),
+            "s" or "sec" or "secs" or "second" or "seconds" => TimeSpan.FromSeconds(retryAfterValue),
+            _ => TimeSpan.Zero
+        };
+
+        if (delay <= TimeSpan.Zero)
+            return false;
+
+        if (delay < TimeSpan.FromMilliseconds(50))
+            delay = TimeSpan.FromMilliseconds(50);
+
+        if (delay > TimeSpan.FromSeconds(30))
+            delay = TimeSpan.FromSeconds(30);
+
+        return true;
     }
 
     
@@ -187,4 +241,7 @@ public sealed class SalaryExtractionProcessor
     private readonly OpenAiOptions _openAiOptions;
     private readonly SalaryExtractionService _salaryExtractionService;
     private readonly SalaryPersistenceService _salaryPersistenceService;
+
+    [GeneratedRegex(@"try again in\s+(?<val>\d+)\s*(?<unit>ms|s|sec|secs|second|seconds)", RegexOptions.IgnoreCase)]
+    private static partial Regex RateLimitRetryRegex();
 }

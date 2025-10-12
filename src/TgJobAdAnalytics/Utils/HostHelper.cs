@@ -120,7 +120,9 @@ public static class HostHelper
 
                 return new ChatClient("gpt-5-nano", credentials, options);
             });
-        
+
+            services.AddSingleton<ConsoleStatusLinePrinter>();
+
             services.AddSingleton<RateApiClient>();
             services.AddSingleton<RateSourceManager>();
             services.AddSingleton<RateServiceFactory>();

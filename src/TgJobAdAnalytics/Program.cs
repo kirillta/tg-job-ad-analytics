@@ -12,6 +12,12 @@ var services = scope.ServiceProvider;
 
 await HostHelper.ApplyDatabaseMigrations(services);
 
+var statusPrinter = services.GetRequiredService<ConsoleStatusLinePrinter>();
+
+Console.SetOut(new StatusAwareTextWriter(Console.Out, statusPrinter));
+Console.SetError(new StatusAwareTextWriter(Console.Error, statusPrinter));
+
+
 var orchestrator = services.GetRequiredService<ProcessOrchestrator>();
 var logger = services.GetRequiredService<ILogger<Program>>();
 

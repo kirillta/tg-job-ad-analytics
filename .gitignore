@@ -368,3 +368,4 @@ FodyWeavers.xsd
 /db
 /config/rates
 /output
+/config/stacks/channel-stacks.json
