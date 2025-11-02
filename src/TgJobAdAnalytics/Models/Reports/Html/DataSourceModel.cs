@@ -2,7 +2,7 @@
 
 internal readonly record struct DataSourceModel
 {
-    internal DataSourceModel(long id, string name, DateOnly minimalDate, DateOnly maximalDate, int processedMessages, int extractedSalaries)
+    internal DataSourceModel(long id, string name, DateOnly minimalDate, DateOnly maximalDate, int processedMessages, int extractedSalaries, int lastMonthSalaries)
     {
         Id = id;
         Name = name;
@@ -10,6 +10,7 @@ internal readonly record struct DataSourceModel
         MaximalDate = maximalDate;
         ProcessedMessages = processedMessages;
         ExtractedSalaries = extractedSalaries;
+        LastMonthSalaries = lastMonthSalaries;
     }
 
 
@@ -24,4 +25,6 @@ internal readonly record struct DataSourceModel
     public int ProcessedMessages { get; }
 
     public int ExtractedSalaries { get; }
+
+    public int LastMonthSalaries { get; }
 }

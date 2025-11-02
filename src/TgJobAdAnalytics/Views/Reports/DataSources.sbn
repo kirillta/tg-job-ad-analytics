@@ -5,7 +5,7 @@
         {{ for data_source in data_sources }}
         <li>
             <span class="font-medium">{{ data_source.name }}</span> ({{ data_source.id }}), {{ data_source.minimal_date }}-{{ data_source.maximal_date }}, 
-            {{ data_source.processed_messages }} {{ l.ui.data_sources.messages_label }}, {{ data_source.extracted_salaries }} {{ l.ui.data_sources.salaries_label }}.
+            {{ data_source.processed_messages }} {{ l.ui.data_sources.messages_label }}, {{ data_source.extracted_salaries }}{{ if data_source.last_month_salaries >0 }} (+{{ data_source.last_month_salaries }}){{ end }} {{ l.ui.data_sources.salaries_label }}.
         </li>
         {{ end }}
     </ol>
