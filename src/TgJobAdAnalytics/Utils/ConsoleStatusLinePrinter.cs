@@ -5,6 +5,16 @@
 /// </summary>
 public sealed class ConsoleStatusLinePrinter
 {
+    public ConsoleStatusLinePrinter(TextWriter rawOut)
+    {
+        _rawOut = rawOut ?? throw new ArgumentNullException(nameof(rawOut));
+    }
+
+        
+    public ConsoleStatusLinePrinter(): this(new StreamWriter(Console.OpenStandardOutput(), Console.OutputEncoding) { AutoFlush = true }) 
+    { }
+
+
     /// <summary>
     /// Sets and renders the status line text on the console.
     /// </summary>
@@ -51,27 +61,31 @@ public sealed class ConsoleStatusLinePrinter
     {
         var text = _current ?? string.Empty;
 
-        Console.Write('\r');
-        Console.Write(text);
+        _rawOut.Write('\r');
+        _rawOut.Write(text);
 
         var pad = Math.Max(0, _lastWidth - text.Length);
         if (pad > 0)
-            Console.Write(new string(' ', pad));
+            _rawOut.Write(new string(' ', pad));
 
-        Console.Write('\r');
+        _rawOut.Write('\r');
+        _rawOut.Flush();
+
         _lastWidth = text.Length;
     }
 
 
     private void Erase()
     {
-        Console.Write('\r');
+        _rawOut.Write('\r');
 
         if (_lastWidth > 0)
         {
-            Console.Write(new string(' ', _lastWidth));
-            Console.Write('\r');
+            _rawOut.Write(new string(' ', _lastWidth));
+            _rawOut.Write('\r');
         }
+
+        _rawOut.Flush();
     }
 
 
@@ -96,6 +110,6 @@ public sealed class ConsoleStatusLinePrinter
 
     private string _current = string.Empty;
     private int _lastWidth;
-
     private readonly Lock _lock = new();
+    private readonly TextWriter _rawOut;
 }
