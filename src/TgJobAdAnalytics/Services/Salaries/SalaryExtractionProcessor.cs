@@ -37,7 +37,6 @@ public sealed partial class SalaryExtractionProcessor
         IOptions<OpenAiOptions> openAiOptions)
     {
         _logger = loggerFactory.CreateLogger<SalaryExtractionProcessor>();
-        _loggerFactory = loggerFactory;
 
         _dbContext = dbContext;
         _openAiOptions = openAiOptions.Value;
@@ -64,7 +63,7 @@ public sealed partial class SalaryExtractionProcessor
         });
         var persistenceTask = ConsumeAndPersistBatches(channel.Reader, cancellationToken);
 
-        using var rateLimiter = new AdaptiveRateLimiter(_loggerFactory, _openAiOptions);
+        using var rateLimiter = new AdaptiveRateLimiter(_openAiOptions);
         await foreach (var chunk in GetAdsInChunks(cancellationToken))
         {
             if (linkedCancellationSource.IsCancellationRequested)
@@ -237,7 +236,6 @@ public sealed partial class SalaryExtractionProcessor
     
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<SalaryExtractionProcessor> _logger;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly OpenAiOptions _openAiOptions;
     private readonly SalaryExtractionService _salaryExtractionService;
     private readonly SalaryPersistenceService _salaryPersistenceService;

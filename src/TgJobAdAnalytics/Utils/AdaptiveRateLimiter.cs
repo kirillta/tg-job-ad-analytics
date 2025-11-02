@@ -11,12 +11,9 @@ public sealed class AdaptiveRateLimiter : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="AdaptiveRateLimiter"/> class.
     /// </summary>
-    /// <param name="loggerFactory">Logger factory for creating loggers.</param>
     /// <param name="openAiOptions">OpenAI API configuration options.</param>
-    public AdaptiveRateLimiter(ILoggerFactory loggerFactory, OpenAiOptions openAiOptions)
+    public AdaptiveRateLimiter( OpenAiOptions openAiOptions)
     {
-        _logger = loggerFactory.CreateLogger<AdaptiveRateLimiter>();
-
         _maxConcurrency = openAiOptions.MaxConcurrency;
         _successThreshold = openAiOptions.AdaptiveThrottleSuccessThreshold;
         _windowSize = openAiOptions.AdaptiveThrottleWindowSize;
@@ -49,13 +46,11 @@ public sealed class AdaptiveRateLimiter : IDisposable
             var holdUntilTicks = Interlocked.Read(ref _holdUntilTicks);
             if (holdUntilTicks > 0)
             {
-                var holdUntil = new DateTime(holdUntilTicks, DateTimeKind.Utc);
-                var now = DateTime.UtcNow;
-                if (holdUntil > now)
+                var remaining = new DateTime(holdUntilTicks, DateTimeKind.Utc) - DateTime.UtcNow;
+                remaining = remaining + _minBackoff;
+                if (remaining > TimeSpan.Zero)
                 {
-                    var delay = holdUntil - now;
-                    await Task.Delay(delay, cancellationToken);
-
+                    await Task.Delay(remaining, cancellationToken);
                     continue;
                 }
             }
@@ -64,15 +59,18 @@ public sealed class AdaptiveRateLimiter : IDisposable
             Interlocked.Increment(ref _inUse);
 
             var recheckTicks = Interlocked.Read(ref _holdUntilTicks);
-            if (recheckTicks > 0 && new DateTime(recheckTicks, DateTimeKind.Utc) > DateTime.UtcNow)
+            if (recheckTicks > 0)
             {
-                Interlocked.Decrement(ref _inUse);
-                _semaphore.Release();
+                var remaining = new DateTime(recheckTicks, DateTimeKind.Utc) - DateTime.UtcNow;
+                remaining = remaining + _minBackoff;
+                if (remaining > TimeSpan.Zero)
+                {
+                    Interlocked.Decrement(ref _inUse);
+                    _semaphore.Release();
 
-                var delay = new DateTime(recheckTicks, DateTimeKind.Utc) - DateTime.UtcNow;
-                await Task.Delay(delay, cancellationToken);
-
-                continue;
+                    await Task.Delay(remaining, cancellationToken);
+                    continue;
+                }
             }
 
             return new ReleaseToken(this);
@@ -176,8 +174,6 @@ public sealed class AdaptiveRateLimiter : IDisposable
         var toRelease = Math.Max(0, desiredAvailable - _semaphore.CurrentCount);
         if (toRelease > 0)
             _semaphore.Release(toRelease);
-
-        _logger.LogInformation("Adaptive limiter: increased concurrency from {OldConcurrency} to {NewConcurrency}", oldConcurrency, _currentConcurrency);
     }
 
 
@@ -191,8 +187,6 @@ public sealed class AdaptiveRateLimiter : IDisposable
         var excess = _semaphore.CurrentCount - desiredAvailable;
         while (excess > 0 && _semaphore.Wait(0))
             excess--;
-
-        _logger.LogInformation("Adaptive limiter: decreased concurrency from {OldConcurrency} to {NewConcurrency}", oldConcurrency, _currentConcurrency);
     }
 
 
@@ -227,11 +221,11 @@ public sealed class AdaptiveRateLimiter : IDisposable
     private long _holdUntilTicks;
     private readonly Lock _lock = new();
     private readonly int _maxConcurrency;
+    private static readonly TimeSpan _minBackoff = TimeSpan.FromSeconds(1);
     private readonly Queue<(DateTime timestamp, bool success)> _results;
     private readonly SemaphoreSlim _semaphore;
     private readonly double _successThreshold;
     private readonly TimeSpan _windowSize;
 
-    private readonly ILogger<AdaptiveRateLimiter> _logger;
     private readonly AdaptiveRateLimiterOptions _rateLimiterOptions;
 }
