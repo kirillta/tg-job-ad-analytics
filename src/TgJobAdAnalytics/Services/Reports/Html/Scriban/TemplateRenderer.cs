@@ -1,7 +1,9 @@
 ﻿using Scriban;
 using Scriban.Runtime;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Models.Reports.Html;
+using TgJobAdAnalytics.Utils.Serialization;
 
 namespace TgJobAdAnalytics.Services.Reports.Html.Scriban;
 
@@ -85,7 +87,9 @@ internal class TemplateRenderer
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new NonFiniteDoubleConverter(), new NonFiniteNullableDoubleConverter() }
     };
 
     private readonly FileSystemLoader _loader;

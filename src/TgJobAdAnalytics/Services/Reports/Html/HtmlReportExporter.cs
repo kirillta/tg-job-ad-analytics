@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Enums;
@@ -8,6 +9,7 @@ using TgJobAdAnalytics.Services.Reports.Html.Scriban;
 using TgJobAdAnalytics.Services.Reports.Metadata;
 using TgJobAdAnalytics.Models.Reports.Metadata;
 using TgJobAdAnalytics.Services.Analytics;
+using TgJobAdAnalytics.Utils.Serialization;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
@@ -138,7 +140,7 @@ public sealed class HtmlReportExporter : IReportExporter
             var persistedPublishedUtc = ReadPublishedTimestamp(locale);
             var metadata = _metadataBuilder.Build(locale: locale, kpis: null, persistedPublishedUtc: persistedPublishedUtc, generatedUtc: generationTime);
             var localizationDict = _uiLocalizer.BuildLocalizationDictionary(locale);
-            localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict);
+            localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict, _jsonOptions);
 
             var lastMonth = _stackComparisonBuilder.BuildLastClosedMonth();
             var byYear = _stackComparisonBuilder.BuildByYear();
@@ -146,11 +148,7 @@ public sealed class HtmlReportExporter : IReportExporter
             var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, lastMonth, localizationDict);
             localizationDict["stack_comparison_years"] = byYear;
 
-            var statisticsJson = JsonSerializer.Serialize(multiSeriesStats, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            });
+            var statisticsJson = JsonSerializer.Serialize(multiSeriesStats, _jsonOptions);
             localizationDict["multi_series_stats_json"] = statisticsJson;
 
             var html = _templateRenderer.Render(reportModel);
@@ -229,6 +227,14 @@ public sealed class HtmlReportExporter : IReportExporter
 
     private const string EvergreenFileName = "index.html";
     private const string PublishedSidecarFileName = ".published.json";
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new NonFiniteDoubleConverter(), new NonFiniteNullableDoubleConverter() }
+    };
 
     private readonly ApplicationDbContext _dbContext;
     private readonly MetadataBuilder _metadataBuilder;
