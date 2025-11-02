@@ -11,12 +11,6 @@
                 <option value="">{{ l.ui.chart.all_stacks }}</option>
             </select>
         </div>
-        <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
-                <input type="checkbox" id="{{ report.chart.id_token }}-show-percentiles" class="rounded show-percentiles" />
-                <span>{{ l.ui.chart.show_percentiles }}</span>
-            </label>
-        </div>
     </div>
     {{ end }}
 
