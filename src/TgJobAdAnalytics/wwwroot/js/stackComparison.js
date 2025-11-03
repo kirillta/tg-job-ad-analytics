@@ -184,9 +184,10 @@
             yearSel.classList.remove('hidden');
             data = buildYearData(currentLevel, currentYear);
         }
+        updateLevelOptions();
     }
 
-    function loadYear(year) { currentYear = parseInt(year,10); data = buildYearData(currentLevel, currentYear); }
+    function loadYear(year) { currentYear = parseInt(year,10); data = buildYearData(currentLevel, currentYear); updateLevelOptions(); }
 
     function updateControlsForPeriod(){
         var isYear = currentPeriod === 'year';
@@ -204,6 +205,36 @@
         return lastMonth || [];
     }
 
+    function hasUnknownForCurrentScope(){
+        var items;
+        if (currentPeriod === 'year') {
+            var yr = currentYear || (yearSel && parseInt(yearSel.value,10));
+            if (!yr) return false;
+            items = buildYearData('', yr); // no level filter
+        } else {
+            items = lastMonth || [];
+        }
+        for (var i=0;i<items.length;i++){
+            var it = items[i];
+            if (it && it.perLevel && Object.prototype.hasOwnProperty.call(it.perLevel, 'Unknown'))
+                return true;
+        }
+        return false;
+    }
+
+    function updateLevelOptions(){
+        if (!levelFilter) return;
+        var unknownOpt = levelFilter.querySelector('option[value="Unknown"]');
+        if (!unknownOpt) return;
+        var present = hasUnknownForCurrentScope();
+        // toggle visibility
+        unknownOpt.hidden = !present;
+        if (!present && levelFilter.value === 'Unknown'){
+            levelFilter.value = '';
+            currentLevel = '';
+        }
+    }
+
     function render(){
         var baseItems = getSourceItems();
         var items = applyLevelToItems(baseItems);
@@ -211,12 +242,13 @@
         var rows=items.filter(function(x){ return x.name.toLowerCase().indexOf(filter)>=0 || (x.label||'').toLowerCase().indexOf(filter)>=0; });
         var mode = sortSel.value;
 
-        if (mode === 'median_desc')
-            rows.sort(function (a, b) { return (b.median || 0) - (a.median || 0) });
-        else if (mode === 'count_desc')
-            rows.sort(function (a, b) { return (b.count || 0) - (a.count || 0) });
-        else if (mode === 'share_desc')
-            rows.sort(function (a, b) { return (b._share || 0) - (a._share || 0) });
+        if (mode === 'median_desc') {
+            rows.sort(function (a, b) { return (b.median ||0) - (a.median ||0); });
+        } else if (mode === 'count_desc') {
+            rows.sort(function (a, b) { return (b.count ||0) - (a.count ||0); });
+        } else if (mode === 'share_desc') {
+            rows.sort(function (a, b) { return (b._share ||0) - (a._share ||0); });
+        }
 
         updateTableHeaders();
         renderPills(rows);
@@ -228,6 +260,7 @@
     }
 
     updateControlsForPeriod();
+    updateLevelOptions();
 
     periodSel.addEventListener('change', function(){
         if (periodSel.value === 'year') {
@@ -239,6 +272,7 @@
             currentPeriod = 'last_month';
             updateControlsForPeriod();
             data = lastMonth;
+            updateLevelOptions();
             render();
         }
     });

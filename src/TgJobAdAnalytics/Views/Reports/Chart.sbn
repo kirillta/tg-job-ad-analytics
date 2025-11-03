@@ -36,5 +36,13 @@
         {{ for v in report.variants }}"{{ v.key }}": {"labels": {{ dump v.value.labels }}, "dataset": { "label": {{ dump v.value.dataset.label }}, "data": {{ dump v.value.dataset.data }}, "backgroundColor": {{ dump v.value.dataset.background_color }}, "borderColor": {{ dump v.value.dataset.border_color }}, "borderWidth": {{ v.value.dataset.border_width }}, "fill": {{ v.value.dataset.fill }}, "tension": {{ v.value.dataset.tension }} }}{{ if !for.last }},{{ end }}{{ end }}
     }</script>
     <script id="{{ report.chart.id_token }}-preferred-label" type="application/json">{{ if l.variant.all != null }}{{ dump l.variant.all }}{{ else }}null{{ end }}</script>
+    <script id="{{ report.chart.id_token }}-variant-order" type="application/json">[
+        {{~ $first = true ~}}
+        {{~ for lbl in [ l.variant.all, l.level.unknown, l.level.intern, l.level.junior, l.level.middle, l.level.senior, l.level.lead, l.level.architect, l.level.manager ] ~}}
+            {{~ if report.variants[lbl] != null ~}}
+                {{~ if !$first }}, {{ end ~}}"{{ lbl }}"{{~ $first = false ~}}
+            {{~ end ~}}
+        {{~ end ~}}
+    ]</script>
     {{ end }}
 </div>

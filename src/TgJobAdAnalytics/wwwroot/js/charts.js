@@ -26,6 +26,7 @@
 
         var variants = parse(baseId + '-variants');
         var preferredLabel = parse(baseId + '-preferred-label');
+        var order = parse(baseId + '-variant-order');
         var selector = document.getElementById(baseId + '-variant');
         var stackSelector = document.getElementById(baseId + '-stack');
         var percentilesCheckbox = document.getElementById(baseId + '-show-percentiles');
@@ -65,7 +66,22 @@
             var allData = chart.data.datasets.flatMap(function(ds){ return ds.data; }); var yConf=computeYAxis(allData); chart.options.scales.y.suggestedMax = yConf.max; chart.update();
         }
 
-        if(variants && selector){ var keys = Object.keys(variants); keys.forEach(function(k){ var opt=document.createElement('option'); opt.value=k; opt.text=k; selector.appendChild(opt); }); var preferred = (preferredLabel && keys.indexOf(preferredLabel)>=0)?preferredLabel:(keys.indexOf('???')>=0?'???':keys[0]); selector.value = preferred; applyVariant(preferred); selector.addEventListener('change', function(){ applyVariant(this.value); }); }
+        function orderVariantKeys(variantsObj, orderArr){
+            var keys = Object.keys(variantsObj||{});
+            if(!Array.isArray(orderArr) || !orderArr.length) return keys;
+            var out=[]; orderArr.forEach(function(lbl){ if(keys.indexOf(lbl)>=0) out.push(lbl); });
+            keys.forEach(function(k){ if(out.indexOf(k)<0) out.push(k); });
+            return out;
+        }
+
+        if(variants && selector){
+            var keysOrdered = orderVariantKeys(variants, order);
+            keysOrdered.forEach(function(k){ var opt=document.createElement('option'); opt.value=k; opt.text=k; selector.appendChild(opt); });
+            var preferred = (preferredLabel && keysOrdered.indexOf(preferredLabel)>=0)?preferredLabel:(keysOrdered.indexOf('???')>=0?'???':keysOrdered[0]);
+            selector.value = preferred;
+            applyVariant(preferred);
+            selector.addEventListener('change', function(){ applyVariant(this.value); });
+        }
         if(hasStackData && stackSelector){ var stacks = (salaryData && salaryData.stacks)?salaryData.stacks:[]; stacks.forEach(function(stack){ var opt=document.createElement('option'); opt.value=stack.name; opt.text = stack.name + ' (' + stack.jobCount + ')'; stackSelector.appendChild(opt); }); stackSelector.addEventListener('change', function(){ currentStack=this.value; applyVariant(currentVariant|| (selector?selector.value:null)); }); }
         if(percentilesCheckbox){ percentilesCheckbox.addEventListener('change', function(){ /* placeholder for percentile toggle if needed */ }); }
     }

@@ -86,6 +86,7 @@ public sealed class ReportGroupLocalizer
         {
             var mapKey = level switch
             {
+                PositionLevel.Unknown => "level.unknown",
                 PositionLevel.Intern => "level.intern",
                 PositionLevel.Junior => "level.junior",
                 PositionLevel.Middle => "level.middle",
