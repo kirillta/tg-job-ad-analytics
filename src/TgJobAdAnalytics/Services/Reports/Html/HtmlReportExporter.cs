@@ -10,6 +10,7 @@ using TgJobAdAnalytics.Services.Reports.Metadata;
 using TgJobAdAnalytics.Models.Reports.Metadata;
 using TgJobAdAnalytics.Services.Analytics;
 using TgJobAdAnalytics.Utils.Serialization;
+using TgJobAdAnalytics.Services.Stacks;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
@@ -25,7 +26,8 @@ public sealed class HtmlReportExporter : IReportExporter
         ReportGroupLocalizer reportGroupLocalizer,
         UiLocalizer uiLocalizer,
         StackComparisonDataBuilder stackComparisonDataBuilder,
-        StackAwareStatisticsCalculator stackAwareStatisticsCalculator)
+        StackAwareStatisticsCalculator stackAwareStatisticsCalculator,
+        StackBackfillService stackBackfillService)
     {
         _dbContext = dbContext;
         _options = options.Value;
@@ -35,6 +37,7 @@ public sealed class HtmlReportExporter : IReportExporter
         _stackComparisonBuilder = stackComparisonDataBuilder;
         _stackAwareStatisticsCalculator = stackAwareStatisticsCalculator;
         _uiLocalizer = uiLocalizer;
+        _stackBackfillService = stackBackfillService;
         
         _templateRenderer = new TemplateRenderer(_options.TemplatePath);
     }
@@ -139,6 +142,8 @@ public sealed class HtmlReportExporter : IReportExporter
 
     private void GenerateReports(List<ReportItemGroup> reportItemGroups)
     {
+        _stackBackfillService.BackfillMissingAsync(CancellationToken.None).GetAwaiter().GetResult();
+
         var dataSources = BuildDataSourceModels();
         var generationTime = DateTime.UtcNow;
         var runFolderName = generationTime.ToString("yyyyMMdd-HHmmss'Z'");
@@ -262,6 +267,7 @@ public sealed class HtmlReportExporter : IReportExporter
     private readonly StackAwareStatisticsCalculator _stackAwareStatisticsCalculator;
     private readonly TemplateRenderer _templateRenderer;
     private readonly UiLocalizer _uiLocalizer;
+    private readonly StackBackfillService _stackBackfillService;
 
     private sealed record PublishedSidecar(DateTime PublishedUtc);
 }

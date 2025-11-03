@@ -27,9 +27,11 @@ public sealed class StackComparisonDataBuilder
                     join a in _dbContext.Ads on s.AdId equals a.Id
                     join ts in _dbContext.TechnologyStacks on a.StackId equals ts.Id
                     where s.Date >= lastClosedMonthStart && s.Date <= lastClosedMonthEnd && a.StackId != null
-                    select new { ts.Id, ts.Name, s.LowerBoundNormalized, s.UpperBoundNormalized };
+                    select new { ts.Id, ts.Name, s.LowerBoundNormalized, s.UpperBoundNormalized, s.Level };
 
-        var byStack = query.AsNoTracking().ToList()
+        var items = query.AsNoTracking().ToList();
+
+        var byStack = items
             .GroupBy(x => new { x.Id, x.Name })
             .Select(g =>
             {
@@ -37,24 +39,42 @@ public sealed class StackComparisonDataBuilder
                     .Where(v => !double.IsNaN(v) && v > 0)
                     .ToArray();
 
-                var count = values.Length;
-                var p10 = count > 0 ? values.Quantile(0.10) : double.NaN;
-                var p25 = count > 0 ? values.Quantile(0.25) : double.NaN;
-                var median = count > 0 ? values.Quantile(0.50) : double.NaN;
-                var p75 = count > 0 ? values.Quantile(0.75) : double.NaN;
-                var p90 = count > 0 ? values.Quantile(0.90) : double.NaN;
+                var totalCount = g.Count();
+
+                var perLevel = g
+                    .GroupBy(x => x.Level)
+                    .ToDictionary(
+                        k => k.Key.ToString(),
+                        v =>
+                        {
+                            var lvlValues = v
+                                .Select(x => GetNormalizedValue(x.LowerBoundNormalized, x.UpperBoundNormalized))
+                                .Where(val => !double.IsNaN(val) && val > 0)
+                                .ToArray();
+
+                            return new Models.Reports.Html.StackLevelStats
+                            {
+                                Count = v.Count(),
+                                P10 = lvlValues.Length > 0 ? lvlValues.Quantile(0.10) : double.NaN,
+                                P25 = lvlValues.Length > 0 ? lvlValues.Quantile(0.25) : double.NaN,
+                                Median = lvlValues.Length > 0 ? lvlValues.Quantile(0.50) : double.NaN,
+                                P75 = lvlValues.Length > 0 ? lvlValues.Quantile(0.75) : double.NaN,
+                                P90 = lvlValues.Length > 0 ? lvlValues.Quantile(0.90) : double.NaN
+                            };
+                        });
 
                 return new Models.Reports.Html.StackComparisonItem
                 {
                     StackId = g.Key.Id,
                     Name = g.Key.Name,
                     Label = g.Key.Name,
-                    Count = count,
-                    P10 = p10,
-                    P25 = p25,
-                    Median = median,
-                    P75 = p75,
-                    P90 = p90
+                    Count = totalCount,
+                    P10 = values.Length > 0 ? values.Quantile(0.10) : double.NaN,
+                    P25 = values.Length > 0 ? values.Quantile(0.25) : double.NaN,
+                    Median = values.Length > 0 ? values.Quantile(0.50) : double.NaN,
+                    P75 = values.Length > 0 ? values.Quantile(0.75) : double.NaN,
+                    P90 = values.Length > 0 ? values.Quantile(0.90) : double.NaN,
+                    PerLevel = perLevel
                 };
             })
             .OrderByDescending(x => x.Median)
@@ -73,7 +93,7 @@ public sealed class StackComparisonDataBuilder
                     join a in _dbContext.Ads on s.AdId equals a.Id
                     join ts in _dbContext.TechnologyStacks on a.StackId equals ts.Id
                     where a.StackId != null
-                    select new { Year = s.Date.Year, ts.Id, ts.Name, s.LowerBoundNormalized, s.UpperBoundNormalized };
+                    select new { Year = s.Date.Year, ts.Id, ts.Name, s.LowerBoundNormalized, s.UpperBoundNormalized, s.Level };
 
         var items = query.AsNoTracking().ToList();
 
@@ -91,24 +111,42 @@ public sealed class StackComparisonDataBuilder
                             .Where(v => !double.IsNaN(v) && v > 0)
                             .ToArray();
 
-                        var count = values.Length;
-                        var p10 = count > 0 ? values.Quantile(0.10) : double.NaN;
-                        var p25 = count > 0 ? values.Quantile(0.25) : double.NaN;
-                        var median = count > 0 ? values.Quantile(0.50) : double.NaN;
-                        var p75 = count > 0 ? values.Quantile(0.75) : double.NaN;
-                        var p90 = count > 0 ? values.Quantile(0.90) : double.NaN;
+                        var totalCount = g.Count();
+
+                        var perLevel = g
+                            .GroupBy(x => x.Level)
+                            .ToDictionary(
+                                k => k.Key.ToString(),
+                                v =>
+                                {
+                                    var lvlValues = v
+                                        .Select(x => GetNormalizedValue(x.LowerBoundNormalized, x.UpperBoundNormalized))
+                                        .Where(val => !double.IsNaN(val) && val > 0)
+                                        .ToArray();
+
+                                    return new Models.Reports.Html.StackLevelStats
+                                    {
+                                        Count = v.Count(),
+                                        P10 = lvlValues.Length > 0 ? lvlValues.Quantile(0.10) : double.NaN,
+                                        P25 = lvlValues.Length > 0 ? lvlValues.Quantile(0.25) : double.NaN,
+                                        Median = lvlValues.Length > 0 ? lvlValues.Quantile(0.50) : double.NaN,
+                                        P75 = lvlValues.Length > 0 ? lvlValues.Quantile(0.75) : double.NaN,
+                                        P90 = lvlValues.Length > 0 ? lvlValues.Quantile(0.90) : double.NaN
+                                    };
+                                });
 
                         return new Models.Reports.Html.StackComparisonItem
                         {
                             StackId = g.Key.Id,
                             Name = g.Key.Name,
                             Label = g.Key.Name,
-                            Count = count,
-                            P10 = p10,
-                            P25 = p25,
-                            Median = median,
-                            P75 = p75,
-                            P90 = p90
+                            Count = totalCount,
+                            P10 = values.Length > 0 ? values.Quantile(0.10) : double.NaN,
+                            P25 = values.Length > 0 ? values.Quantile(0.25) : double.NaN,
+                            Median = values.Length > 0 ? values.Quantile(0.50) : double.NaN,
+                            P75 = values.Length > 0 ? values.Quantile(0.75) : double.NaN,
+                            P90 = values.Length > 0 ? values.Quantile(0.90) : double.NaN,
+                            PerLevel = perLevel
                         };
                     })
                     .OrderByDescending(x => x.Median)

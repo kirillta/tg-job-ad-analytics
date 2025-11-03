@@ -38,6 +38,7 @@
                     <label class="text-sm text-gray-600">{{ l.ui.stack_comparison.level_label }}</label>
                     <select id="level-filter" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
                         <option value="">{{ l.variant.all }}</option>
+                        <option value="Unknown">{{ l.level.unknown }}</option>
                         <option value="Intern">{{ l.level.intern }}</option>
                         <option value="Junior">{{ l.level.junior }}</option>
                         <option value="Middle">{{ l.level.middle }}</option>

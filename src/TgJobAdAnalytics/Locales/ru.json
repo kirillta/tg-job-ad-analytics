@@ -29,6 +29,7 @@
   "ui.chart.stack_label": "Стек",
   "ui.chart.all_stacks": "Все стеки",
   "variant.all": "Все",
+  "level.unknown": "Неизвестный",
   "level.intern": "Стажёр",
   "level.junior": "Джуниор",
   "level.middle": "Мидл",

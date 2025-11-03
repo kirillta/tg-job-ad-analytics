@@ -29,6 +29,7 @@
   "ui.chart.stack_label": "Tecnología",
   "ui.chart.all_stacks": "Todas",
   "variant.all": "Todos",
+  "level.unknown": "Desconocido",
   "level.intern": "Prácticas",
   "level.junior": "Junior",
   "level.middle": "Middle",

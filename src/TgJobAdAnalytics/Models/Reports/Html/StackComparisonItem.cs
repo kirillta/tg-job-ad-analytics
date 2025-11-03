@@ -49,4 +49,9 @@ public sealed class StackComparisonItem
     /// Gets or sets the 90th percentile of normalized salary values for this stack.
     /// </summary>
     public double P90 { get; set; }
+
+    /// <summary>
+    /// Gets or sets per-position (level) statistics for this stack keyed by level name (e.g. "Junior").
+    /// </summary>
+    public Dictionary<string, StackLevelStats> PerLevel { get; set; } = new();
 }

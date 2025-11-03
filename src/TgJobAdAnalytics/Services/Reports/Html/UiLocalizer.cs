@@ -82,6 +82,7 @@ public sealed class UiLocalizer
 
     private static readonly string[] _levelKeys =
     [
+        "level.unknown",
         "level.intern",
         "level.junior",
         "level.middle",
