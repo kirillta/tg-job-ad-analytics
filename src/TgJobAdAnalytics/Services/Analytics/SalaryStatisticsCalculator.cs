@@ -13,8 +13,9 @@ public sealed class SalaryStatisticsCalculator
     /// </summary>
     public static ReportGroup GenerateAll(List<SalaryEntity> salaries)
     {
-        var filtered = SalaryStatisticsCore.RemoveOutliers(salaries).ToList();
-        var yearly = SalaryStatisticsCore.ComputeYearly(filtered, includePerLevel: true);
+        var globalFiltered = SalaryStatisticsCore.RemoveOutliers(salaries).ToList();
+        var perLevelFiltered = SalaryStatisticsCore.RemoveOutliersByLevel(salaries).ToList();
+        var yearly = SalaryStatisticsCore.ComputeYearly(globalFiltered, perLevelFiltered, includePerLevel: true);
 
         var reports = new List<Report>
         {

@@ -33,17 +33,19 @@ public sealed class StackAwareStatisticsCalculator
             select new SalaryWithStack { Salary = s, StackId = a.StackId };
 
         var salariesWithStack = salariesQuery.AsNoTracking().ToList();
+        var allSalaries = salariesWithStack.Select(x => x.Salary).ToList();
 
-        var filteredSalaries = SalaryStatisticsCore.RemoveOutliers([.. salariesWithStack.Select(x => x.Salary)]).ToList();
-        var filteredIds = filteredSalaries.Select(s => s.Id).ToHashSet();
+        var globalFilteredSalaries = SalaryStatisticsCore.RemoveOutliers([.. allSalaries]).ToList();
+        var perLevelFilteredSalaries = SalaryStatisticsCore.RemoveOutliersByLevel([.. allSalaries]).ToList();
+        var perLevelFilteredIds = perLevelFilteredSalaries.Select(s => s.Id).ToHashSet();
         var filteredSalariesWithStack = salariesWithStack
-            .Where(s => filteredIds.Contains(s.Salary.Id))
+            .Where(s => perLevelFilteredIds.Contains(s.Salary.Id))
             .ToList();
 
-        var global = CalculateGlobalStatistics(filteredSalaries);
+        var global = CalculateGlobalStatistics(perLevelFilteredSalaries);
         var byStack = CalculatePerStackStatistics(filteredSalariesWithStack);
         var stacksSummary = CalculateStacksSummary(salariesWithStack);
-        var yearlyStats = BuildYearly(filteredSalaries, includePerLevel: true);
+        var yearlyStats = BuildYearly(globalFilteredSalaries, perLevelFilteredSalaries, includePerLevel: true);
         var yearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack);
 
         return new MultiSeriesSalaryStatistics
@@ -163,7 +165,10 @@ public sealed class StackAwareStatisticsCalculator
             if (stackSalaries.Count == 0)
                 continue;
 
-            var stats = SalaryStatisticsCore.ComputeYearly(stackSalaries, includePerLevel: true);
+            var globalFilteredStackSalaries = SalaryStatisticsCore.RemoveOutliers(stackSalaries).ToList();
+            var perLevelFilteredStackSalaries = SalaryStatisticsCore.RemoveOutliersByLevel(stackSalaries).ToList();
+
+            var stats = SalaryStatisticsCore.ComputeYearly(globalFilteredStackSalaries, perLevelFilteredStackSalaries, includePerLevel: true);
             var yearly = new YearlySalaryStatistics
             {
                 MinimumByYear = stats.MinimumByYear,
@@ -187,9 +192,9 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private static YearlySalaryStatistics BuildYearly(List<Data.Salaries.SalaryEntity> salaries, bool includePerLevel)
+    private static YearlySalaryStatistics BuildYearly(List<Data.Salaries.SalaryEntity> unfilteredSalaries, List<Data.Salaries.SalaryEntity> filteredSalaries, bool includePerLevel)
     {
-        var stats = SalaryStatisticsCore.ComputeYearly(salaries, includePerLevel: includePerLevel);
+        var stats = SalaryStatisticsCore.ComputeYearly(unfilteredSalaries, filteredSalaries, includePerLevel: includePerLevel);
         return new YearlySalaryStatistics
         {
             MinimumByYear = stats.MinimumByYear,
