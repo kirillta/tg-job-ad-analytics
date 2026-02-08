@@ -107,7 +107,8 @@ public sealed partial class SalaryExtractionProcessor
                         return;
                     }
 
-                    _logger.LogError(ex, "Failed to process ad {AdId}. Rate limit error: {IsRateLimit}", ad.Id, isRateLimitError);
+                    if(!isRateLimitError)
+                        _logger.LogError(ex, "Failed to process ad {AdId}.", ad.Id);
 
                     if (isRateLimitError && TryParseRetryAfter(ex, out var retryAfter))
                         rateLimiter.RecordRetryAfter(delay: retryAfter);
