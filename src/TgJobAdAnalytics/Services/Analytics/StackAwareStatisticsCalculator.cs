@@ -27,43 +27,13 @@ public sealed class StackAwareStatisticsCalculator
         var startDateOnly = DateOnly.FromDateTime(startDate);
         var endDateOnly = DateOnly.FromDateTime(endDate);
 
-        var salariesQuery = from s in _dbContext.Salaries
-            join a in _dbContext.Ads on s.AdId equals a.Id
-            where s.Date >= startDateOnly && s.Date <= endDateOnly
-            select new SalaryWithStack { Salary = s, StackId = a.StackId };
-
-        var salariesWithStack = salariesQuery.AsNoTracking().ToList();
-        var allSalaries = salariesWithStack.Select(x => x.Salary).ToList();
-
-        var globalFilteredSalaries = SalaryStatisticsCore.RemoveOutliers([.. allSalaries]).ToList();
-        var perLevelFilteredSalaries = SalaryStatisticsCore.RemoveOutliersByLevel([.. allSalaries]).ToList();
-        var perLevelFilteredIds = perLevelFilteredSalaries.Select(s => s.Id).ToHashSet();
-        var filteredSalariesWithStack = salariesWithStack
-            .Where(s => perLevelFilteredIds.Contains(s.Salary.Id))
+        var salariesWithStack = _dbContext.Salaries
+            .Join(_dbContext.Ads, s => s.AdId, a => a.Id, (s, a) => new SalaryWithStack(s, a.StackId))
+            .Where(x => x.Salary.Date >= startDateOnly && x.Salary.Date <= endDateOnly)
+            .AsNoTracking()
             .ToList();
 
-        var global = CalculateGlobalStatistics(perLevelFilteredSalaries);
-        var byStack = CalculatePerStackStatistics(filteredSalariesWithStack);
-        var stacksSummary = CalculateStacksSummary(salariesWithStack);
-        var yearlyStats = BuildYearly(globalFilteredSalaries, perLevelFilteredSalaries, includePerLevel: true);
-        var yearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack);
-
-        return new MultiSeriesSalaryStatistics
-        {
-            Global = global,
-            ByStack = byStack,
-            YearlyStats = yearlyStats,
-            YearlyByStack = yearlyByStack,
-            Metadata = new StatisticsMetadata
-            {
-                GeneratedAt = DateTime.UtcNow,
-                DateRangeFrom = startDate,
-                DateRangeTo = endDate,
-                TotalJobs = salariesWithStack.Count,
-                StackCount = byStack.Count
-            },
-            Stacks = stacksSummary
-        };
+        return BuildStatistics(salariesWithStack, startDate, endDate);
     }
 
 
@@ -81,9 +51,15 @@ public sealed class StackAwareStatisticsCalculator
 
         var salariesWithStack = preloaded
             .Where(r => r.Salary.Date >= startDateOnly && r.Salary.Date <= endDateOnly)
-            .Select(r => new SalaryWithStack { Salary = r.Salary, StackId = r.StackId })
+            .Select(r => new SalaryWithStack(r.Salary, r.StackId))
             .ToList();
 
+        return BuildStatistics(salariesWithStack, startDate, endDate);
+    }
+
+
+    private MultiSeriesSalaryStatistics BuildStatistics(List<SalaryWithStack> salariesWithStack, in DateTime startDate, in DateTime endDate)
+    {
         var allSalaries = salariesWithStack.Select(x => x.Salary).ToList();
 
         var globalFilteredSalaries = SalaryStatisticsCore.RemoveOutliers([.. allSalaries]).ToList();
@@ -93,18 +69,14 @@ public sealed class StackAwareStatisticsCalculator
             .Where(s => perLevelFilteredIds.Contains(s.Salary.Id))
             .ToList();
 
-        var global = CalculateGlobalStatistics(perLevelFilteredSalaries);
         var byStack = CalculatePerStackStatistics(filteredSalariesWithStack);
-        var stacksSummary = CalculateStacksSummary(salariesWithStack);
-        var yearlyStats = BuildYearly(globalFilteredSalaries, perLevelFilteredSalaries, includePerLevel: true);
-        var yearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack);
 
         return new MultiSeriesSalaryStatistics
         {
-            Global = global,
+            Global = CalculateGlobalStatistics(perLevelFilteredSalaries),
             ByStack = byStack,
-            YearlyStats = yearlyStats,
-            YearlyByStack = yearlyByStack,
+            YearlyStats = ToYearlySalaryStatistics(SalaryStatisticsCore.ComputeYearly(globalFilteredSalaries, perLevelFilteredSalaries, includePerLevel: true)),
+            YearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack),
             Metadata = new StatisticsMetadata
             {
                 GeneratedAt = DateTime.UtcNow,
@@ -113,49 +85,25 @@ public sealed class StackAwareStatisticsCalculator
                 TotalJobs = salariesWithStack.Count,
                 StackCount = byStack.Count
             },
-            Stacks = stacksSummary
+            Stacks = CalculateStacksSummary(salariesWithStack)
         };
     }
 
 
-    private static GlobalSalaryStatistics CalculateGlobalStatistics(List<Data.Salaries.SalaryEntity> salaries)
-    {
-        var distribution = CalculateDistribution(salaries);
-        var aggregates = CalculateAggregates(salaries);
-
-        return new GlobalSalaryStatistics
+    private static GlobalSalaryStatistics CalculateGlobalStatistics(List<Data.Salaries.SalaryEntity> salaries) 
+        => new()
         {
-            Distribution = distribution,
-            Aggregates = aggregates
+            Distribution = CalculateDistribution(salaries),
+            Aggregates = CalculateAggregates(salaries)
         };
-    }
 
 
     private Dictionary<string, StackSalaryStatistics> CalculatePerStackStatistics(List<SalaryWithStack> salariesWithStack)
     {
-        var stacksQuery = from item in salariesWithStack
-            where item.StackId != null
-            group item by item.StackId into g
-            select new
-            {
-                StackId = g.Key!.Value,
-                Count = g.Count()
-            };
-
-        var topStacks = stacksQuery
-            .OrderByDescending(x => x.Count)
-            .Where(x => x.Count >= _stackFilteringConfig.MinimumJobCount)
-            .Take(_stackFilteringConfig.TopStacksLimit)
-            .Select(x => x.StackId)
-            .ToHashSet();
-
-        var stackNameMap = _dbContext.TechnologyStacks
-            .Where(ts => topStacks.Contains(ts.Id))
-            .ToDictionary(ts => ts.Id, ts => ts.Name);
-
+        var (topStackIds, stackNameMap) = ResolveTopStacks(salariesWithStack);
         var result = new Dictionary<string, StackSalaryStatistics>();
 
-        foreach (var stackId in topStacks)
+        foreach (var stackId in topStackIds)
         {
             var stackSalaries = salariesWithStack
                 .Where(x => x.StackId == stackId)
@@ -165,16 +113,12 @@ public sealed class StackAwareStatisticsCalculator
             if (stackSalaries.Count == 0)
                 continue;
 
-            if (!stackNameMap.TryGetValue(stackId, out var stackName))
-                stackName = "Unknown";
-
-            var distribution = CalculateDistribution(stackSalaries);
-            var aggregates = CalculateAggregates(stackSalaries);
+            var stackName = stackNameMap.GetValueOrDefault(stackId, "Unknown");
 
             result[stackName] = new StackSalaryStatistics
             {
-                Distribution = distribution,
-                Aggregates = aggregates
+                Distribution = CalculateDistribution(stackSalaries),
+                Aggregates = CalculateAggregates(stackSalaries)
             };
         }
 
@@ -184,29 +128,10 @@ public sealed class StackAwareStatisticsCalculator
 
     private Dictionary<string, YearlySalaryStatistics> CalculateYearlyByStack(List<SalaryWithStack> salariesWithStack)
     {
-        var stacksQuery = from item in salariesWithStack
-            where item.StackId != null
-            group item by item.StackId into g
-            select new
-            {
-                StackId = g.Key!.Value,
-                Count = g.Count()
-            };
-
-        var topStacks = stacksQuery
-            .OrderByDescending(x => x.Count)
-            .Where(x => x.Count >= _stackFilteringConfig.MinimumJobCount)
-            .Take(_stackFilteringConfig.TopStacksLimit)
-            .Select(x => x.StackId)
-            .ToList();
-
-        var stackNameMap = _dbContext.TechnologyStacks
-            .Where(ts => topStacks.Contains(ts.Id))
-            .ToDictionary(ts => ts.Id, ts => ts.Name);
-
+        var (topStackIds, stackNameMap) = ResolveTopStacks(salariesWithStack);
         var result = new Dictionary<string, YearlySalaryStatistics>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var stackId in topStacks)
+        foreach (var stackId in topStackIds)
         {
             var stackSalaries = salariesWithStack
                 .Where(x => x.StackId == stackId)
@@ -216,36 +141,67 @@ public sealed class StackAwareStatisticsCalculator
             if (stackSalaries.Count == 0)
                 continue;
 
-            var globalFilteredStackSalaries = SalaryStatisticsCore.RemoveOutliers(stackSalaries).ToList();
-            var perLevelFilteredStackSalaries = SalaryStatisticsCore.RemoveOutliersByLevel(stackSalaries).ToList();
+            var globalFiltered = SalaryStatisticsCore.RemoveOutliers(stackSalaries).ToList();
+            var perLevelFiltered = SalaryStatisticsCore.RemoveOutliersByLevel(stackSalaries).ToList();
+            var coreStats = SalaryStatisticsCore.ComputeYearly(globalFiltered, perLevelFiltered, includePerLevel: true);
 
-            var stats = SalaryStatisticsCore.ComputeYearly(globalFilteredStackSalaries, perLevelFilteredStackSalaries, includePerLevel: true);
-            var yearly = new YearlySalaryStatistics
-            {
-                MinimumByYear = stats.MinimumByYear,
-                MaximumByYear = stats.MaximumByYear,
-                AverageByYear = stats.AverageByYear,
-                MedianByYear = stats.MedianByYear,
-                ByLevel = stats.ByLevel.ToDictionary(kv => kv.Key, kv => new LevelYearlyStatistics
-                {
-                    MinimumByYear = kv.Value.MinimumByYear,
-                    MaximumByYear = kv.Value.MaximumByYear,
-                    AverageByYear = kv.Value.AverageByYear,
-                    MedianByYear = kv.Value.MedianByYear
-                })
-            };
-
-            var name = stackNameMap.TryGetValue(stackId, out var n) ? n : "Unknown";
-            result[name] = yearly;
+            var name = stackNameMap.GetValueOrDefault(stackId, "Unknown");
+            result[name] = ToYearlySalaryStatistics(coreStats);
         }
 
         return result;
     }
 
 
-    private static YearlySalaryStatistics BuildYearly(List<Data.Salaries.SalaryEntity> unfilteredSalaries, List<Data.Salaries.SalaryEntity> filteredSalaries, bool includePerLevel)
+    private List<StackSummary> CalculateStacksSummary(List<SalaryWithStack> salariesWithStack)
     {
-        var stats = SalaryStatisticsCore.ComputeYearly(unfilteredSalaries, filteredSalaries, includePerLevel: includePerLevel);
+        var totalCount = salariesWithStack.Count;
+        var (_, stackNameMap, stackCounts) = ResolveTopStacksWithCounts(salariesWithStack);
+
+        return [.. stackCounts.Select(pair =>
+        {
+            var stackName = stackNameMap.GetValueOrDefault(pair.Key, "Unknown");
+            return new StackSummary
+            {
+                Id = stackName,
+                Name = stackName,
+                JobCount = pair.Value,
+                Percentage = totalCount > 0 ? (double)pair.Value / totalCount * 100 : 0
+            };
+        })];
+    }
+
+
+    private (HashSet<Guid> TopStackIds, Dictionary<Guid, string> StackNameMap) ResolveTopStacks(List<SalaryWithStack> salariesWithStack)
+    {
+        var (topStackIds, stackNameMap, _) = ResolveTopStacksWithCounts(salariesWithStack);
+        return (topStackIds, stackNameMap);
+    }
+
+
+    private (HashSet<Guid> TopStackIds, Dictionary<Guid, string> StackNameMap, List<KeyValuePair<Guid, int>> StackCounts) ResolveTopStacksWithCounts(List<SalaryWithStack> salariesWithStack)
+    {
+        var stackCounts = salariesWithStack
+            .Where(x => x.StackId != null)
+            .GroupBy(x => x.StackId!.Value)
+            .Select(g => new KeyValuePair<Guid, int>(g.Key, g.Count()))
+            .OrderByDescending(x => x.Value)
+            .Where(x => x.Value >= _stackFilteringConfig.MinimumJobCount)
+            .Take(_stackFilteringConfig.TopStacksLimit)
+            .ToList();
+
+        var topStackIds = stackCounts.Select(x => x.Key).ToHashSet();
+
+        var stackNameMap = _dbContext.TechnologyStacks
+            .Where(ts => topStackIds.Contains(ts.Id))
+            .ToDictionary(ts => ts.Id, ts => ts.Name);
+
+        return (topStackIds, stackNameMap, stackCounts);
+    }
+
+
+    private static YearlySalaryStatistics ToYearlySalaryStatistics(SalaryStatisticsCore.YearlyCoreStats stats)
+    {
         return new YearlySalaryStatistics
         {
             MinimumByYear = stats.MinimumByYear,
@@ -260,45 +216,6 @@ public sealed class StackAwareStatisticsCalculator
                 MedianByYear = kv.Value.MedianByYear
             })
         };
-    }
-
-
-    private List<StackSummary> CalculateStacksSummary(List<SalaryWithStack> salariesWithStack)
-    {
-        var totalCount = salariesWithStack.Count;
-        var stackGroups = from item in salariesWithStack
-            where item.StackId != null
-            group item by item.StackId into g
-            select new
-            {
-                StackId = g.Key!.Value,
-                Count = g.Count()
-            };
-
-        var topStacks = stackGroups
-            .OrderByDescending(x => x.Count)
-            .Where(x => x.Count >= _stackFilteringConfig.MinimumJobCount)
-            .Take(_stackFilteringConfig.TopStacksLimit)
-            .ToList();
-
-        var stackIds = topStacks.Select(x => x.StackId).ToList();
-        var stackNameMap = _dbContext.TechnologyStacks
-            .Where(ts => stackIds.Contains(ts.Id))
-            .ToDictionary(ts => ts.Id, ts => ts.Name);
-
-        return [.. topStacks.Select(s =>
-        {
-            if (!stackNameMap.TryGetValue(s.StackId, out var stackName))
-                stackName = "Unknown";
-
-            return new StackSummary
-            {
-                Id = stackName,
-                Name = stackName,
-                JobCount = s.Count,
-                Percentage = totalCount > 0 ? (double)s.Count / totalCount * 100 : 0
-            };
-        })];
     }
 
 
@@ -371,12 +288,7 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
-    private sealed class SalaryWithStack
-    {
-        public Data.Salaries.SalaryEntity Salary { get; set; } = null!;
-        public Guid? StackId { get; set; }
-    }
-
+    private sealed record SalaryWithStack(Data.Salaries.SalaryEntity Salary, Guid? StackId);
 
     private readonly ApplicationDbContext _dbContext;
     private readonly StackFilteringConfiguration _stackFilteringConfig;
