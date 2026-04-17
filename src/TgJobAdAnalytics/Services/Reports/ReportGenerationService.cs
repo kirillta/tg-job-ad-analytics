@@ -32,9 +32,14 @@ public class ReportGenerationService
             .Where(s => s.Date < firstDayOfCurrentMonth)
             .ToList();
 
+        var adStackMapping = _dbContext.Ads
+            .Where(a => a.StackId != null)
+            .Join(_dbContext.TechnologyStacks, a => a.StackId, ts => ts.Id, (a, ts) => new { a.Id, ts.Name })
+            .ToDictionary(x => x.Id, x => x.Name);
+
         return
         [
-            AdStatsCalculator.GenerateAll(salaries),
+            AdStatsCalculator.GenerateAll(salaries, adStackMapping),
             SalaryStatisticsCalculator.GenerateAll(salaries)
         ];
     }

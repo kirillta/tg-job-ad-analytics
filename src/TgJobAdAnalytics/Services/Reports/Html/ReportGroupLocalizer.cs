@@ -39,7 +39,10 @@ public sealed class ReportGroupLocalizer
                             label: localizedTitle + " — " + localizedVariantKey,
                             data: origDataset.Data,
                             backgroundColor: origDataset.BackgroundColor,
-                            borderColor: origDataset.BorderColor
+                            borderColor: origDataset.BorderColor,
+                            tension: origDataset.Tension,
+                            typeOverride: origDataset.TypeOverride,
+                            yAxisId: origDataset.YAxisId
                         );
                         var localizedVariantDataModel = new ChartModel.DataModel(localizedVariantLabels, localizedVariantDataset);
 
@@ -60,8 +63,11 @@ public sealed class ReportGroupLocalizer
                         label: localizedTitle,
                         data: orig.Data,
                         backgroundColor: orig.BackgroundColor,
-                        borderColor: orig.BorderColor);
-                    var localizedData = new ChartModel.DataModel(localizedLabels, localizedDataset);
+                        borderColor: orig.BorderColor,
+                        tension: orig.Tension,
+                        typeOverride: orig.TypeOverride,
+                        yAxisId: orig.YAxisId);
+                    var localizedData = new ChartModel.DataModel(localizedLabels, localizedDataset, chart.Data.AdditionalDatasets);
 
                     localizedChart = new ChartModel(chart.Id, chart.Type, localizedData);
                 }

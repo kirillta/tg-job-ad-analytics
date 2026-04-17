@@ -22,27 +22,33 @@ public readonly record struct ChartModel
 
     public readonly record struct DataModel
     {
-        public DataModel(List<string> labels, DatasetModel dataset)
+        public DataModel(List<string> labels, DatasetModel dataset, List<DatasetModel>? additionalDatasets = null)
         {
             Labels = labels;
             Dataset = dataset;
+            AdditionalDatasets = additionalDatasets ?? [];
         }
 
 
         public List<string> Labels { get; }
 
         public DatasetModel Dataset { get; }
+
+        public List<DatasetModel> AdditionalDatasets { get; }
     }
 
 
     public readonly record struct DatasetModel
     {
-        public DatasetModel(string label, List<string> data, List<string> backgroundColor, List<string> borderColor)
+        public DatasetModel(string label, List<string> data, List<string> backgroundColor, List<string> borderColor, double tension = 0.1, string? typeOverride = null, string? yAxisId = null)
         {
             BackgroundColor = backgroundColor;
             BorderColor = borderColor;
             Data = data;
             Label = label;
+            Tension = tension;
+            TypeOverride = typeOverride;
+            YAxisId = yAxisId;
         }
 
 
@@ -58,6 +64,10 @@ public readonly record struct ChartModel
 
         public string Label { get; }
 
-        public double Tension { get; } = 0.1;
+        public double Tension { get; }
+
+        public string? TypeOverride { get; }
+
+        public string? YAxisId { get; }
     }
 }

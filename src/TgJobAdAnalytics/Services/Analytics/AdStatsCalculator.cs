@@ -14,12 +14,13 @@ public sealed class AdStatsCalculator
     /// (top months, monthly distribution, yearly counts, etc.).
     /// </summary>
     /// <param name="salaries">Collection of salary entities extracted from advertisements.</param>
+    /// <param name="adStackMapping">Mapping of ad identifiers to their technology stack names.</param>
     /// <returns>A <see cref="ReportGroup"/> containing the computed advertisement statistics reports.</returns>
-    public static ReportGroup GenerateAll(List<SalaryEntity> salaries)
+    public static ReportGroup GenerateAll(List<SalaryEntity> salaries, Dictionary<Guid, string> adStackMapping)
     {
         var reports = new List<Report>
         {
-            GetNumberOfAdsByYearAndMonth(salaries),
+            GetNumberOfAdsByYearAndMonth(salaries, adStackMapping),
             GetTopMonthsByAdCount(salaries),
             GetMonthlyAdCounts(salaries),
             GetYearlyAdCounts(salaries),
@@ -47,35 +48,45 @@ public sealed class AdStatsCalculator
     }
 
 
-    private static Report GetNumberOfAdsByYearAndMonth(List<SalaryEntity> salaries)
+    private static Report GetNumberOfAdsByYearAndMonth(List<SalaryEntity> salaries, Dictionary<Guid, string> adStackMapping)
     {
-        var results = salaries
-            .GroupBy(salary => salary.Date.Year)
+        var baseResults = GetMonthlyCountsFromSalaries(salaries);
+
+        var seriesOverlays = adStackMapping.Values
+            .Distinct()
+            .OrderBy(s => s)
+            .Select(stackName => new
+            {
+                StackName = stackName,
+                AdIds = adStackMapping.Where(kv => kv.Value == stackName).Select(kv => kv.Key).ToHashSet()
+            })
+            .Select(x => new
+            {
+                x.StackName,
+                Counts = GetMonthlyCountsFromSalaries(salaries.Where(s => x.AdIds.Contains(s.AdId)).ToList())
+            })
+            .Where(x => x.Counts.Count > 0)
+            .ToDictionary(x => x.StackName, x => x.Counts);
+
+        return new Report("report.ads.monthly_by_year", baseResults, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
+    }
+
+
+    private static Dictionary<string, double> GetMonthlyCountsFromSalaries(List<SalaryEntity> salaries)
+        => salaries
+            .GroupBy(s => s.Date.Year)
             .Select(yearGroup => new
             {
                 AdsByMonth = yearGroup
-                    .GroupBy(group => group.Date.Month)
-                    .Select(group => new
-                    {
-                        group.Key,
-                        Count = group.Count(),
-                        Year = yearGroup.Key,
-                    })
-                    .OrderBy(group => group.Key)
-                    .ToDictionary(group => group.Key, group => new
-                    {
-                        group.Count,
-                        Month = group.Key,
-                        group.Year,
-                    })
+                    .GroupBy(g => g.Date.Month)
+                    .Select(g => new { g.Key, Count = g.Count(), Year = yearGroup.Key })
+                    .OrderBy(g => g.Key)
+                    .ToDictionary(g => g.Key, g => new { g.Count, Month = g.Key, g.Year })
             })
-            .SelectMany(group => group.AdsByMonth)
-            .OrderBy(group => group.Value.Year)
-            .ThenBy(group => group.Value.Month)
-            .ToDictionary(pair => pair.Value.Year + " " + pair.Value.Month.ToString("00"), pair => (double) pair.Value.Count); // key: "YYYY MM"
-
-        return new Report("report.ads.monthly_by_year", results);
-    }
+            .SelectMany(x => x.AdsByMonth)
+            .OrderBy(x => x.Value.Year)
+            .ThenBy(x => x.Value.Month)
+            .ToDictionary(pair => pair.Value.Year + " " + pair.Value.Month.ToString("00"), pair => (double) pair.Value.Count);
 
 
     private static Report GetMonthlyAdCounts(List<SalaryEntity> salaries)

@@ -20,9 +20,16 @@
         if(!base) return;
         var padded = padYearSeries(base.labels, base.dataset.data);
         base.labels = padded.labels; base.dataset.data = padded.data;
+        var additionalDatasets = (base.additionalDatasets && base.additionalDatasets.length) ? base.additionalDatasets : [];
         var yAxis = computeYAxis(base.dataset.data);
+        var hasSecondAxis = additionalDatasets.some(function(ds){ return ds.yAxisID === 'y1'; });
+        var y1Axis = hasSecondAxis ? computeYAxis(additionalDatasets.filter(function(ds){ return ds.yAxisID==='y1'; }).reduce(function(a,ds){ return a.concat(ds.data||[]); },[])) : null;
+        var scalesConf = { x: { type:'category', offset:true, ticks:{display:false}, grid:{drawBorder:false} }, y: { beginAtZero:true, suggestedMax: yAxis.max, ticks:{display:false}, grid:{drawBorder:false} } };
+        if (y1Axis) scalesConf.y1 = { position:'right', beginAtZero:true, suggestedMax: 1, ticks:{display:false}, grid:{drawOnChartArea:false,drawBorder:false} };
         var ctx = canvas.getContext('2d');
-        var chart = new Chart(ctx, { type: container.getAttribute('data-chart-type') || 'bar', data: { labels: base.labels, datasets: [{ label: base.dataset.label, data: base.dataset.data, backgroundColor: base.dataset.backgroundColor, borderColor: base.dataset.borderColor, borderWidth: base.dataset.borderWidth, fill: base.dataset.fill, tension: base.dataset.tension }] }, options: { maintainAspectRatio: true, responsive: true, plugins: { legend: { labels: { boxWidth:12, boxHeight:12 } }, tooltip: { callbacks: { title: function(items){ return items && items.length ? String(items[0].label):''; }, label: function(context){ var idx=context.dataIndex; var raw=context.dataset && context.dataset.data ? context.dataset.data[idx] : context.raw; var value=(raw && typeof raw==='object' && 'y' in raw) ? raw.y : raw; var num=Number(value); return Number.isFinite(num)? new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(num) : String(value); } } } }, scales: { x: { type:'category', offset:true, ticks:{display:false}, grid:{drawBorder:false} }, y: { beginAtZero:true, suggestedMax: yAxis.max, ticks:{display:false}, grid:{drawBorder:false} } } } });
+        var datasets = [{ label: base.dataset.label, data: base.dataset.data, backgroundColor: base.dataset.backgroundColor, borderColor: base.dataset.borderColor, borderWidth: base.dataset.borderWidth, fill: base.dataset.fill, tension: base.dataset.tension }];
+        additionalDatasets.forEach(function(ds){ datasets.push({ label: ds.label, data: ds.data, backgroundColor: Array.isArray(ds.backgroundColor)?ds.backgroundColor[0]:ds.backgroundColor, borderColor: Array.isArray(ds.borderColor)?ds.borderColor[0]:ds.borderColor, borderWidth: ds.borderWidth, fill: ds.fill, tension: ds.tension, type: ds.type||undefined, yAxisID: ds.yAxisID||undefined }); });
+        var chart = new Chart(ctx, { type: container.getAttribute('data-chart-type') || 'bar', data: { labels: base.labels, datasets: datasets }, options: { maintainAspectRatio: true, responsive: true, plugins: { legend: { labels: { boxWidth:12, boxHeight:12 } }, tooltip: { callbacks: { title: function(items){ return items && items.length ? String(items[0].label):''; }, label: function(context){ var idx=context.dataIndex; var raw=context.dataset && context.dataset.data ? context.dataset.data[idx] : context.raw; var value=(raw && typeof raw==='object' && 'y' in raw) ? raw.y : raw; var num=Number(value); return Number.isFinite(num)? new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(num) : String(value); } } } }, scales: scalesConf } });
 
         var variants = parse(baseId + '-variants');
         var preferredLabel = parse(baseId + '-preferred-label');
@@ -83,6 +90,8 @@
             selector.addEventListener('change', function(){ applyVariant(this.value); });
         }
         if(hasStackData && stackSelector){ var stacks = (salaryData && salaryData.stacks)?salaryData.stacks:[]; stacks.forEach(function(stack){ var opt=document.createElement('option'); opt.value=stack.name; opt.text = stack.name + ' (' + stack.jobCount + ')'; stackSelector.appendChild(opt); }); stackSelector.addEventListener('change', function(){ currentStack=this.value; applyVariant(currentVariant|| (selector?selector.value:null)); }); }
+        var overlayStackSelector = document.getElementById(baseId + '-overlay-stack');
+        if(overlayStackSelector && additionalDatasets.length){ for(var i=0;i<additionalDatasets.length;i++){ chart.setDatasetVisibility(i+1, false); } chart.update(); overlayStackSelector.addEventListener('change', function(){ var chosen=this.value; for(var i=0;i<additionalDatasets.length;i++){ chart.setDatasetVisibility(i+1, chosen!==''&&additionalDatasets[i].label===chosen); } if(chart.options.scales.y1){ if(chosen){ var chosenData=additionalDatasets.filter(function(ds){ return ds.label===chosen; }).reduce(function(a,ds){ return a.concat(ds.data||[]); },[]); chart.options.scales.y1.max=computeYAxis(chosenData).max; chart.options.scales.y1.suggestedMax=undefined; } else { chart.options.scales.y1.max=undefined; chart.options.scales.y1.suggestedMax=1; } } chart.update(); }); }
         if(percentilesCheckbox){ percentilesCheckbox.addEventListener('change', function(){ /* placeholder for percentile toggle if needed */ }); }
     }
 

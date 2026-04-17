@@ -1,6 +1,7 @@
 <div class="max-w-full chart-container" data-chart-id="{{ report.chart.id_token }}" data-chart-type="{{ report.chart.type }}" data-metric-code="{{ report.code }}">
-    {{ if report.variants != null }}
+    {{ if report.variants != null || report.chart.data.additional_datasets.size > 0 }}
     <div class="mb-3 flex flex-wrap items-center gap-4 variant-controls" data-variant-root="{{ report.chart.id_token }}">
+        {{ if report.variants != null }}
         <div class="flex items-center gap-2">
             <label for="{{ report.chart.id_token }}-variant" class="text-sm text-gray-700">{{ l.ui.chart.position_label }}:</label>
             <select id="{{ report.chart.id_token }}-variant" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm variant-select"></select>
@@ -11,6 +12,18 @@
                 <option value="">{{ l.ui.chart.all_stacks }}</option>
             </select>
         </div>
+        {{ end }}
+        {{ if report.chart.data.additional_datasets.size > 0 }}
+        <div class="flex items-center gap-2">
+            <label for="{{ report.chart.id_token }}-overlay-stack" class="text-sm text-gray-700">{{ l.ui.chart.stack_label }}:</label>
+            <select id="{{ report.chart.id_token }}-overlay-stack" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm overlay-stack-select">
+                <option value="">{{ l.ui.chart.all_stacks }}</option>
+                {{ for ds in report.chart.data.additional_datasets }}
+                <option value="{{ ds.label }}">{{ ds.label }}</option>
+                {{ end }}
+            </select>
+        </div>
+        {{ end }}
     </div>
     {{ end }}
 
@@ -28,7 +41,8 @@
             "borderWidth": {{ report.chart.data.dataset.border_width }},
             "fill": {{ report.chart.data.dataset.fill }},
             "tension": {{ report.chart.data.dataset.tension }}
-        }
+        },
+        "additionalDatasets": [{{ for ds in report.chart.data.additional_datasets }}{{ if !for.first }},{{ end }}{"label": {{ dump ds.label }}, "data": {{ dump ds.data }}, "backgroundColor": {{ dump ds.background_color }}, "borderColor": {{ dump ds.border_color }}, "borderWidth": {{ ds.border_width }}, "fill": {{ ds.fill }}, "tension": {{ ds.tension }}, "type": {{ if ds.type_override != null }}{{ dump ds.type_override }}{{ else }}null{{ end }}, "yAxisID": {{ if ds.yaxis_id != null }}{{ dump ds.yaxis_id }}{{ else }}null{{ end }}}{{ end }}]
     }</script>
 
     {{ if report.variants != null }}

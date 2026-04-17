@@ -129,8 +129,9 @@ public sealed class HtmlReportExporter : IReportExporter
         if (report.Variants is not null && report.Variants.Count > 0)
         {
             variants = new Dictionary<string, ChartModel.DataModel>(StringComparer.OrdinalIgnoreCase);
+            var tension = report.Type == ChartType.Line ? 0.4 : 0.1;
             foreach (var (name, data) in report.Variants)
-                variants[name] = ChartBuilder.BuildData(label: report.Title + " — " + name, results: data);
+                variants[name] = ChartBuilder.BuildData(label: report.Title + " — " + name, results: data, tension: tension);
         }
 
         return new(report.Title, report.Title, results, chart, variants);

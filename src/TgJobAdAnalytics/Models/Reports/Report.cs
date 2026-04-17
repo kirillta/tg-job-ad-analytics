@@ -15,12 +15,14 @@ public readonly record struct Report
     /// <param name="results">Primary keyed numeric result set (e.g. category → value).</param>
     /// <param name="type">Preferred visualization style for the report.</param>
     /// <param name="variants">Optional nested variant result sets (e.g. scenario → (category → value)).</param>
-    public Report(string title, Dictionary<string, double> results, ChartType type = ChartType.Bar, Dictionary<string, Dictionary<string, double>>? variants = null)
+    /// <param name="seriesOverlays">Optional always-visible additional series rendered as lines over the primary chart.</param>
+    public Report(string title, Dictionary<string, double> results, ChartType type = ChartType.Bar, Dictionary<string, Dictionary<string, double>>? variants = null, Dictionary<string, Dictionary<string, double>>? seriesOverlays = null)
     {
         Results = results;
         Title = title;
         Type = type;
         Variants = variants;
+        SeriesOverlays = seriesOverlays;
     }
 
 
@@ -43,4 +45,9 @@ public readonly record struct Report
     /// Gets the optional variant datasets providing alternative or comparative result sets.
     /// </summary>
     public Dictionary<string, Dictionary<string, double>>? Variants { get; init; }
+
+    /// <summary>
+    /// Gets the optional always-visible overlay series rendered as lines over the primary chart.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, double>>? SeriesOverlays { get; init; }
 }
