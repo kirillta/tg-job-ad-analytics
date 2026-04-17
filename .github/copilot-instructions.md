@@ -1,16 +1,18 @@
 # Project Overview
 
-TgJobAdAnalytics is an analytics service for analyzing job advertisements from Telegram channels. The application extracts and processes job postings, detects salary information using pattern matching, normalizes currencies, and generates statistical reports. It identifies similar messages using locality-sensitive hashing to avoid duplicates and provides insights on salary trends over time.
+TgJobAdAnalytics is an analytics service for analyzing job advertisements from Telegram channels. The application imports and processes job postings, extracts salary information and position levels using OpenAI structured outputs (with regex-based fallbacks), normalizes currencies, and generates multi-locale statistical reports. It identifies similar messages using locality-sensitive hashing to avoid duplicates, compares salary trends across technology stacks, and provides insights on salary distributions over time.
 
 ## Technologies
-- ASP.NET Core for the application framework
+- .NET 9.0 console application with Microsoft.Extensions.Hosting (Generic Host)
 - Entity Framework Core with SQLite for data storage
+- OpenAI API for structured salary extraction and position level classification
 - MathNet.Numerics for statistical operations
-- Scriban for HTML templating
-- Regex pattern matching for salary detection
+- Scriban for multi-locale HTML report templating
+- Regex pattern matching for position level resolution
 - Xunit and NSubstitute for testing
-- Parallel processing for performance optimization
-- Mathematical models for outlier detection and similarity analysis
+- Parallel processing and adaptive rate limiting for performance optimization
+- Locality-sensitive hashing (MinHash) for duplicate detection and similarity analysis
+- Pipeline-based architecture for pluggable data processing steps
 
 # Code Style
 
