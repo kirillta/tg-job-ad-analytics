@@ -25,6 +25,7 @@ TgJobAdAnalytics is an analytics service for analyzing job advertisements from T
 - Ensure correct parameter names are used.
 - Ensure unused usings are removed.
 - Always use `DateTime.UtcNow` instead of `DateTime.Now`.
+- Always use fluent LINQ syntax (method chains) instead of query syntax (`from`/`select`/`join`).
 
 
 # Code Annotations And Comments
