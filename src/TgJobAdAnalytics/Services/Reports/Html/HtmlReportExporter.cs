@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Data;
@@ -153,9 +154,13 @@ public sealed class HtmlReportExporter : IReportExporter
         CopyStaticAssets(runRoot);
 
         var lastDayOfPreviousMonth = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddDays(-1);
-        var earliestSalaryDate = _dbContext.Salaries.Any() ? _dbContext.Salaries.Min(s => s.Date) : new DateOnly(DateTime.UtcNow.Year, 1, 1);
+        var masterSalaryData = LoadMasterSalaryData();
+        var earliestSalaryDate = masterSalaryData.Count > 0 ? masterSalaryData.Min(r => r.Salary.Date) : new DateOnly(DateTime.UtcNow.Year, 1, 1);
         var firstDayOfFirstYear = new DateOnly(earliestSalaryDate.Year, 1, 1);
-        var multiSeriesStats = _stackAwareStatisticsCalculator.CalculateStatistics(startDate: firstDayOfFirstYear.ToDateTime(TimeOnly.MinValue), endDate: lastDayOfPreviousMonth.ToDateTime(TimeOnly.MaxValue));
+        var multiSeriesStats = _stackAwareStatisticsCalculator.CalculateStatistics(preloaded: masterSalaryData, startDate: firstDayOfFirstYear.ToDateTime(TimeOnly.MinValue), endDate: lastDayOfPreviousMonth.ToDateTime(TimeOnly.MaxValue));
+
+        var lastMonth = StackComparisonDataBuilder.BuildLastClosedMonth(masterSalaryData);
+        var byYear = StackComparisonDataBuilder.BuildByYear(masterSalaryData);
 
         foreach (var locale in _siteMetadata.Locales)
         {
@@ -164,9 +169,6 @@ public sealed class HtmlReportExporter : IReportExporter
             var metadata = _metadataBuilder.Build(locale: locale, kpis: null, persistedPublishedUtc: persistedPublishedUtc, generatedUtc: generationTime);
             var localizationDict = _uiLocalizer.BuildLocalizationDictionary(locale);
             localizationDict["_dump"] = JsonSerializer.Serialize(localizationDict, _jsonOptions);
-
-            var lastMonth = _stackComparisonBuilder.BuildLastClosedMonth();
-            var byYear = _stackComparisonBuilder.BuildByYear();
 
             var reportModel = ReportModelBuilder.Build(localizedGroups, dataSources, metadata, lastMonth, localizationDict);
             localizationDict["stack_comparison_years"] = byYear;
@@ -179,6 +181,17 @@ public sealed class HtmlReportExporter : IReportExporter
             WriteToFile(html, locale, runRoot);
             PersistPublishedTimestamp(locale, metadata.PublishedUtc);
         }
+    }
+
+
+    private List<SalaryStackRecord> LoadMasterSalaryData()
+    {
+        return _dbContext.Salaries
+            .AsNoTracking()
+            .Join(_dbContext.Ads, s => s.AdId, a => a.Id, (s, a) => new { Salary = s, a.StackId })
+            .GroupJoin(_dbContext.TechnologyStacks, sa => sa.StackId, ts => ts.Id, (sa, tsGroup) => new { sa.Salary, sa.StackId, TsGroup = tsGroup })
+            .SelectMany(x => x.TsGroup.DefaultIfEmpty(), (x, ts) => new SalaryStackRecord(x.Salary, x.StackId, ts != null ? ts.Name : null))
+            .ToList();
     }
 
 

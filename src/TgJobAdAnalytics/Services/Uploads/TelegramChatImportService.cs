@@ -52,12 +52,12 @@ namespace TgJobAdAnalytics.Services.Uploads
         /// (skip, clean, incremental), persists new or updated chats/messages/ads, and deduplicates newly added ads.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public async Task ImportFromJson(CancellationToken cancellationToken)
+        public async Task<int> ImportFromJson(CancellationToken cancellationToken)
         {
             if (_options.Mode == UploadMode.Skip)
             {
                 _logger.LogInformation("Update skipped due to configuration settings");
-                return;
+                return 0;
             }
 
             if (_options.Mode == UploadMode.Clean)
@@ -99,6 +99,8 @@ namespace TgJobAdAnalytics.Services.Uploads
             {
                 _logger.LogInformation("No new ads added. Skipping deduplication.");
             }
+
+            return totalAddedAds;
 
 
             async Task<int> Process(string fileName)

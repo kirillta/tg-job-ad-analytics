@@ -56,8 +56,10 @@ public sealed class ProcessOrchestrator
 
     async Task ImportData(CancellationToken cancellationToken)
     {
-        await _telegramChatImportService.ImportFromJson(cancellationToken);
-        CleanupHeapAfterImport();
+        var addedAds = await _telegramChatImportService.ImportFromJson(cancellationToken);
+        if (addedAds > 0)
+            CleanupHeapAfterImport();
+            
         await _salaryExtractionProcessor.ExtractAndPersist(cancellationToken);
     }
 

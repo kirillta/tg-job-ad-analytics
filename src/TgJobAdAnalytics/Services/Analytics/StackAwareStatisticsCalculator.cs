@@ -67,6 +67,57 @@ public sealed class StackAwareStatisticsCalculator
     }
 
 
+    /// <summary>
+    /// Calculates salary statistics with global and per-stack breakdowns using pre-loaded data,
+    /// avoiding a redundant database round-trip when the caller already holds the full salary dataset.
+    /// </summary>
+    /// <param name="preloaded">Pre-loaded salary and stack records from a master query.</param>
+    /// <param name="startDate">Start of the date range to include.</param>
+    /// <param name="endDate">End of the date range to include.</param>
+    public MultiSeriesSalaryStatistics CalculateStatistics(List<SalaryStackRecord> preloaded, in DateTime startDate, in DateTime endDate)
+    {
+        var startDateOnly = DateOnly.FromDateTime(startDate);
+        var endDateOnly = DateOnly.FromDateTime(endDate);
+
+        var salariesWithStack = preloaded
+            .Where(r => r.Salary.Date >= startDateOnly && r.Salary.Date <= endDateOnly)
+            .Select(r => new SalaryWithStack { Salary = r.Salary, StackId = r.StackId })
+            .ToList();
+
+        var allSalaries = salariesWithStack.Select(x => x.Salary).ToList();
+
+        var globalFilteredSalaries = SalaryStatisticsCore.RemoveOutliers([.. allSalaries]).ToList();
+        var perLevelFilteredSalaries = SalaryStatisticsCore.RemoveOutliersByLevel([.. allSalaries]).ToList();
+        var perLevelFilteredIds = perLevelFilteredSalaries.Select(s => s.Id).ToHashSet();
+        var filteredSalariesWithStack = salariesWithStack
+            .Where(s => perLevelFilteredIds.Contains(s.Salary.Id))
+            .ToList();
+
+        var global = CalculateGlobalStatistics(perLevelFilteredSalaries);
+        var byStack = CalculatePerStackStatistics(filteredSalariesWithStack);
+        var stacksSummary = CalculateStacksSummary(salariesWithStack);
+        var yearlyStats = BuildYearly(globalFilteredSalaries, perLevelFilteredSalaries, includePerLevel: true);
+        var yearlyByStack = CalculateYearlyByStack(filteredSalariesWithStack);
+
+        return new MultiSeriesSalaryStatistics
+        {
+            Global = global,
+            ByStack = byStack,
+            YearlyStats = yearlyStats,
+            YearlyByStack = yearlyByStack,
+            Metadata = new StatisticsMetadata
+            {
+                GeneratedAt = DateTime.UtcNow,
+                DateRangeFrom = startDate,
+                DateRangeTo = endDate,
+                TotalJobs = salariesWithStack.Count,
+                StackCount = byStack.Count
+            },
+            Stacks = stacksSummary
+        };
+    }
+
+
     private static GlobalSalaryStatistics CalculateGlobalStatistics(List<Data.Salaries.SalaryEntity> salaries)
     {
         var distribution = CalculateDistribution(salaries);

@@ -55,6 +55,12 @@ public sealed partial class SalaryExtractionProcessor
     {
         using var linkedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
+        if (!_dbContext.Ads.Any(ad => !_dbContext.Salaries.Any(s => s.AdId == ad.Id)))
+        {
+            _logger.LogInformation("No ads without salaries. Skipping extraction.");
+            return;
+        }
+
         await _salaryPersistenceService.Initialize(linkedCancellationSource.Token);
 
         var channel = Channel.CreateBounded<SalaryEntity>(new BoundedChannelOptions(_openAiOptions.ProcessingChunkSize * 2)
