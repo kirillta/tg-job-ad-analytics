@@ -42,7 +42,9 @@ internal class TemplateRenderer
         var context = new TemplateContext
         {
             TemplateLoader = _loader,
-            EnableRelaxedMemberAccess = true
+            EnableRelaxedMemberAccess = true,
+            ObjectRecursionLimit = 100,
+            LimitToString = 0
         };
 
         var helpers = new ScriptObject();
