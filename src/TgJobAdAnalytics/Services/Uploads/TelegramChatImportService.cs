@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
@@ -24,6 +25,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         /// <param name="logger">Logger for diagnostic output.</param>
         /// <param name="dbContext">EF Core application database context.</param>
         /// <param name="options">Upload configuration options (mode, batch size, source path).</param>
+        /// <param name="scopeFactory">Factory used to create per-file DI scopes for isolated <see cref="ApplicationDbContext"/> instances.</param>
         /// <param name="telegramAdPersistenceService">Service used to persist advertisement entities.</param>
         /// <param name="telegramChatPersistenceService">Service used to persist chat metadata.</param>
         /// <param name="telegramMessagePersistenceService">Service used to persist raw messages and text entries.</param>
@@ -32,6 +34,7 @@ namespace TgJobAdAnalytics.Services.Uploads
             ILogger<TelegramChatImportService> logger,
             ApplicationDbContext dbContext,
             IOptions<UploadOptions> options,
+            IServiceScopeFactory scopeFactory,
             TelegramAdPersistenceService telegramAdPersistenceService,
             TelegramChatPersistenceService telegramChatPersistenceService,
             TelegramMessagePersistenceService telegramMessagePersistenceService,
@@ -39,6 +42,7 @@ namespace TgJobAdAnalytics.Services.Uploads
         {
             _dbContext = dbContext;
             _logger = logger;
+            _scopeFactory = scopeFactory;
             _telegramAdPersistenceService = telegramAdPersistenceService;
             _telegramChatPersistenceService = telegramChatPersistenceService;
             _telegramMessagePersistenceService = telegramMessagePersistenceService;
@@ -69,25 +73,29 @@ namespace TgJobAdAnalytics.Services.Uploads
             }
 
             var timeStamp = DateTime.UtcNow;
-            var fileNames = Directory.GetFiles(_options.SourcePath);
+            var jsonFiles = Directory.GetFiles(_options.SourcePath)
+                .Where(f => f.EndsWith(".json"))
+                .ToList();
+
             var totalAddedAds = 0;
-            foreach (string fileName in fileNames)
+            var parallelOptions = new ParallelOptions { CancellationToken = cancellationToken, MaxDegreeOfParallelism = Environment.ProcessorCount };
+            await Parallel.ForEachAsync(jsonFiles, parallelOptions, async (fileName, ct) =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (!fileName.EndsWith(".json"))
-                    continue;
-
                 var chatProcessingTime = Stopwatch.GetTimestamp();
                 var chatFileName = Path.GetFileName(fileName);
                 _logger.LogInformation("Processing file: {FileName}", chatFileName);
 
-                var addedAds = await Process(fileName);
-                totalAddedAds += addedAds;
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var adService = scope.ServiceProvider.GetRequiredService<TelegramAdPersistenceService>();
+                var chatService = scope.ServiceProvider.GetRequiredService<TelegramChatPersistenceService>();
+                var messageService = scope.ServiceProvider.GetRequiredService<TelegramMessagePersistenceService>();
+
+                var addedAds = await Process(fileName, adService, chatService, messageService, ct);
+                Interlocked.Add(ref totalAddedAds, addedAds);
 
                 _logger.LogInformation("File {FileName} processed in {ElapsedSeconds} seconds", chatFileName, Stopwatch.GetElapsedTime(chatProcessingTime).TotalSeconds);
-            }            
-        
+            });
+
             _logger.LogInformation("Chat processing completed");
 
             if (totalAddedAds > 0)
@@ -103,16 +111,21 @@ namespace TgJobAdAnalytics.Services.Uploads
             return totalAddedAds;
 
 
-            async Task<int> Process(string fileName)
-            { 
-                var chat = await ReadChatFromFile(fileName, cancellationToken);
-                var chatState = await _telegramChatPersistenceService.DetermineState(chat, cancellationToken);
+            async Task<int> Process(
+                string fileName,
+                TelegramAdPersistenceService adService,
+                TelegramChatPersistenceService chatService,
+                TelegramMessagePersistenceService messageService,
+                CancellationToken ct)
+            {
+                var chat = await ReadChatFromFile(fileName, ct);
+                var chatState = await chatService.DetermineState(chat, ct);
 
-                var addedMessages = await _telegramMessagePersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
-                var addedAds = await _telegramAdPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+                var addedMessages = await messageService.Upsert(chat, chatState, timeStamp, ct);
+                var addedAds = await adService.Upsert(chat, chatState, timeStamp, ct);
 
                 if (chatState == UploadedDataState.New || addedMessages > 0)
-                    await _telegramChatPersistenceService.Upsert(chat, chatState, timeStamp, cancellationToken);
+                    await chatService.Upsert(chat, chatState, timeStamp, ct);
                 else
                     _logger.LogInformation("No new messages for chat '{ChatName}'. Skipping chat update.", chat.Name);
 
@@ -122,11 +135,8 @@ namespace TgJobAdAnalytics.Services.Uploads
 
             static async Task<TgChat> ReadChatFromFile(string name, CancellationToken cancellationToken)
             {
-                using var json = new FileStream(name, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var buffer = new byte[json.Length];
-                await json.ReadExactlyAsync(buffer.AsMemory(0, (int)json.Length), cancellationToken);
-
-                return JsonSerializer.Deserialize<TgChat>(buffer);
+                await using var stream = new FileStream(name, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 65536, useAsync: true);
+                return await JsonSerializer.DeserializeAsync<TgChat>(stream, cancellationToken: cancellationToken);
             }
         }
 
@@ -142,23 +152,26 @@ namespace TgJobAdAnalytics.Services.Uploads
             var uniqueAds = _similarityCalculator.Distinct(ads);
             _logger.LogInformation("Found {UniqueAdCount} unique ads out of {TotalAdCount}", uniqueAds.Count, ads.Count);
 
-            foreach (var batch in uniqueAds.Chunk(_options.BatchSize))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
+            var uniqueIds = uniqueAds.Select(a => a.Id).ToList();
+            var updatedAt = DateTime.UtcNow;
 
+            const int batchSize = 500;
+            for (var i = 0; i < uniqueIds.Count; i += batchSize)
+            {
+                var batch = uniqueIds.Skip(i).Take(batchSize).ToList();
                 await _dbContext.Ads
-                    .AsNoTracking()
                     .IgnoreQueryFilters()
-                    .Where(ad => batch.Select(b => b.Id).Contains(ad.Id))
+                    .Where(ad => batch.Contains(ad.Id))
                     .ExecuteUpdateAsync(b => b
-                    .SetProperty(a => a.IsUnique, true)
-                    .SetProperty(a => a.UpdatedAt, DateTime.UtcNow), cancellationToken);
+                        .SetProperty(a => a.IsUnique, true)
+                        .SetProperty(a => a.UpdatedAt, updatedAt), cancellationToken);
             }
         }
 
 
         private readonly ApplicationDbContext _dbContext;
         private readonly ILogger<TelegramChatImportService> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly TelegramAdPersistenceService _telegramAdPersistenceService;
         private readonly TelegramChatPersistenceService _telegramChatPersistenceService;
         private readonly TelegramMessagePersistenceService _telegramMessagePersistenceService;

@@ -33,9 +33,11 @@ public sealed class ChannelStackResolverFactory
     {
         var mapping = await _loader.Update();
 
-        var stackIdByName = _dbContext.TechnologyStacks
+        var stacks = await _dbContext.TechnologyStacks
             .AsNoTracking()
-            .ToDictionary(s => s.Name.Trim().ToLowerInvariant(), s => s.Id, StringComparer.OrdinalIgnoreCase);
+            .ToListAsync();
+
+        var stackIdByName = stacks.ToDictionary(s => s.Name.Trim().ToLowerInvariant(), s => s.Id, StringComparer.OrdinalIgnoreCase);
         
         var resolver = new ChannelStackResolver(_loggerFactory.CreateLogger<ChannelStackResolver>());
         resolver.Setup(mapping, stackIdByName);

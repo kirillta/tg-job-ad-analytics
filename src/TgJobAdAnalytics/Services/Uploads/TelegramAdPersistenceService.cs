@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Collections.Concurrent;
 using System.Text;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
@@ -90,73 +89,104 @@ public sealed class TelegramAdPersistenceService
 
     private async Task<int> AddAll(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
     {
-        var messages = await _dbContext.Messages
-            .Where(m => m.TelegramChatId == chat.Id)
-            .ToListAsync(cancellationToken);
+        var pageSize = _uploadOptions.BatchSize;
+        var offset = 0;
+        var totalAdded = 0;
 
-        return await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
+        while (true)
+        {
+            var messages = await _dbContext.Messages
+                .Where(m => m.TelegramChatId == chat.Id)
+                .OrderBy(m => m.Id)
+                .Skip(offset)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            if (messages.Count == 0)
+                break;
+
+            totalAdded += await ProcessAndInsert(chat, messages, timeStamp, cancellationToken, skipExistenceCheck: true);
+
+            if (messages.Count < pageSize)
+                break;
+
+            offset += pageSize;
+        }
+
+        return totalAdded;
     }
 
 
     private async Task<int> AddOnlyNew(TgChat chat, DateTime timeStamp, CancellationToken cancellationToken)
     {
-        var existingMessageIds = await _dbContext.Messages
-            .Where(m => m.TelegramChatId == chat.Id)
+        var diff = await _dbContext.Messages
+            .Where(m => m.TelegramChatId == chat.Id && !_dbContext.Ads.IgnoreQueryFilters().Any(a => a.MessageId == m.Id))
             .Select(m => m.Id)
-            .ToHashSetAsync(cancellationToken);
-
-        var existingAdMessageIds = await _dbContext.Ads
-            .IgnoreQueryFilters()
-            .Where(a => existingMessageIds.Contains(a.MessageId))
-            .Select(a => a.MessageId)
-            .ToHashSetAsync(cancellationToken);
-
-        var diff = existingMessageIds.Except(existingAdMessageIds);
-        var messages = await _dbContext.Messages
-            .Where(m => m.TelegramChatId == chat.Id && diff.Contains(m.Id))
             .ToListAsync(cancellationToken);
 
-        return await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
+        if (diff.Count == 0)
+            return 0;
+
+        var pageSize = _uploadOptions.BatchSize;
+        var totalAdded = 0;
+
+        for (var offset = 0; offset < diff.Count; offset += pageSize)
+        {
+            var page = diff.GetRange(offset, Math.Min(pageSize, diff.Count - offset));
+            var messages = await _dbContext.Messages
+                .Where(m => page.Contains(m.Id))
+                .ToListAsync(cancellationToken);
+
+            totalAdded += await ProcessAndInsert(chat, messages, timeStamp, cancellationToken);
+        }
+
+        return totalAdded;
     }
 
 
-    private async Task<int> ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken)
+    private async Task<int> ProcessAndInsert(TgChat chat, List<MessageEntity> messages, DateTime timeStamp, CancellationToken cancellationToken, bool skipExistenceCheck = false)
     {
         _logger.LogInformation($"Processing {messages.Count} messages from chat {chat.Name}");
 
         var resolver = await _channelStackResolverFactory.Create();
 
-        var entryBag = new ConcurrentBag<AdEntity>();
-        Parallel.ForEach(messages, _parallelOptions, message =>
-        {
-            if (!IsProcessable(message, timeStamp))
-                return;
-
-            var normalizedText = GetText(message);
-            if (string.IsNullOrEmpty(normalizedText))
-                return;
-
-            if (!resolver.TryResolve(chat.Id, out var stackId))
+        var entries = new List<AdEntity>();
+        var entriesLock = new Lock();
+        Parallel.ForEach(messages, _parallelOptions, () => (List: new List<AdEntity>(), Builder: new StringBuilder()), (message, _, localState) =>
             {
-                _logger.LogCritical($"Unknown channel for stack mapping. channelName={chat.Name} messageId={message.Id}");
-                return;
-            }
+                if (!IsProcessable(message, timeStamp))
+                    return localState;
 
-            var adId = DeterministicGuid.Create(Namespaces.Ads, $"{message.TelegramChatId}:{message.TelegramMessageId}:ad");
+                var normalizedText = GetText(message, localState.Builder);
+                if (string.IsNullOrEmpty(normalizedText))
+                    return localState;
 
-            entryBag.Add(new AdEntity
+                if (!resolver.TryResolve(chat.Id, out var stackId))
+                {
+                    _logger.LogCritical($"Unknown channel for stack mapping. channelName={chat.Name} messageId={message.Id}");
+                    return localState;
+                }
+
+                var adId = DeterministicGuid.Create(Namespaces.Ads, $"{message.TelegramChatId}:{message.TelegramMessageId}:ad");
+
+                localState.List.Add(new AdEntity
+                {
+                    Id = adId,
+                    Date = DateOnly.FromDateTime(message.TelegramMessageDate),
+                    Text = normalizedText,
+                    MessageId = message.Id,
+                    StackId = stackId,
+                    CreatedAt = timeStamp,
+                    UpdatedAt = timeStamp
+                });
+
+                return localState;
+            }, localState =>
             {
-                Id = adId,
-                Date = DateOnly.FromDateTime(message.TelegramMessageDate),
-                Text = normalizedText,
-                MessageId = message.Id,
-                StackId = stackId,
-                CreatedAt = timeStamp,
-                UpdatedAt = timeStamp
+                lock (entriesLock)
+                    entries.AddRange(localState.List);
             });
-        });
 
-        var entries = entryBag.ToList();
         var batchSize = _uploadOptions.BatchSize;
         var addedCount = 0;
         for (var i = 0; i < entries.Count; i += batchSize)
@@ -166,20 +196,30 @@ public sealed class TelegramAdPersistenceService
             int currentBatchSize = Math.Min(batchSize, entries.Count - i);
             var batch = entries.GetRange(i, currentBatchSize);
 
-            var batchIds = batch.Select(e => e.Id).ToList();
-            var existingIds = await _dbContext.Ads
-                .IgnoreQueryFilters()
-                .Where(a => batchIds.Contains(a.Id))
-                .Select(a => a.Id)
-                .ToHashSetAsync(cancellationToken);
+            List<AdEntity> newBatch;
+            if (skipExistenceCheck)
+            {
+                newBatch = batch;
+            }
+            else
+            {
+                var batchIds = batch.Select(e => e.Id).ToList();
+                var existingIds = await _dbContext.Ads
+                    .IgnoreQueryFilters()
+                    .Where(a => batchIds.Contains(a.Id))
+                    .Select(a => a.Id)
+                    .ToHashSetAsync(cancellationToken);
 
-            var newBatch = batch.Where(e => !existingIds.Contains(e.Id))
-                .ToList();
+                newBatch = batch.Where(e => !existingIds.Contains(e.Id))
+                    .ToList();
+            }
 
             if (newBatch.Count == 0)
                 continue;
 
-            await _dbContext.Ads.AddRangeAsync(newBatch, cancellationToken);
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            _dbContext.Ads.AddRange(newBatch);
 
             var vectorStoreItems = new List<(Guid AdId, uint[] Signature, int ShingleCount)>(newBatch.Count);
             var vectorIndexItems = new List<(Guid AdId, uint[] Signature)>(newBatch.Count);
@@ -193,8 +233,9 @@ public sealed class TelegramAdPersistenceService
 
             await _vectorStore.UpsertBatchWithoutSave(vectorStoreItems, timeStamp, cancellationToken);
             await _vectorIndex.UpsertBatchWithoutSave(vectorIndexItems, timeStamp, cancellationToken);
-            
+
             await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             addedCount += newBatch.Count;
             _logger.LogInformation($"Batch added {newBatch.Count} ads into the database");
@@ -204,9 +245,9 @@ public sealed class TelegramAdPersistenceService
         return addedCount;
 
 
-        string GetText(MessageEntity message)
+        string GetText(MessageEntity message, StringBuilder stringBuilder)
         {
-            var stringBuilder = new StringBuilder();
+            stringBuilder.Clear();
             foreach (var entity in message.TextEntries)
             {
                 if (entity.Key is TgTextEntryType.PlainText)
@@ -260,6 +301,7 @@ public sealed class TelegramAdPersistenceService
         }
     }
 
+
     private static readonly HashSet<string> JobTags = 
     [
         "#резюме",
@@ -291,6 +333,7 @@ public sealed class TelegramAdPersistenceService
     ];
 
     private const int MinimalValuebleMessageLength = 300;
+
 
     private readonly ChannelStackResolverFactory _channelStackResolverFactory;
     private readonly ApplicationDbContext _dbContext;

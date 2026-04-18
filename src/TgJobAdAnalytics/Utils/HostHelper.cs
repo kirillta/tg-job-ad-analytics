@@ -61,7 +61,7 @@ public static class HostHelper
         })
         .ConfigureServices((context, services) =>
         {
-            services.AddDbContext<ApplicationDbContext>();
+            services.AddDbContextFactory<ApplicationDbContext>();
             services.Configure<UploadOptions>(options =>
             {
                 options.BatchSize = int.Parse(context.Configuration["Upload:BatchSize"]!);
