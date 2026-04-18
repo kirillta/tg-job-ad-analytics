@@ -1,4 +1,4 @@
-using TgJobAdAnalytics.Services.Levels;
+using TgJobAdAnalytics.Services.Salaries;
 
 namespace TgJobAdAnalytics.Services.Pipelines.Implementations;
 

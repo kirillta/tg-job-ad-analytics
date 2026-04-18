@@ -29,6 +29,11 @@ public class ReportHtmlPresenceTests
         };
 
         public string Get(string locale, string key) => _data[locale][key];
+
+        public bool TryGet(string locale, string key, out string value)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     [Fact]

@@ -2,8 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Models.Levels.Enums;
+using TgJobAdAnalytics.Services.Positions;
 
-namespace TgJobAdAnalytics.Services.Levels;
+namespace TgJobAdAnalytics.Services.Salaries;
 
 /// <summary>
 /// Backfills or refreshes position levels for existing salary entries that were persisted

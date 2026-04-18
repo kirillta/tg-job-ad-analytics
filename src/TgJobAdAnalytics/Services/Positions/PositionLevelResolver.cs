@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using TgJobAdAnalytics.Models.Levels.Enums;
 
-namespace TgJobAdAnalytics.Services.Levels;
+namespace TgJobAdAnalytics.Services.Positions;
 
 /// <summary>
 /// Resolves a job advertisement's position level (e.g. Junior, Senior, Lead) using heuristic tag normalization,

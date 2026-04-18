@@ -50,23 +50,25 @@ public sealed class RateSourceManager
         while (targetDate <= lastDate)
         {
             if (ratesByDate.TryGetValue(targetDate, out var currentRates))
-            {
                 await WriteRates(writer, targetDate, currentRates!);
-            }
             else
-            {
-                var previousDate = targetDate.AddDays(-1);
-                ratesByDate.TryGetValue(previousDate, out var previousRates);
-                while (previousRates is null && previousDate >= ratesByDate.Keys.Min())
-                {
-                    previousDate = previousDate.AddDays(-1);
-                    ratesByDate.TryGetValue(previousDate, out previousRates);
-                }
-
-                await WriteRates(writer, targetDate, previousRates!);
-            }
+                await WriteForwardFilledRates(writer, ratesByDate, targetDate);
 
             targetDate = targetDate.AddDays(1);
+        }
+        
+
+        async Task WriteForwardFilledRates(StreamWriter writer, Dictionary<DateOnly, List<Rate>> ratesByDate, DateOnly targetDate)
+        {
+            var previousDate = targetDate.AddDays(-1);
+            ratesByDate.TryGetValue(previousDate, out var previousRates);
+            while (previousRates is null && previousDate >= ratesByDate.Keys.Min())
+            {
+                previousDate = previousDate.AddDays(-1);
+                ratesByDate.TryGetValue(previousDate, out previousRates);
+            }
+
+            await WriteRates(writer, targetDate, previousRates!);
         }
 
 
@@ -100,7 +102,7 @@ public sealed class RateSourceManager
         if (_rates.Count == 0)
             return DateOnly.FromDateTime(DateTime.UtcNow);
 
-        return _rates.Keys.Select(x => x.Date).Max();
+        return _rates.Keys.Max(x => x.Date);
     }
 
 
@@ -112,7 +114,7 @@ public sealed class RateSourceManager
         if (_rates.Count == 0)
             return DateOnly.FromDateTime(DateTime.UtcNow);
 
-        return _rates.Keys.Select(x => x.Date).Min();
+        return _rates.Keys.Min(x => x.Date);
     }
 
 

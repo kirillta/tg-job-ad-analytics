@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace TgJobAdAnalytics.Services.Reports.Html;
 
-public sealed class ReportGroupLocalizer
+public sealed partial class ReportGroupLocalizer
 { 
     public ReportGroupLocalizer(ILocalizationProvider localizationProvider)
     {
@@ -134,7 +134,7 @@ public sealed class ReportGroupLocalizer
         if (string.IsNullOrWhiteSpace(rawKey))
             return rawKey;
 
-        var yearMonthMatch = _yearMonthRegex.Match(rawKey);
+        var yearMonthMatch = YearMonthRegex().Match(rawKey);
         if (yearMonthMatch.Success)
         {
             var year = yearMonthMatch.Groups[1].Value;
@@ -144,7 +144,7 @@ public sealed class ReportGroupLocalizer
             return year + " " + monthName;
         }
 
-        var monthOnlyMatch = _monthOnlyRegex.Match(rawKey);
+        var monthOnlyMatch = MonthOnlyRegex().Match(rawKey);
         if (monthOnlyMatch.Success)
         {
             var monthDigits = monthOnlyMatch.Groups[1].Value;
@@ -181,8 +181,12 @@ public sealed class ReportGroupLocalizer
     }
 
     
-    private static readonly Regex _yearMonthRegex = new("^(\\d{4}) (\\d{2})$", RegexOptions.Compiled);
-    private static readonly Regex _monthOnlyRegex = new("^(\\d{2})$", RegexOptions.Compiled);
+
+    [GeneratedRegex("^(\\d{4}) (\\d{2})$", RegexOptions.Compiled)]
+    private static partial Regex YearMonthRegex();
+    [GeneratedRegex("^(\\d{2})$", RegexOptions.Compiled)]
+    private static partial Regex MonthOnlyRegex();
+
 
     private readonly ILocalizationProvider _localizationProvider;
 }

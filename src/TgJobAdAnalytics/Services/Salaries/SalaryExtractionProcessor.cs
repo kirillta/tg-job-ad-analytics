@@ -80,19 +80,22 @@ public sealed partial class SalaryExtractionProcessor
             cancellationToken.ThrowIfCancellationRequested();
 
             var tagsByMessageId = await PreloadMessageTags([.. chunk.Select(ad => ad.MessageId)], cancellationToken);
+            var locationUpdates = new ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)>();
 
             _logger.LogInformation("Processing chunk of {ChunkSize} ads with concurrency: {Concurrency}", chunk.Count, rateLimiter.CurrentConcurrency);
-
-            var locationUpdates = new ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)>();
 
             await Parallel.ForEachAsync(chunk, new ParallelOptions
             {
                 MaxDegreeOfParallelism = rateLimiter.CurrentConcurrency,
                 CancellationToken = linkedCancellationSource.Token
-            },
-            async (ad, ct) =>
+            }, ProcessAd);
+
+            await BatchUpdateAdLocations(locationUpdates, cancellationToken);
+
+
+            async ValueTask ProcessAd(AdEntity ad, CancellationToken ct)
             {
-                using var _ = await rateLimiter.Acquire(ct);
+                using var permit = await rateLimiter.Acquire(ct);
 
                 try
                 {
@@ -110,7 +113,7 @@ public sealed partial class SalaryExtractionProcessor
                 {
                     var isRateLimitError = IsRateLimitException(ex);
                     rateLimiter.RecordFailure(isRateLimitError);
-                    
+
                     if (IsQuotaExceeded(ex))
                     {
                         _logger.LogError(ex, "Quota exceeded. Cancelling processing.");
@@ -119,39 +122,41 @@ public sealed partial class SalaryExtractionProcessor
                         return;
                     }
 
-                    if(!isRateLimitError)
-                        _logger.LogError(ex, "Failed to process ad {AdId}.", ad.Id);
+                    if (isRateLimitError)
+                    {
+                        if (TryParseRetryAfter(ex, out var retryAfter))
+                            rateLimiter.RecordRetryAfter(delay: retryAfter);
 
-                    if (isRateLimitError && TryParseRetryAfter(ex, out var retryAfter))
-                        rateLimiter.RecordRetryAfter(delay: retryAfter);
+                        return;
+                    }
+
+                    _logger.LogError(ex, "Failed to process ad {AdId}.", ad.Id);
                 }
-            });
-
-            await BatchUpdateAdLocations(locationUpdates, cancellationToken);
+            }
         }
 
         channel.Writer.Complete();
         await persistenceTask;
+    }
 
 
-        async Task ConsumeAndPersistBatches(ChannelReader<SalaryEntity> reader, CancellationToken cancellationToken)
+    private async Task ConsumeAndPersistBatches(ChannelReader<SalaryEntity> reader, CancellationToken cancellationToken)
+    {
+        var batch = new List<SalaryEntity>(_openAiOptions.ProcessingChunkSize);
+
+        await foreach (var salary in reader.ReadAllAsync(cancellationToken))
         {
-            var batch = new List<SalaryEntity>(_openAiOptions.ProcessingChunkSize);
+            batch.Add(salary);
 
-            await foreach (var salary in reader.ReadAllAsync(cancellationToken))
+            if (batch.Count >= _openAiOptions.ProcessingChunkSize)
             {
-                batch.Add(salary);
-
-                if (batch.Count >= _openAiOptions.ProcessingChunkSize)
-                {
-                    await _salaryPersistenceService.ProcessBatch(batch, cancellationToken);
-                    batch.Clear();
-                }
-            }
-
-            if (batch.Count > 0)
                 await _salaryPersistenceService.ProcessBatch(batch, cancellationToken);
+                batch.Clear();
+            }
         }
+
+        if (batch.Count > 0)
+            await _salaryPersistenceService.ProcessBatch(batch, cancellationToken);
     }
 
 
@@ -241,8 +246,7 @@ public sealed partial class SalaryExtractionProcessor
     private static bool IsQuotaExceeded(Exception ex)
     {
         var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
-        return message.Contains("insufficient_quota") 
-            || message.Contains("quota") && message.Contains("exceeded");
+        return message.Contains("insufficient_quota") || message.Contains("quota") && message.Contains("exceeded");
     }
 
 
@@ -276,6 +280,10 @@ public sealed partial class SalaryExtractionProcessor
 
         return true;
     }
+    
+
+    [GeneratedRegex(@"try again in\s+(?<val>\d+)\s*(?<unit>ms|s|sec|secs|second|seconds)", RegexOptions.IgnoreCase)]
+    private static partial Regex RateLimitRetryRegex();
 
     
     private readonly ApplicationDbContext _dbContext;
@@ -283,7 +291,4 @@ public sealed partial class SalaryExtractionProcessor
     private readonly OpenAiOptions _openAiOptions;
     private readonly SalaryExtractionService _salaryExtractionService;
     private readonly SalaryPersistenceService _salaryPersistenceService;
-
-    [GeneratedRegex(@"try again in\s+(?<val>\d+)\s*(?<unit>ms|s|sec|secs|second|seconds)", RegexOptions.IgnoreCase)]
-    private static partial Regex RateLimitRetryRegex();
 }

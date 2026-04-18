@@ -16,7 +16,6 @@ using TgJobAdAnalytics.Models.Uploads;
 using TgJobAdAnalytics.Models.Uploads.Enums;
 using TgJobAdAnalytics.Models.Vectors;
 using TgJobAdAnalytics.Services;
-using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Localization;
 using TgJobAdAnalytics.Services.Locations;
 using TgJobAdAnalytics.Services.Messages;
@@ -30,6 +29,7 @@ using TgJobAdAnalytics.Services.Stacks;
 using TgJobAdAnalytics.Services.Uploads;
 using TgJobAdAnalytics.Services.Vectors;
 using TgJobAdAnalytics.Services.Analytics;
+using TgJobAdAnalytics.Services.Positions;
 
 namespace TgJobAdAnalytics.Utils;
 

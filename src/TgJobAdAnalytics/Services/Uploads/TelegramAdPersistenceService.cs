@@ -62,8 +62,10 @@ public sealed class TelegramAdPersistenceService
     public async Task RemoveAll(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleaning all ad data...");
+
         await _dbContext.Ads.IgnoreQueryFilters().ExecuteDeleteAsync(cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
         _logger.LogInformation("All ad data has been removed.");
     }
 

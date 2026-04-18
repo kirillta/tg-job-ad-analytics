@@ -5,6 +5,9 @@ namespace TgJobAdAnalytics.Models.Levels;
 
 public readonly record struct ChatGptPositionLevelResponse
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChatGptPositionLevelResponse"/> record struct.
+    /// </summary>
     [JsonConstructor]
     public ChatGptPositionLevelResponse(PositionLevel level)
     {
@@ -12,10 +15,16 @@ public readonly record struct ChatGptPositionLevelResponse
     }
 
 
+    /// <summary>
+    /// Gets an empty response representing an unknown position level.
+    /// </summary>
     public static ChatGptPositionLevelResponse Empty 
         => new(PositionLevel.Unknown);
 
 
+    /// <summary>
+    /// Gets the position level associated with the job advertisement.
+    /// </summary>
     [JsonPropertyName("pl")]
     public PositionLevel Level { get; init; }
 }

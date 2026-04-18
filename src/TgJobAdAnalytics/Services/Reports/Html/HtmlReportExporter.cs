@@ -184,15 +184,13 @@ public sealed class HtmlReportExporter : IReportExporter
     }
 
 
-    private List<SalaryStackRecord> LoadMasterSalaryData()
-    {
-        return _dbContext.Salaries
+    private List<SalaryStackRecord> LoadMasterSalaryData() 
+        => _dbContext.Salaries
             .AsNoTracking()
             .Join(_dbContext.Ads, s => s.AdId, a => a.Id, (s, a) => new { Salary = s, a.StackId })
             .GroupJoin(_dbContext.TechnologyStacks, sa => sa.StackId, ts => ts.Id, (sa, tsGroup) => new { sa.Salary, sa.StackId, TsGroup = tsGroup })
             .SelectMany(x => x.TsGroup.DefaultIfEmpty(), (x, ts) => new SalaryStackRecord(x.Salary, x.StackId, ts != null ? ts.Name : null))
             .ToList();
-    }
 
 
     private static string FormatNumericalValue(double value)

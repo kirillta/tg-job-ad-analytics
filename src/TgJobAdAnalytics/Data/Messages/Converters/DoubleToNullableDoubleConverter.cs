@@ -4,10 +4,7 @@ namespace TgJobAdAnalytics.Data.Messages.Converters;
 
 public class DoubleToNullableDoubleConverter : ValueConverter<double?, double?>
 {
-    public DoubleToNullableDoubleConverter() 
-        : base(
-            v => ConvertToProvider(v),
-            v => ConvertFromProvider(v))
+    public DoubleToNullableDoubleConverter() : base(v => ConvertToProvider(v), v => ConvertFromProvider(v))
     {
     }
 

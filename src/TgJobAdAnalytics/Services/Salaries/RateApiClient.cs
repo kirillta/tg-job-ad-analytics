@@ -49,15 +49,13 @@ public sealed class RateApiClient
     }
 
 
-    private static string GetCurrencyCode(Currency targetCurrency)
-    {
-        return targetCurrency switch
+    private static string GetCurrencyCode(Currency targetCurrency) 
+        => targetCurrency switch
         {
             Currency.USD => "R01235",
             Currency.EUR => "R01239",
             _ => throw new ArgumentException("Unknown currency")
         };
-    }
 
 
     private static List<Rate> ParseRates(Stream xmlStream, Currency baseCurrency, Currency targetCurrency)

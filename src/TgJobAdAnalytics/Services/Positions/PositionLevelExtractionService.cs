@@ -5,7 +5,7 @@ using TgJobAdAnalytics.Models.Levels;
 using TgJobAdAnalytics.Models.Levels.Enums;
 using TgJobAdAnalytics.Utils;
 
-namespace TgJobAdAnalytics.Services.Levels;
+namespace TgJobAdAnalytics.Services.Positions;
 
 /// <summary>
 /// Service that classifies a job advertisement's position level (e.g. Junior, Senior, Lead) by invoking an LLM

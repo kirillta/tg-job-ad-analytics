@@ -35,8 +35,7 @@ internal static class SalaryStatisticsCore
             var lowerThreshold = q1 - 1.5 * iqr;
             var upperThreshold = q3 + 1.5 * iqr;
 
-            return source
-                .Where(s => IsOutlier(selector(s), lowerThreshold, upperThreshold))
+            return source.Where(s => IsOutlier(selector(s), lowerThreshold, upperThreshold))
                 .Select(s => s.Id);
         }
 
@@ -58,35 +57,12 @@ internal static class SalaryStatisticsCore
     /// </summary>
     /// <param name="salaries">Collection of salary entities to filter.</param>
     /// <returns>Filtered collection with outliers removed per level.</returns>
-    internal static IReadOnlyList<SalaryEntity> RemoveOutliersByLevel(IReadOnlyList<SalaryEntity> salaries)
-    {
-        var salariesByLevel = salaries
-            .Where(s => s.Level != PositionLevel.Unknown)
+    internal static IReadOnlyList<SalaryEntity> RemoveOutliersByLevel(IReadOnlyList<SalaryEntity> salaries) 
+        => salaries.Where(s => s.Level != PositionLevel.Unknown)
             .GroupBy(s => s.Level)
+            .SelectMany(g => g.Count() < MinimumSampleSizeForOutlierDetection ? [.. g] : RemoveOutliers([.. g]))
+            .Concat(salaries.Where(s => s.Level == PositionLevel.Unknown))
             .ToList();
-
-        var unknownLevelSalaries = salaries.Where(s => s.Level == PositionLevel.Unknown).ToList();
-
-        var filteredSalaries = new List<SalaryEntity>();
-
-        foreach (var levelGroup in salariesByLevel)
-        {
-            var levelSalaries = levelGroup.ToList();
-
-            if (levelSalaries.Count < MinimumSampleSizeForOutlierDetection)
-            {
-                filteredSalaries.AddRange(levelSalaries);
-                continue;
-            }
-
-            var filteredForLevel = RemoveOutliers(levelSalaries);
-            filteredSalaries.AddRange(filteredForLevel);
-        }
-
-        filteredSalaries.AddRange(unknownLevelSalaries);
-
-        return filteredSalaries;
-    }
 
 
     /// <summary>
@@ -104,82 +80,72 @@ internal static class SalaryStatisticsCore
         var meanByYear = new Dictionary<string, double>();
         var medianByYear = new Dictionary<string, double>();
 
-        var globalFilteredByYear = globalFilteredSalaries.GroupBy(s => s.Date.Year).OrderBy(g => g.Key).ToList();
-        foreach (var g in globalFilteredByYear)
+        foreach (var g in globalFilteredSalaries.GroupBy(s => s.Date.Year).OrderBy(g => g.Key))
+            PopulateMinMax(g, g.Key.ToString(), minByYear, maxByYear);
+
+        foreach (var g in perLevelFilteredSalaries.GroupBy(s => s.Date.Year).OrderBy(g => g.Key))
+            PopulateMeanMedian(g, g.Key.ToString(), meanByYear, medianByYear);
+
+        var perLevel = new Dictionary<string, YearlyCoreLevelStats>();
+        if (includePerLevel)
         {
-            var yearKey = g.Key.ToString();
-
-            var lowers = g.Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance).Select(s => s.LowerBoundNormalized).ToArray();
-            if (lowers.Length > 0)
-                minByYear[yearKey] = lowers.Min();
-
-            var uppers = g.Where(s => Math.Abs(s.UpperBoundNormalized) > Tolerance).Select(s => s.UpperBoundNormalized).ToArray();
-            if (uppers.Length > 0)
-                maxByYear[yearKey] = uppers.Max();
+            foreach (var level in perLevelFilteredSalaries.Select(s => s.Level).Distinct().Where(l => l != PositionLevel.Unknown))
+            {
+                var stats = ComputeLevelStats(perLevelFilteredSalaries.Where(s => s.Level == level));
+                if (stats is not null)
+                    perLevel[level.ToString()] = stats;
+            }
         }
 
-        var perLevelFilteredByYear = perLevelFilteredSalaries.GroupBy(s => s.Date.Year).OrderBy(g => g.Key).ToList();
-        foreach (var g in perLevelFilteredByYear)
-        {
-            var yearKey = g.Key.ToString();
+        return new YearlyCoreStats(minByYear, maxByYear, meanByYear, medianByYear, perLevel);
 
-            var normalizedPairs = g
+
+        void PopulateMinMax(IEnumerable<SalaryEntity> group, string yearKey, Dictionary<string, double> min, Dictionary<string, double> max)
+        {
+            var lowers = group.Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance).Select(s => s.LowerBoundNormalized).ToArray();
+            if (lowers.Length > 0)
+                min[yearKey] = lowers.Min();
+
+            var uppers = group.Where(s => Math.Abs(s.UpperBoundNormalized) > Tolerance).Select(s => s.UpperBoundNormalized).ToArray();
+            if (uppers.Length > 0)
+                max[yearKey] = uppers.Max();
+        }
+
+
+        void PopulateMeanMedian(IEnumerable<SalaryEntity> group, string yearKey, Dictionary<string, double> mean, Dictionary<string, double> median)
+        {
+            var pairs = group
                 .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
                 .Select(NormalizePair)
                 .Where(v => !double.IsNaN(v))
                 .ToArray();
 
-            if (normalizedPairs.Length > 0)
+            if (pairs.Length > 0)
             {
-                meanByYear[yearKey] = normalizedPairs.Mean();
-                medianByYear[yearKey] = normalizedPairs.Median();
+                mean[yearKey] = pairs.Mean();
+                median[yearKey] = pairs.Median();
             }
         }
 
-        var perLevel = new Dictionary<string, YearlyCoreLevelStats>();
-        if (includePerLevel)
+
+        YearlyCoreLevelStats? ComputeLevelStats(IEnumerable<SalaryEntity> levelSalaries)
         {
-            var levels = perLevelFilteredSalaries.Select(s => s.Level).Distinct().Where(l => l != PositionLevel.Unknown).ToArray();
-            foreach (var level in levels)
+            var minByYear = new Dictionary<string, double>();
+            var maxByYear = new Dictionary<string, double>();
+            var meanByYear = new Dictionary<string, double>();
+            var medianByYear = new Dictionary<string, double>();
+
+            foreach (var g in levelSalaries.GroupBy(s => s.Date.Year).OrderBy(g => g.Key))
             {
-                var levelSalaries = perLevelFilteredSalaries.Where(s => s.Level == level).ToList();
-                var lm = new Dictionary<string, double>();
-                var lx = new Dictionary<string, double>();
-                var la = new Dictionary<string, double>();
-                var lmed = new Dictionary<string, double>();
-
-                var levelByYear = levelSalaries.GroupBy(s => s.Date.Year).OrderBy(g => g.Key).ToList();
-                foreach (var g in levelByYear)
-                {
-                    var yearKey = g.Key.ToString();
-
-                    var lowers = g.Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance).Select(s => s.LowerBoundNormalized).ToArray();
-                    if (lowers.Length > 0)
-                        lm[yearKey] = lowers.Min();
-
-                    var uppers = g.Where(s => Math.Abs(s.UpperBoundNormalized) > Tolerance).Select(s => s.UpperBoundNormalized).ToArray();
-                    if (uppers.Length > 0)
-                        lx[yearKey] = uppers.Max();
-
-                    var normalizedPairs = g
-                        .Where(s => Math.Abs(s.LowerBoundNormalized) > Tolerance && Math.Abs(s.UpperBoundNormalized) > Tolerance)
-                        .Select(NormalizePair)
-                        .Where(v => !double.IsNaN(v))
-                        .ToArray();
-
-                    if (normalizedPairs.Length > 0)
-                    {
-                        la[yearKey] = normalizedPairs.Mean();
-                        lmed[yearKey] = normalizedPairs.Median();
-                    }
-                }
-
-                if (lm.Count > 0 || lx.Count > 0 || la.Count > 0 || lmed.Count > 0)
-                    perLevel[level.ToString()] = new YearlyCoreLevelStats(lm, lx, la, lmed);
+                var yearKey = g.Key.ToString();
+                PopulateMinMax(g, yearKey, minByYear, maxByYear);
+                PopulateMeanMedian(g, yearKey, meanByYear, medianByYear);
             }
-        }
 
-        return new YearlyCoreStats(minByYear, maxByYear, meanByYear, medianByYear, perLevel);
+            return minByYear.Count > 0 || maxByYear.Count > 0 || meanByYear.Count > 0 || medianByYear.Count > 0
+                ? new YearlyCoreLevelStats(minByYear, maxByYear, meanByYear, medianByYear)
+                : null;
+        }
     }
 
 

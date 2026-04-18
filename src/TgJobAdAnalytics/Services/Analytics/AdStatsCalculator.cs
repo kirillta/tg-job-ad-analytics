@@ -61,18 +61,16 @@ public sealed class AdStatsCalculator
     {
         var baseResults = GetMonthlyCountsFromSalaries(salaries);
 
-        var seriesOverlays = adStackMapping.Values
-            .Distinct()
-            .OrderBy(s => s)
-            .Select(stackName => new
+        var adIdsByStack = adStackMapping
+            .GroupBy(kv => kv.Value)
+            .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToHashSet());
+
+        var seriesOverlays = adIdsByStack
+            .OrderBy(kv => kv.Key)
+            .Select(kv => new
             {
-                StackName = stackName,
-                AdIds = adStackMapping.Where(kv => kv.Value == stackName).Select(kv => kv.Key).ToHashSet()
-            })
-            .Select(x => new
-            {
-                x.StackName,
-                Counts = GetMonthlyCountsFromSalaries(salaries.Where(s => x.AdIds.Contains(s.AdId)).ToList())
+                StackName = kv.Key,
+                Counts = GetMonthlyCountsFromSalaries(salaries.Where(s => kv.Value.Contains(s.AdId)).ToList())
             })
             .Where(x => x.Counts.Count > 0)
             .ToDictionary(x => x.StackName, x => x.Counts);
@@ -83,19 +81,12 @@ public sealed class AdStatsCalculator
 
     private static Dictionary<string, double> GetMonthlyCountsFromSalaries(List<SalaryEntity> salaries)
         => salaries
-            .GroupBy(s => s.Date.Year)
-            .Select(yearGroup => new
-            {
-                AdsByMonth = yearGroup
-                    .GroupBy(g => g.Date.Month)
-                    .Select(g => new { g.Key, Count = g.Count(), Year = yearGroup.Key })
-                    .OrderBy(g => g.Key)
-                    .ToDictionary(g => g.Key, g => new { g.Count, Month = g.Key, g.Year })
-            })
-            .SelectMany(x => x.AdsByMonth)
-            .OrderBy(x => x.Value.Year)
-            .ThenBy(x => x.Value.Month)
-            .ToDictionary(pair => pair.Value.Year + " " + pair.Value.Month.ToString("00"), pair => (double) pair.Value.Count);
+            .GroupBy(s => new { s.Date.Year, s.Date.Month })
+            .OrderBy(g => g.Key.Year)
+            .ThenBy(g => g.Key.Month)
+            .ToDictionary(
+                g => g.Key.Year + " " + g.Key.Month.ToString("00"),
+                g => (double) g.Count());
 
 
     private static Report GetMonthlyAdCounts(List<SalaryEntity> salaries)
@@ -132,78 +123,79 @@ public sealed class AdStatsCalculator
 
     private static Report GetLocationRatio(List<SalaryEntity> salaries, Dictionary<Guid, VacancyLocation> adLocationMapping)
     {
-        var monthlyGroups = salaries
-            .Where(s => adLocationMapping.ContainsKey(s.AdId))
-            .GroupBy(s => s.Date.Year + " " + s.Date.Month.ToString("00"))
-            .OrderBy(g => g.Key)
-            .ToList();
+        var allLocations = new[] 
+        { 
+            VacancyLocation.Russia, 
+            VacancyLocation.Belarus, 
+            VacancyLocation.Cis, 
+            VacancyLocation.Europe, 
+            VacancyLocation.Us, 
+            VacancyLocation.MiddleEast,
+            VacancyLocation.Other
+        };
 
-        var allLocations = new[] { VacancyLocation.Russia, VacancyLocation.Belarus, VacancyLocation.Cis, VacancyLocation.Europe, VacancyLocation.Us, VacancyLocation.MiddleEast, VacancyLocation.Other };
-
-        var russiaData = new Dictionary<string, double>();
-        var overlayData = allLocations.Skip(1).ToDictionary(loc => LocationLabel(loc), _ => new Dictionary<string, double>());
-
-        foreach (var group in monthlyGroups)
-        {
-            var monthKey = group.Key;
-            var total = group.Count();
-            if (total == 0)
-                continue;
-
-            foreach (var loc in allLocations)
-            {
-                var count = group.Count(s => adLocationMapping.TryGetValue(s.AdId, out var l) && l == loc);
-                var percentage = Math.Round(count / (double)total * 100, 1);
-
-                if (loc == VacancyLocation.Russia)
-                    russiaData[monthKey] = percentage;
-                else
-                    overlayData[LocationLabel(loc)][monthKey] = percentage;
-            }
-        }
-
-        var seriesOverlays = overlayData.Where(kv => kv.Value.Count > 0)
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-
-        return new Report("report.ads.location_ratio", russiaData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
+        return GetRatioReport("report.ads.location_ratio", salaries, adLocationMapping, allLocations, LocationLabel);
     }
 
 
     private static Report GetWorkFormatRatio(List<SalaryEntity> salaries, Dictionary<Guid, WorkFormat> adWorkFormatMapping)
     {
+        var allFormats = new[] 
+        { 
+            WorkFormat.OnSite, 
+            WorkFormat.Hybrid, 
+            WorkFormat.RemoteDomestic,
+            WorkFormat.RemoteWorldwide
+        };
+
+        return GetRatioReport("report.ads.work_format_ratio", salaries, adWorkFormatMapping, allFormats, FormatLabel);
+    }
+
+
+    private static Report GetRatioReport<TEnum>(
+        string reportKey,
+        List<SalaryEntity> salaries,
+        Dictionary<Guid, TEnum> mapping,
+        TEnum[] allValues,
+        Func<TEnum, string> labelSelector) where TEnum : struct, Enum
+    {
+        var primaryValue = allValues[0];
+
         var monthlyGroups = salaries
-            .Where(s => adWorkFormatMapping.ContainsKey(s.AdId))
+            .Where(s => mapping.ContainsKey(s.AdId))
             .GroupBy(s => s.Date.Year + " " + s.Date.Month.ToString("00"))
             .OrderBy(g => g.Key)
             .ToList();
 
-        var allFormats = new[] { WorkFormat.OnSite, WorkFormat.Hybrid, WorkFormat.RemoteDomestic, WorkFormat.RemoteWorldwide };
-
-        var onSiteData = new Dictionary<string, double>();
-        var overlayData = allFormats.Skip(1).ToDictionary(fmt => FormatLabel(fmt), _ => new Dictionary<string, double>());
+        var primaryData = new Dictionary<string, double>();
+        var overlayData = allValues.Skip(1).ToDictionary(v => labelSelector(v), _ => new Dictionary<string, double>());
 
         foreach (var group in monthlyGroups)
-        {
-            var monthKey = group.Key;
-            var total = group.Count();
-            if (total == 0)
-                continue;
-
-            foreach (var fmt in allFormats)
-            {
-                var count = group.Count(s => adWorkFormatMapping.TryGetValue(s.AdId, out var f) && f == fmt);
-                var percentage = Math.Round(count / (double)total * 100, 1);
-
-                if (fmt == WorkFormat.OnSite)
-                    onSiteData[monthKey] = percentage;
-                else
-                    overlayData[FormatLabel(fmt)][monthKey] = percentage;
-            }
-        }
+            ProcessMonth(group);
 
         var seriesOverlays = overlayData.Where(kv => kv.Value.Count > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
+        return new Report(reportKey, primaryData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
 
-        return new Report("report.ads.work_format_ratio", onSiteData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
+
+        void ProcessMonth(IGrouping<string, SalaryEntity> group)
+        {
+            var total = group.Count();
+            if (total == 0)
+                return;
+
+            var countByValue = group.GroupBy(s => mapping[s.AdId]).ToDictionary(g => g.Key, g => g.Count());
+
+            foreach (var value in allValues)
+            {
+                countByValue.TryGetValue(value, out var count);
+                var percentage = Math.Round(count / (double) total * 100, 1);
+
+                if (EqualityComparer<TEnum>.Default.Equals(value, primaryValue))
+                    primaryData[group.Key] = percentage;
+                else
+                    overlayData[labelSelector(value)][group.Key] = percentage;
+            }
+        }
     }
 
 

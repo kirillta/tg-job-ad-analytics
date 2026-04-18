@@ -53,11 +53,13 @@ public sealed class ChartBuilder
             var data = labels
                 .Select(l => overlayResults.TryGetValue(l, out var v) ? v.ToString(CultureInfo.InvariantCulture) : "0")
                 .ToList();
+
             datasets.Add(new ChartModel.DatasetModel(
                 label: name,
                 data: data,
                 backgroundColor: [_backgroundColors[colorIndex % _backgroundColors.Count]],
                 borderColor: [_borderColors[colorIndex % _borderColors.Count]]));
+
             colorIndex++;
         }
 
@@ -75,6 +77,7 @@ public sealed class ChartBuilder
             var data = labels
                 .Select(l => overlayResults.TryGetValue(l, out var v) ? v.ToString(CultureInfo.InvariantCulture) : "0")
                 .ToList();
+
             datasets.Add(new ChartModel.DatasetModel(
                 label: name,
                 data: data,
@@ -83,6 +86,7 @@ public sealed class ChartBuilder
                 tension: 0.4,
                 typeOverride: "line",
                 yAxisId: "y1"));
+
             colorIndex++;
         }
 
@@ -141,6 +145,7 @@ public sealed class ChartBuilder
             bg.Add(_backgroundColors[idx]);
             border.Add(_borderColors[idx]);
         }
+
         return (bg, border);
     }
 

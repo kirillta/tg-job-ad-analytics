@@ -54,49 +54,48 @@ public sealed class ProcessOrchestrator
     }
 
 
-    async Task ImportData(CancellationToken cancellationToken)
+    private async Task ImportData(CancellationToken cancellationToken)
     {
         var addedAds = await _telegramChatImportService.ImportFromJson(cancellationToken);
         if (addedAds > 0)
             CleanupHeapAfterImport();
             
         await _salaryExtractionProcessor.ExtractAndPersist(cancellationToken);
+        
+
+        void CleanupHeapAfterImport()
+        {
+            var memoryBefore = GC.GetTotalMemory(forceFullCollection: false);
+            var memoryBeforeMB = memoryBefore / 1024.0 / 1024.0;
+
+            _logger.LogInformation("Heap cleanup initiated. Memory before: {MemoryMB:F2} MB", memoryBeforeMB);
+
+            GC.Collect(generation: 2, mode: GCCollectionMode.Aggressive, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+            GC.Collect(generation: 2, mode: GCCollectionMode.Aggressive, blocking: true, compacting: true);
+
+            var memoryAfter = GC.GetTotalMemory(forceFullCollection: false);
+            var memoryAfterMB = memoryAfter / 1024.0 / 1024.0;
+            var reclaimedMB = (memoryBefore - memoryAfter) / 1024.0 / 1024.0;
+
+            _logger.LogInformation("Heap cleanup completed. Memory after: {MemoryMB:F2} MB, Reclaimed: {ReclaimedMB:F2} MB", memoryAfterMB, reclaimedMB);
+        }
     }
 
 
-    void CleanupHeapAfterImport()
-    {
-        var memoryBefore = GC.GetTotalMemory(forceFullCollection: false);
-        var memoryBeforeMB = memoryBefore / 1024.0 / 1024.0;
-
-        _logger.LogInformation("Heap cleanup initiated. Memory before: {MemoryMB:F2} MB", memoryBeforeMB);
-
-        GC.Collect(generation: 2, mode: GCCollectionMode.Aggressive, blocking: true, compacting: true);
-        GC.WaitForPendingFinalizers();
-        GC.Collect(generation: 2, mode: GCCollectionMode.Aggressive, blocking: true, compacting: true);
-
-        var memoryAfter = GC.GetTotalMemory(forceFullCollection: false);
-        var memoryAfterMB = memoryAfter / 1024.0 / 1024.0;
-        var reclaimedMB = (memoryBefore - memoryAfter) / 1024.0 / 1024.0;
-
-        _logger.LogInformation("Heap cleanup completed. Memory after: {MemoryMB:F2} MB, Reclaimed: {ReclaimedMB:F2} MB", memoryAfterMB, reclaimedMB);
-    }
-
-
-    async Task ExecutePipelines(List<string> pipelineNames, CancellationToken cancellationToken)
+    private async Task ExecutePipelines(List<string> pipelineNames, CancellationToken cancellationToken)
     {
         foreach (var pipelineName in pipelineNames)
             await _pipelineRunner.Run(pipelineName, cancellationToken);
     }
 
 
-    void GenerateAndExportReport()
+    private void GenerateAndExportReport()
     {
         var reports = _reportGenerationService.Generate();
         _reportExporter.Write(reports);
     }
 
-    
     
     private readonly ILogger<ProcessOrchestrator> _logger;
     private readonly IPipelineRunner _pipelineRunner;

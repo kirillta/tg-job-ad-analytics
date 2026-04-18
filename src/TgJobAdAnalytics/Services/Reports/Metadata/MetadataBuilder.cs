@@ -46,7 +46,8 @@ public sealed partial class MetadataBuilder
 
         var hreflangAlternates = BuildHreflangAlternates();
 
-        return new MetadataModel(
+        return new MetadataModel
+        (
             Title: title,
             Description: description,
             CanonicalUrl: canonicalUrl,
@@ -151,7 +152,6 @@ public sealed partial class MetadataBuilder
     private string BuildCanonicalUrl(string locale)
     {
         var baseUrl = _options.BaseUrl.TrimEnd('/');
-
         return $"{baseUrl}/{locale}/index.html";
     }
 
@@ -191,11 +191,11 @@ public sealed partial class MetadataBuilder
 
     private void EnsureLocaleSupported(string locale)
     {
-        if (!_options.Locales.Any(l => string.Equals(NormalizeLocale(l), locale, StringComparison.OrdinalIgnoreCase)))
-        {
-            _logger.LogError("Locale '{Locale}' is not configured. Supported: {Supported}", locale, string.Join(", ", _options.Locales));
-            throw new InvalidOperationException($"Locale '{locale}' is not configured. Supported: {string.Join(", ", _options.Locales)}");
-        }
+        if (_options.Locales.Any(l => string.Equals(NormalizeLocale(l), locale, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        _logger.LogError("Locale '{Locale}' is not configured. Supported: {Supported}", locale, string.Join(", ", _options.Locales));
+        throw new InvalidOperationException($"Locale '{locale}' is not configured. Supported: {string.Join(", ", _options.Locales)}");
     }
 
 

@@ -6,8 +6,8 @@ using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Salaries.Enums;
-using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Locations;
+using TgJobAdAnalytics.Services.Positions;
 using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Salaries;
