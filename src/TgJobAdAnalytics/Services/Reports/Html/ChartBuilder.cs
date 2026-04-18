@@ -10,7 +10,8 @@ public sealed class ChartBuilder
     internal static ChartModel Build(Report report)
     {
         var data = GetData(report);
-        return new ChartModel(id: Guid.NewGuid(), type: report.Type.ToChartJsType(), data: data);
+        var isStacked = report.Type == ChartType.StackedBar;
+        return new ChartModel(id: Guid.NewGuid(), type: report.Type.ToChartJsType(), data: data, isStacked: isStacked);
     }
 
 
@@ -33,64 +34,100 @@ public sealed class ChartBuilder
         List<ChartModel.DatasetModel>? additionalDatasets = null;
         if (report.SeriesOverlays is { Count: > 0 })
         {
-            additionalDatasets = [];
-            var colorIndex = 0;
-            foreach (var (name, overlayResults) in report.SeriesOverlays)
-            {
-                var overlayData = labels
-                    .Select(l => overlayResults.TryGetValue(l, out var v) ? v.ToString(CultureInfo.InvariantCulture) : "0")
-                    .ToList();
-                var bg = _overlayBackgroundColors[colorIndex % _overlayBackgroundColors.Count];
-                var border = _overlayBorderColors[colorIndex % _overlayBorderColors.Count];
-                additionalDatasets.Add(new ChartModel.DatasetModel(
-                    label: name,
-                    data: overlayData,
-                    backgroundColor: [bg],
-                    borderColor: [border],
-                    tension: 0.4,
-                    typeOverride: "line",
-                    yAxisId: "y1"));
-                colorIndex++;
-            }
+            additionalDatasets = report.Type == ChartType.StackedBar
+                ? BuildStackedBarOverlays(labels, report.SeriesOverlays)
+                : BuildLineOverlays(labels, report.SeriesOverlays);
         }
 
         return new ChartModel.DataModel(labels, dataset, additionalDatasets);
+    }
 
 
-        ChartModel.DatasetModel GetBarDataset(Report report)
-            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
+    private static List<ChartModel.DatasetModel> BuildStackedBarOverlays(List<string> labels, Dictionary<string, Dictionary<string, double>> overlays)
+    {
+        var datasets = new List<ChartModel.DatasetModel>();
+        var colorIndex = 1;
 
-
-        ChartModel.DatasetModel GetDoughnutDataset(Report report)
-            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
-
-
-        ChartModel.DatasetModel GetLineDataset(Report report)
-            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border, tension: 0.4);
-
-
-        ChartModel.DatasetModel GetPolarAreaDataset(Report report)
-            => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
-
-
-        ChartModel.DatasetModel GetDataset(Report report)
+        foreach (var (name, overlayResults) in overlays)
         {
-            return report.Type switch
-            {
-                ChartType.Bar => GetBarDataset(report),
-                ChartType.Doughnut => GetDoughnutDataset(report),
-                ChartType.Line => GetLineDataset(report),
-                ChartType.PolarArea => GetPolarAreaDataset(report),
-                _ => throw new NotImplementedException()
-            };
+            var data = labels
+                .Select(l => overlayResults.TryGetValue(l, out var v) ? v.ToString(CultureInfo.InvariantCulture) : "0")
+                .ToList();
+            datasets.Add(new ChartModel.DatasetModel(
+                label: name,
+                data: data,
+                backgroundColor: [_backgroundColors[colorIndex % _backgroundColors.Count]],
+                borderColor: [_borderColors[colorIndex % _borderColors.Count]]));
+            colorIndex++;
         }
 
-
-        List<string> GetDatasetData(Report report)
-            => report.Results.Values
-                .Select(x => x.ToString(CultureInfo.InvariantCulture))
-                .ToList();
+        return datasets;
     }
+
+
+    private static List<ChartModel.DatasetModel> BuildLineOverlays(List<string> labels, Dictionary<string, Dictionary<string, double>> overlays)
+    {
+        var datasets = new List<ChartModel.DatasetModel>();
+        var colorIndex = 0;
+
+        foreach (var (name, overlayResults) in overlays)
+        {
+            var data = labels
+                .Select(l => overlayResults.TryGetValue(l, out var v) ? v.ToString(CultureInfo.InvariantCulture) : "0")
+                .ToList();
+            datasets.Add(new ChartModel.DatasetModel(
+                label: name,
+                data: data,
+                backgroundColor: [_overlayBackgroundColors[colorIndex % _overlayBackgroundColors.Count]],
+                borderColor: [_overlayBorderColors[colorIndex % _overlayBorderColors.Count]],
+                tension: 0.4,
+                typeOverride: "line",
+                yAxisId: "y1"));
+            colorIndex++;
+        }
+
+        return datasets;
+    }
+
+
+    private static ChartModel.DatasetModel GetDataset(Report report)
+    {
+        return report.Type switch
+        {
+            ChartType.Bar => GetBarDataset(report),
+            ChartType.Doughnut => GetDoughnutDataset(report),
+            ChartType.Line => GetLineDataset(report),
+            ChartType.PolarArea => GetPolarAreaDataset(report),
+            ChartType.StackedBar => GetStackedBarDataset(report),
+            _ => throw new NotImplementedException()
+        };
+    }
+
+
+    private static ChartModel.DatasetModel GetBarDataset(Report report)
+        => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
+
+
+    private static ChartModel.DatasetModel GetDoughnutDataset(Report report)
+        => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
+
+
+    private static ChartModel.DatasetModel GetLineDataset(Report report)
+        => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border, tension: 0.4);
+
+
+    private static ChartModel.DatasetModel GetPolarAreaDataset(Report report)
+        => new(label: report.Title, data: GetDatasetData(report), backgroundColor: GetPalette(report.Results.Count).bg, borderColor: GetPalette(report.Results.Count).border);
+
+
+    private static ChartModel.DatasetModel GetStackedBarDataset(Report report)
+        => new(label: report.Title, data: GetDatasetData(report), backgroundColor: [_backgroundColors[0]], borderColor: [_borderColors[0]]);
+
+
+    private static List<string> GetDatasetData(Report report)
+        => report.Results.Values
+            .Select(x => x.ToString(CultureInfo.InvariantCulture))
+            .ToList();
 
 
     private static (List<string> bg, List<string> border) GetPalette(int count)

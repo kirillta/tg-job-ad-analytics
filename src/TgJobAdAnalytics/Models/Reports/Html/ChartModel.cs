@@ -2,10 +2,11 @@
 
 public readonly record struct ChartModel
 {
-    public ChartModel(Guid id, string type, DataModel data)
+    public ChartModel(Guid id, string type, DataModel data, bool isStacked = false)
     {
         Id = id;
         Data = data;
+        IsStacked = isStacked;
         Type = type;
     }
 
@@ -16,6 +17,8 @@ public readonly record struct ChartModel
     public Guid Id { get; }
 
     public DataModel Data { get; }
+
+    public bool IsStacked { get; }
 
     public string Type { get; }
 

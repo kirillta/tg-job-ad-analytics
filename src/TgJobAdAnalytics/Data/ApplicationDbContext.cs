@@ -67,9 +67,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MessageId).IsRequired();
             entity.Property(e => e.StackId).IsRequired(false);
             
+            entity.Property(e => e.Location).HasConversion<int>();
+            entity.Property(e => e.WorkFormat).HasConversion<int>();
+
             entity.HasIndex(e => e.MessageId);
             entity.HasIndex(e => e.IsUnique);
             entity.HasIndex(e => e.StackId);
+            entity.HasIndex(e => e.Location);
+            entity.HasIndex(e => e.WorkFormat);
         });
         modelBuilder.Entity<AdEntity>()
             .HasQueryFilter(ad => ad.IsUnique);

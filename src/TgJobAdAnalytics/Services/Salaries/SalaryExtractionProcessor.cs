@@ -1,12 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
+using TgJobAdAnalytics.Models.Locations.Enums;
 using TgJobAdAnalytics.Models.OpenAI;
 using TgJobAdAnalytics.Utils;
 
@@ -81,6 +83,8 @@ public sealed partial class SalaryExtractionProcessor
 
             _logger.LogInformation("Processing chunk of {ChunkSize} ads with concurrency: {Concurrency}", chunk.Count, rateLimiter.CurrentConcurrency);
 
+            var locationUpdates = new ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)>();
+
             await Parallel.ForEachAsync(chunk, new ParallelOptions
             {
                 MaxDegreeOfParallelism = rateLimiter.CurrentConcurrency,
@@ -93,12 +97,14 @@ public sealed partial class SalaryExtractionProcessor
                 try
                 {
                     var messageTags = tagsByMessageId.GetValueOrDefault(ad.MessageId, []);
-                    var salaryEntry = await _salaryExtractionService.Process(ad, messageTags, ct);
+                    var result = await _salaryExtractionService.Process(ad, messageTags, ct);
 
                     rateLimiter.RecordSuccess();
 
-                    if (salaryEntry is not null)
-                        await channel.Writer.WriteAsync(salaryEntry, ct);
+                    locationUpdates.Add((ad.Id, result.Location, result.Format));
+
+                    if (result.Salary is not null)
+                        await channel.Writer.WriteAsync(result.Salary, ct);
                 }
                 catch (Exception ex)
                 {
@@ -120,6 +126,8 @@ public sealed partial class SalaryExtractionProcessor
                         rateLimiter.RecordRetryAfter(delay: retryAfter);
                 }
             });
+
+            await BatchUpdateAdLocations(locationUpdates, cancellationToken);
         }
 
         channel.Writer.Complete();
@@ -143,6 +151,35 @@ public sealed partial class SalaryExtractionProcessor
 
             if (batch.Count > 0)
                 await _salaryPersistenceService.ProcessBatch(batch, cancellationToken);
+        }
+    }
+
+
+    private async Task BatchUpdateAdLocations(
+        ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)> updates,
+        CancellationToken cancellationToken)
+    {
+        if (updates.IsEmpty)
+            return;
+
+        foreach (var group in updates.GroupBy(u => (u.Location, u.Format)))
+        {
+            var location = group.Key.Location;
+            var format = group.Key.Format;
+
+            if (location == VacancyLocation.Unknown && format == WorkFormat.Unknown)
+                continue;
+
+            var ids = group.Select(u => u.AdId).ToArray();
+
+            foreach (var idChunk in ids.Chunk(500))
+            {
+                await _dbContext.Ads
+                    .Where(a => idChunk.Contains(a.Id))
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(a => a.Location, location)
+                        .SetProperty(a => a.WorkFormat, format), cancellationToken);
+            }
         }
     }
 

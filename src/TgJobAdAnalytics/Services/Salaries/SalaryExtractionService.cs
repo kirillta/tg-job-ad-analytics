@@ -4,9 +4,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
+using TgJobAdAnalytics.Models.Locations.Enums;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Salaries.Enums;
 using TgJobAdAnalytics.Services.Levels;
+using TgJobAdAnalytics.Services.Locations;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
@@ -23,30 +25,38 @@ public sealed class SalaryExtractionService
     /// <param name="loggerFactory">Factory used to create the service logger.</param>
     /// <param name="chatClient">OpenAI chat client used for structured extraction.</param>
     /// <param name="positionLevelResolver">Resolver for determining position level when salary is present.</param>
-    public SalaryExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient, PositionLevelResolver positionLevelResolver)
+    /// <param name="locationFormatExtractionService">Service for extracting vacancy location and work format.</param>
+    public SalaryExtractionService(
+        ILoggerFactory loggerFactory,
+        ChatClient chatClient,
+        PositionLevelResolver positionLevelResolver,
+        LocationFormatExtractionService locationFormatExtractionService)
     {
         _chatClient = chatClient;
         _logger = loggerFactory.CreateLogger<SalaryExtractionService>();
         _positionLevelResolver = positionLevelResolver;
+        _locationFormatExtractionService = locationFormatExtractionService;
     }
 
 
     /// <summary>
-    /// Extracts salary data and position level for the supplied advertisement.
+    /// Extracts salary data, position level, vacancy location, and work format for the supplied advertisement.
     /// </summary>
     /// <param name="ad">Advertisement entity.</param>
     /// <param name="messageTags">Associated message tag strings used for position level heuristics.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A populated <see cref="SalaryEntity"/> or null if no salary is detected.</returns>
-    public async Task<SalaryEntity?> Process(AdEntity ad, List<string> messageTags, CancellationToken cancellationToken)
+    /// <returns>A <see cref="SalaryExtractionResult"/> with optional salary data plus location and format classifications.</returns>
+    public async Task<SalaryExtractionResult> Process(AdEntity ad, List<string> messageTags, CancellationToken cancellationToken)
     {
+        var (location, format) = await _locationFormatExtractionService.Process(ad.Text, cancellationToken);
+
         var salaryResponse = await ExtractSalary(ad, cancellationToken);
         if (salaryResponse is null)
-            return null;
+            return new SalaryExtractionResult(salary: null, location: location, format: format);
 
         var level = await _positionLevelResolver.Resolve(messageTags, ad.Text, cancellationToken);
 
-        return new SalaryEntity
+        var salaryEntity = new SalaryEntity
         {
             AdId = ad.Id,
             Date = ad.Date,
@@ -57,6 +67,8 @@ public sealed class SalaryExtractionService
             Status = ProcessingStatus.Extracted,
             Level = level
         };
+
+        return new SalaryExtractionResult(salary: salaryEntity, location: location, format: format);
     }
 
 
@@ -170,6 +182,7 @@ public sealed class SalaryExtractionService
 
     
     private readonly ChatClient _chatClient;
+    private readonly LocationFormatExtractionService _locationFormatExtractionService;
     private readonly ILogger<SalaryExtractionService> _logger;
     private readonly PositionLevelResolver _positionLevelResolver;
 }

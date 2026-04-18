@@ -6,5 +6,6 @@ public enum ChartType
     Bar = 1,
     Doughnut = 2,
     Line = 3,
-    PolarArea = 4
+    PolarArea = 4,
+    StackedBar = 5
 }

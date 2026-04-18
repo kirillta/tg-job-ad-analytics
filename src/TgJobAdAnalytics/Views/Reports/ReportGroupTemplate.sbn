@@ -6,7 +6,7 @@
     {{ end }}
 
     {{ for report in report_group.reports }}
-        {{ if report.code == 'report.ads.monthly_by_year' }}
+        {{ if report.code == 'report.ads.monthly_by_year' || report.code == 'report.ads.location_ratio' || report.code == 'report.ads.work_format_ratio' }}
             <div class="report-card bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-5">
                 {{ include "ReportTemplate.sbn" report }}
             </div>
@@ -15,7 +15,7 @@
 
     <div class="grid gap-8 md:grid-cols-2">
         {{ for report in report_group.reports }}
-            {{ if report.code != 'report.ads.monthly_by_year' }}
+            {{ if report.code != 'report.ads.monthly_by_year' && report.code != 'report.ads.location_ratio' && report.code != 'report.ads.work_format_ratio' }}
                 <div class="report-card bg-white rounded-lg shadow-sm ring-1 ring-gray-200 p-5">
                     {{ include "ReportTemplate.sbn" report }}
                 </div>

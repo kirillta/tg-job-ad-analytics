@@ -1,3 +1,5 @@
+using TgJobAdAnalytics.Models.Locations.Enums;
+
 namespace TgJobAdAnalytics.Data.Messages;
 
 public class AdEntity
@@ -18,6 +20,10 @@ public class AdEntity
     public Guid MessageId { get; set; }
 
     public Guid? StackId { get; set; }
+
+    public VacancyLocation Location { get; set; } = VacancyLocation.Unknown;
+
+    public WorkFormat WorkFormat { get; set; } = WorkFormat.Unknown;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

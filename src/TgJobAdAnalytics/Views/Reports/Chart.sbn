@@ -1,5 +1,5 @@
-<div class="max-w-full chart-container" data-chart-id="{{ report.chart.id_token }}" data-chart-type="{{ report.chart.type }}" data-metric-code="{{ report.code }}">
-    {{ if report.variants != null || report.chart.data.additional_datasets.size > 0 }}
+<div class="max-w-full chart-container" data-chart-id="{{ report.chart.id_token }}" data-chart-type="{{ report.chart.type }}" data-metric-code="{{ report.code }}"{{ if report.chart.is_stacked }} data-stacked="true"{{ end }}>
+    {{ if report.variants != null || (report.chart.data.additional_datasets.size > 0 && !report.chart.is_stacked) }}
     <div class="mb-3 flex flex-wrap items-center gap-4 variant-controls" data-variant-root="{{ report.chart.id_token }}">
         {{ if report.variants != null }}
         <div class="flex items-center gap-2">
@@ -13,7 +13,7 @@
             </select>
         </div>
         {{ end }}
-        {{ if report.chart.data.additional_datasets.size > 0 }}
+        {{ if report.chart.data.additional_datasets.size > 0 && !report.chart.is_stacked }}
         <div class="flex items-center gap-2">
             <label for="{{ report.chart.id_token }}-overlay-stack" class="text-sm text-gray-700">{{ l.ui.chart.stack_label }}:</label>
             <select id="{{ report.chart.id_token }}-overlay-stack" class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white shadow-sm overlay-stack-select">

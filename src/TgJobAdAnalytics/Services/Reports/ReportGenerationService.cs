@@ -1,4 +1,5 @@
 ﻿using TgJobAdAnalytics.Data;
+using TgJobAdAnalytics.Models.Locations.Enums;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Services.Analytics;
 
@@ -37,9 +38,17 @@ public class ReportGenerationService
             .Join(_dbContext.TechnologyStacks, a => a.StackId, ts => ts.Id, (a, ts) => new { a.Id, ts.Name })
             .ToDictionary(x => x.Id, x => x.Name);
 
+        var adLocationMapping = _dbContext.Ads
+            .Where(a => a.Location != VacancyLocation.Unknown)
+            .ToDictionary(a => a.Id, a => a.Location);
+
+        var adWorkFormatMapping = _dbContext.Ads
+            .Where(a => a.WorkFormat != WorkFormat.Unknown)
+            .ToDictionary(a => a.Id, a => a.WorkFormat);
+
         return
         [
-            AdStatsCalculator.GenerateAll(salaries, adStackMapping),
+            AdStatsCalculator.GenerateAll(salaries, adStackMapping, adLocationMapping, adWorkFormatMapping),
             SalaryStatisticsCalculator.GenerateAll(salaries)
         ];
     }

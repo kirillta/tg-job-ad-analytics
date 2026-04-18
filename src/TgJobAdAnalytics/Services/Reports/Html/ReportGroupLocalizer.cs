@@ -67,9 +67,27 @@ public sealed class ReportGroupLocalizer
                         tension: orig.Tension,
                         typeOverride: orig.TypeOverride,
                         yAxisId: orig.YAxisId);
-                    var localizedData = new ChartModel.DataModel(localizedLabels, localizedDataset, chart.Data.AdditionalDatasets);
 
-                    localizedChart = new ChartModel(chart.Id, chart.Type, localizedData);
+                    var localizedAdditionalDatasets = chart.Data.AdditionalDatasets
+                        .Select(ds =>
+                        {
+                            var label = _localizationProvider.TryGet(locale, ds.Label, out var localized) && !string.IsNullOrWhiteSpace(localized)
+                                ? localized
+                                : ds.Label;
+                            return new ChartModel.DatasetModel(
+                                label: label,
+                                data: ds.Data,
+                                backgroundColor: ds.BackgroundColor,
+                                borderColor: ds.BorderColor,
+                                tension: ds.Tension,
+                                typeOverride: ds.TypeOverride,
+                                yAxisId: ds.YAxisId);
+                        })
+                        .ToList();
+
+                    var localizedData = new ChartModel.DataModel(localizedLabels, localizedDataset, localizedAdditionalDatasets);
+
+                    localizedChart = new ChartModel(chart.Id, chart.Type, localizedData, chart.IsStacked);
                 }
 
                 localizedReports.Add(new ReportItem(report.Code, localizedTitle, localizedResults, localizedChart, localizedVariants));

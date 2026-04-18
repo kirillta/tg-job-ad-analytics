@@ -10,6 +10,7 @@ public static class ChartTypeExtensions
             ChartType.Doughnut => "doughnut",
             ChartType.Line => "line",
             ChartType.PolarArea => "polarArea",
+            ChartType.StackedBar => "bar",
             ChartType.None => "undefined",
             _ => "undefined"
         };

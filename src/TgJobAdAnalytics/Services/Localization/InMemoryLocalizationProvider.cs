@@ -35,6 +35,22 @@ public sealed class InMemoryLocalizationProvider : ILocalizationProvider
     }
 
 
+    /// <inheritdoc />
+    public bool TryGet(string locale, string key, out string value)
+    {
+        value = string.Empty;
+
+        if (!_resources.TryGetValue(locale, out var dict))
+            return false;
+
+        if (!dict.TryGetValue(key, out var found) || string.IsNullOrWhiteSpace(found))
+            return false;
+
+        value = found;
+        return true;
+    }
+
+
     private void LoadResources()
     {
         foreach (var locale in _siteOptions.Locales)

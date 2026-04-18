@@ -18,6 +18,7 @@ using TgJobAdAnalytics.Models.Vectors;
 using TgJobAdAnalytics.Services;
 using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Localization;
+using TgJobAdAnalytics.Services.Locations;
 using TgJobAdAnalytics.Services.Messages;
 using TgJobAdAnalytics.Services.Pipelines;
 using TgJobAdAnalytics.Services.Pipelines.Implementations;
@@ -148,6 +149,10 @@ public static class HostHelper
             services.AddSingleton<SalaryPersistenceService>();
             services.AddTransient<SalaryExtractionProcessor>();
             services.AddTransient<SalaryLevelUpdateProcessor>();
+
+            services.AddSingleton<LocationFormatExtractionService>();
+            services.AddTransient<LocationFormatBackfillProcessor>();
+            services.AddSingleton<IPipeline, LocationFormatBackfillPipeline>();
         
             services.AddSingleton<ChannelStackMappingManager>();
             services.AddScoped<ChannelStackResolverFactory>();

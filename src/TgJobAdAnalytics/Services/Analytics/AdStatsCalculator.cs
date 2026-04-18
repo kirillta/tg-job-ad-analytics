@@ -1,4 +1,5 @@
 ﻿using TgJobAdAnalytics.Data.Salaries;
+using TgJobAdAnalytics.Models.Locations.Enums;
 using TgJobAdAnalytics.Models.Reports;
 using TgJobAdAnalytics.Models.Reports.Enums;
 
@@ -11,12 +12,18 @@ public sealed class AdStatsCalculator
 {
     /// <summary>
     /// Generates the advertisement statistics report group composed of several individual reports
-    /// (top months, monthly distribution, yearly counts, etc.).
+    /// (top months, monthly distribution, yearly counts, location ratio, work format ratio).
     /// </summary>
     /// <param name="salaries">Collection of salary entities extracted from advertisements.</param>
     /// <param name="adStackMapping">Mapping of ad identifiers to their technology stack names.</param>
+    /// <param name="adLocationMapping">Mapping of ad identifiers to their vacancy location classification.</param>
+    /// <param name="adWorkFormatMapping">Mapping of ad identifiers to their work format classification.</param>
     /// <returns>A <see cref="ReportGroup"/> containing the computed advertisement statistics reports.</returns>
-    public static ReportGroup GenerateAll(List<SalaryEntity> salaries, Dictionary<Guid, string> adStackMapping)
+    public static ReportGroup GenerateAll(
+        List<SalaryEntity> salaries,
+        Dictionary<Guid, string> adStackMapping,
+        Dictionary<Guid, VacancyLocation> adLocationMapping,
+        Dictionary<Guid, WorkFormat> adWorkFormatMapping)
     {
         var reports = new List<Report>
         {
@@ -24,6 +31,8 @@ public sealed class AdStatsCalculator
             GetTopMonthsByAdCount(salaries),
             GetMonthlyAdCounts(salaries),
             GetYearlyAdCounts(salaries),
+            GetLocationRatio(salaries, adLocationMapping),
+            GetWorkFormatRatio(salaries, adWorkFormatMapping),
         };
 
         return new ReportGroup("group.ads.stats", reports);
@@ -119,4 +128,106 @@ public sealed class AdStatsCalculator
 
         return new Report("report.ads.yearly_counts", results);
     }
+
+
+    private static Report GetLocationRatio(List<SalaryEntity> salaries, Dictionary<Guid, VacancyLocation> adLocationMapping)
+    {
+        var monthlyGroups = salaries
+            .Where(s => adLocationMapping.ContainsKey(s.AdId))
+            .GroupBy(s => s.Date.Year + " " + s.Date.Month.ToString("00"))
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        var allLocations = new[] { VacancyLocation.Russia, VacancyLocation.Belarus, VacancyLocation.Cis, VacancyLocation.Europe, VacancyLocation.Us, VacancyLocation.MiddleEast, VacancyLocation.Other };
+
+        var russiaData = new Dictionary<string, double>();
+        var overlayData = allLocations.Skip(1).ToDictionary(loc => LocationLabel(loc), _ => new Dictionary<string, double>());
+
+        foreach (var group in monthlyGroups)
+        {
+            var monthKey = group.Key;
+            var total = group.Count();
+            if (total == 0)
+                continue;
+
+            foreach (var loc in allLocations)
+            {
+                var count = group.Count(s => adLocationMapping.TryGetValue(s.AdId, out var l) && l == loc);
+                var percentage = Math.Round(count / (double)total * 100, 1);
+
+                if (loc == VacancyLocation.Russia)
+                    russiaData[monthKey] = percentage;
+                else
+                    overlayData[LocationLabel(loc)][monthKey] = percentage;
+            }
+        }
+
+        var seriesOverlays = overlayData.Where(kv => kv.Value.Count > 0)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        return new Report("report.ads.location_ratio", russiaData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
+    }
+
+
+    private static Report GetWorkFormatRatio(List<SalaryEntity> salaries, Dictionary<Guid, WorkFormat> adWorkFormatMapping)
+    {
+        var monthlyGroups = salaries
+            .Where(s => adWorkFormatMapping.ContainsKey(s.AdId))
+            .GroupBy(s => s.Date.Year + " " + s.Date.Month.ToString("00"))
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        var allFormats = new[] { WorkFormat.OnSite, WorkFormat.Hybrid, WorkFormat.RemoteDomestic, WorkFormat.RemoteWorldwide };
+
+        var onSiteData = new Dictionary<string, double>();
+        var overlayData = allFormats.Skip(1).ToDictionary(fmt => FormatLabel(fmt), _ => new Dictionary<string, double>());
+
+        foreach (var group in monthlyGroups)
+        {
+            var monthKey = group.Key;
+            var total = group.Count();
+            if (total == 0)
+                continue;
+
+            foreach (var fmt in allFormats)
+            {
+                var count = group.Count(s => adWorkFormatMapping.TryGetValue(s.AdId, out var f) && f == fmt);
+                var percentage = Math.Round(count / (double)total * 100, 1);
+
+                if (fmt == WorkFormat.OnSite)
+                    onSiteData[monthKey] = percentage;
+                else
+                    overlayData[FormatLabel(fmt)][monthKey] = percentage;
+            }
+        }
+
+        var seriesOverlays = overlayData.Where(kv => kv.Value.Count > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        return new Report("report.ads.work_format_ratio", onSiteData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
+    }
+
+
+    private static string LocationLabel(VacancyLocation location) 
+        => location switch
+        {
+            VacancyLocation.Russia => "location.russia",
+            VacancyLocation.Belarus => "location.belarus",
+            VacancyLocation.Cis => "location.cis",
+            VacancyLocation.Europe => "location.europe",
+            VacancyLocation.Us => "location.us",
+            VacancyLocation.MiddleEast => "location.middle_east",
+            VacancyLocation.Other => "location.other",
+            _ => "location.other"
+        };
+
+
+    private static string FormatLabel(WorkFormat format) 
+        => format switch
+        {
+            WorkFormat.OnSite => "format.on_site",
+            WorkFormat.Hybrid => "format.hybrid",
+            WorkFormat.RemoteDomestic => "format.remote_domestic",
+            WorkFormat.RemoteWorldwide => "format.remote_worldwide",
+            _ => "format.remote_worldwide"
+        };
 }
