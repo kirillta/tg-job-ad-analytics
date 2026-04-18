@@ -3,6 +3,7 @@ using OpenAI.Chat;
 using System.Text.Json;
 using TgJobAdAnalytics.Models.Levels;
 using TgJobAdAnalytics.Models.Levels.Enums;
+using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Levels;
 
@@ -17,10 +18,12 @@ public sealed class PositionLevelExtractionService
     /// </summary>
     /// <param name="loggerFactory">Factory used to create a logger for this service.</param>
     /// <param name="chatClient">OpenAI chat client used for structured extraction.</param>
-    public PositionLevelExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient)
+    /// <param name="statusPrinter">Status line printer for inline progress output.</param>
+    public PositionLevelExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient, ConsoleStatusLinePrinter statusPrinter)
     {
         _logger = loggerFactory.CreateLogger<PositionLevelExtractionService>();
         _chatClient = chatClient;
+        _statusPrinter = statusPrinter;
     }
 
 
@@ -48,13 +51,12 @@ public sealed class PositionLevelExtractionService
             var raw = completion.Value.Content[0].Text;
             var response = JsonSerializer.Deserialize<ChatGptPositionLevelResponse>(raw);
 
-            Console.Write($"\rPosition level extracted: {response.Level}                                                                ");
+            _statusPrinter.Set($"Position level extracted: {response.Level}");
 
             return response;
         }
         catch (Exception ex)
         {
-            Console.WriteLine();
             _logger.LogError(ex, "Error extracting position level from text: {Text}", text);
         }
 
@@ -126,4 +128,5 @@ public sealed class PositionLevelExtractionService
 
     private readonly ChatClient _chatClient;
     private readonly ILogger<PositionLevelExtractionService> _logger;
+    private readonly ConsoleStatusLinePrinter _statusPrinter;
 }

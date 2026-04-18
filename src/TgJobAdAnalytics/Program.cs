@@ -13,9 +13,9 @@ var services = scope.ServiceProvider;
 await HostHelper.ApplyDatabaseMigrations(services);
 
 var originalOut = Console.Out; // capture before replacing
-var statusPrinter = new ConsoleStatusLinePrinter(originalOut);
+var statusPrinter = services.GetRequiredService<ConsoleStatusLinePrinter>();
 
-Console.SetOut(new StatusAwareTextWriter(Console.Out, statusPrinter));
+Console.SetOut(new StatusAwareTextWriter(originalOut, statusPrinter));
 Console.SetError(new StatusAwareTextWriter(originalOut, statusPrinter));
 
 

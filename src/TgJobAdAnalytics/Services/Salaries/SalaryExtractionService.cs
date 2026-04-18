@@ -4,11 +4,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using TgJobAdAnalytics.Data.Messages;
 using TgJobAdAnalytics.Data.Salaries;
-using TgJobAdAnalytics.Models.Locations.Enums;
 using TgJobAdAnalytics.Models.Salaries;
 using TgJobAdAnalytics.Models.Salaries.Enums;
 using TgJobAdAnalytics.Services.Levels;
 using TgJobAdAnalytics.Services.Locations;
+using TgJobAdAnalytics.Utils;
 
 namespace TgJobAdAnalytics.Services.Salaries;
 
@@ -26,16 +26,19 @@ public sealed class SalaryExtractionService
     /// <param name="chatClient">OpenAI chat client used for structured extraction.</param>
     /// <param name="positionLevelResolver">Resolver for determining position level when salary is present.</param>
     /// <param name="locationFormatExtractionService">Service for extracting vacancy location and work format.</param>
+    /// <param name="statusPrinter">Status line printer for inline progress output.</param>
     public SalaryExtractionService(
         ILoggerFactory loggerFactory,
         ChatClient chatClient,
         PositionLevelResolver positionLevelResolver,
-        LocationFormatExtractionService locationFormatExtractionService)
+        LocationFormatExtractionService locationFormatExtractionService,
+        ConsoleStatusLinePrinter statusPrinter)
     {
         _chatClient = chatClient;
         _logger = loggerFactory.CreateLogger<SalaryExtractionService>();
         _positionLevelResolver = positionLevelResolver;
         _locationFormatExtractionService = locationFormatExtractionService;
+        _statusPrinter = statusPrinter;
     }
 
 
@@ -78,7 +81,7 @@ public sealed class SalaryExtractionService
         var raw = completion.Value.Content[0].Text;
         var response = JsonSerializer.Deserialize<ChatGptSalaryResponse>(raw, JsonSerializerOptions);
 
-        Console.Write($"\rSalary extracted for ad {ad.Id}                                                ");
+        _statusPrinter.Set($"Salary extracted for ad {ad.Id}");
         return response;
     }
 
@@ -185,4 +188,5 @@ public sealed class SalaryExtractionService
     private readonly LocationFormatExtractionService _locationFormatExtractionService;
     private readonly ILogger<SalaryExtractionService> _logger;
     private readonly PositionLevelResolver _positionLevelResolver;
+    private readonly ConsoleStatusLinePrinter _statusPrinter;
 }
