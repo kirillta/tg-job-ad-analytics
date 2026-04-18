@@ -3,6 +3,8 @@ using Scriban;
 using Scriban.Runtime;
 using TgJobAdAnalytics.Models.Reports.Html;
 using TgJobAdAnalytics.Models.Reports.Metadata;
+using TgJobAdAnalytics.Services.Localization;
+using TgJobAdAnalytics.Services.Reports.Html.Scriban;
 
 namespace TgJobAdAnalytics.Services.Reports.Html.Testing;
 
@@ -11,11 +13,12 @@ namespace TgJobAdAnalytics.Services.Reports.Html.Testing;
 /// </summary>
 public static class ReportTestRenderer
 {
-    public static string Render(MetadataModel metadata, string templatesRoot)
+    public static string Render(MetadataModel metadata, string templatesRoot, ILocalizationProvider localizationProvider)
     {
         var groups = new List<ReportItemGroup>();
         var dataSources = new List<DataSourceModel>();
         var locales = metadata.HreflangAlternates.Select(h => h.Locale).Prepend(metadata.Locale).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var localization = new UiLocalizer(localizationProvider).BuildLocalizationDictionary(metadata.Locale);
         var reportModel = new ReportModel(
             reportGroups: groups,
             reportDate: DateOnly.FromDateTime(DateTime.UtcNow),
@@ -32,7 +35,7 @@ public static class ReportTestRenderer
                 HreflangAlternates: metadata.HreflangAlternates.Select(h => (h.Locale, h.Url)).ToList(),
                 JsonLd: BuildJsonLd(metadata)
             ),
-            localization: new Dictionary<string, object>(),
+            localization: localization,
             locales: locales,
             currentLocale: metadata.Locale
         );
@@ -43,9 +46,38 @@ public static class ReportTestRenderer
 
         var scriptObject = new ScriptObject();
         scriptObject.Import(reportModel);
-        var context = new TemplateContext { EnableRelaxedMemberAccess = true };
+
+        var localizationWrapper = new ScriptObject();
+        foreach (var kv in localization)
+            localizationWrapper.Add(kv.Key, ToScriptFriendly(kv.Value));
+
+        var helpers = new ScriptObject();
+        helpers.Import("dump", new Func<object, string>(o => JsonSerializer.Serialize(o)));
+        helpers.Add("l", localizationWrapper);
+
+        var context = new TemplateContext
+        {
+            TemplateLoader = new FileSystemLoader(templatesRoot),
+            EnableRelaxedMemberAccess = true
+        };
+        context.PushGlobal(helpers);
         context.PushGlobal(scriptObject);
         return template.Render(context);
+    }
+
+
+    private static object ToScriptFriendly(object value)
+    {
+        if (value is Dictionary<string, object> dict)
+        {
+            var so = new ScriptObject();
+            foreach (var kv in dict)
+                so.Add(kv.Key, ToScriptFriendly(kv.Value));
+
+            return so;
+        }
+
+        return value;
     }
 
 

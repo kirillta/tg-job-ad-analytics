@@ -46,7 +46,7 @@ public class MetadataBuilderTests
         var metadata = builder.Build(locale: "en", kpis: null, persistedPublishedUtc: null, generatedUtc: DateTime.UtcNow);
 
         Assert.Equal("en", metadata.Locale);
-        Assert.StartsWith("https://example.com/en/reports/index.html", metadata.CanonicalUrl);
+        Assert.StartsWith("https://example.com/en/index.html", metadata.CanonicalUrl);
         Assert.NotEmpty(metadata.Title);
         Assert.NotEmpty(metadata.Description);
         Assert.Contains("salary", metadata.Keywords);

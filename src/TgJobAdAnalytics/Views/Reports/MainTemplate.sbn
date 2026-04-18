@@ -10,9 +10,7 @@
         <meta name="robots" content="index,follow" />
 
         {{ for alt in metadata.hreflang_alternates }}
-        {{ if alt.item1 != 'x-default' }}
         <link rel="alternate" hreflang="{{ alt.item1 }}" href="{{ alt.item2 }}" />
-        {{ end }}
         {{ end }}
 
         <meta property="og:title" content="{{ metadata.title }}" />

@@ -28,11 +28,13 @@ public class ReportHtmlPresenceTests
             }
         };
 
-        public string Get(string locale, string key) => _data[locale][key];
+        public string Get(string locale, string key)
+            => _data.TryGetValue(locale, out var localeData) && localeData.TryGetValue(key, out var val) ? val : key;
 
         public bool TryGet(string locale, string key, out string value)
         {
-            throw new NotImplementedException();
+            value = Get(locale, key);
+            return true;
         }
     }
 
@@ -49,10 +51,11 @@ public class ReportHtmlPresenceTests
             JsonLdType = JsonLdType.Article
         });
 
-        var builder = new MetadataBuilder(options, NullLogger<MetadataBuilder>.Instance, new TestLocalizationProvider());
+        var localizationProvider = new TestLocalizationProvider();
+        var builder = new MetadataBuilder(options, NullLogger<MetadataBuilder>.Instance, localizationProvider);
         var metadata = builder.Build(locale: "en", kpis: null, persistedPublishedUtc: null, generatedUtc: DateTime.UtcNow);
 
-        var html = ReportTestRenderer.Render(metadata, templatesRoot: Path.Combine("src", "TgJobAdAnalytics", "Views", "Reports"));
+        var html = ReportTestRenderer.Render(metadata, templatesRoot: Path.Combine("src", "TgJobAdAnalytics", "Views", "Reports"), localizationProvider: localizationProvider);
 
         Assert.Contains("<meta name=\"description\"", html, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("<meta property=\"og:title\"", html, StringComparison.OrdinalIgnoreCase);
@@ -78,10 +81,11 @@ public class ReportHtmlPresenceTests
             JsonLdType = JsonLdType.Article
         });
 
-        var builder = new MetadataBuilder(options, NullLogger<MetadataBuilder>.Instance, new TestLocalizationProvider());
+        var localizationProvider = new TestLocalizationProvider();
+        var builder = new MetadataBuilder(options, NullLogger<MetadataBuilder>.Instance, localizationProvider);
         var metadata = builder.Build(locale: "en", kpis: null, persistedPublishedUtc: null, generatedUtc: DateTime.UtcNow);
 
-        var html = ReportTestRenderer.Render(metadata, templatesRoot: Path.Combine("src", "TgJobAdAnalytics", "Views", "Reports"));
+        var html = ReportTestRenderer.Render(metadata, templatesRoot: Path.Combine("src", "TgJobAdAnalytics", "Views", "Reports"), localizationProvider: localizationProvider);
 
         var jsonLdMatch = Regex.Match(html, "<script type=\"application/ld\\+json\">(?<json>.*?)</script>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         Assert.True(jsonLdMatch.Success, "JSON-LD script block not found");
