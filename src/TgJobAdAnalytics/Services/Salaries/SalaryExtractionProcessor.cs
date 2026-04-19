@@ -69,7 +69,12 @@ public sealed partial class SalaryExtractionProcessor
         {
             FullMode = BoundedChannelFullMode.Wait
         });
-        var persistenceTask = ConsumeAndPersistBatches(channel.Reader, cancellationToken);
+
+        var locationUpdates = new ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)>();
+        var persistenceTask = ConsumeAndPersistBatches(channel.Reader, locationUpdates, cancellationToken);
+
+        var totalAds = await _dbContext.Ads.CountAsync(ad => !_dbContext.Salaries.Any(s => s.AdId == ad.Id), cancellationToken);
+        _logger.LogInformation("Starting data extraction for {TotalAds} ads.", totalAds);
 
         using var rateLimiter = new AdaptiveRateLimiter(_openAiOptions);
         await foreach (var chunk in GetAdsInChunks(cancellationToken))
@@ -80,7 +85,6 @@ public sealed partial class SalaryExtractionProcessor
             cancellationToken.ThrowIfCancellationRequested();
 
             var tagsByMessageId = await PreloadMessageTags([.. chunk.Select(ad => ad.MessageId)], cancellationToken);
-            var locationUpdates = new ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)>();
 
             _logger.LogInformation("Processing chunk of {ChunkSize} ads with concurrency: {Concurrency}", chunk.Count, rateLimiter.CurrentConcurrency);
 
@@ -89,8 +93,6 @@ public sealed partial class SalaryExtractionProcessor
                 MaxDegreeOfParallelism = rateLimiter.CurrentConcurrency,
                 CancellationToken = linkedCancellationSource.Token
             }, ProcessAd);
-
-            await BatchUpdateAdLocations(locationUpdates, cancellationToken);
 
 
             async ValueTask ProcessAd(AdEntity ad, CancellationToken ct)
@@ -140,7 +142,10 @@ public sealed partial class SalaryExtractionProcessor
     }
 
 
-    private async Task ConsumeAndPersistBatches(ChannelReader<SalaryEntity> reader, CancellationToken cancellationToken)
+    private async Task ConsumeAndPersistBatches(
+        ChannelReader<SalaryEntity> reader,
+        ConcurrentBag<(Guid AdId, VacancyLocation Location, WorkFormat Format)> locationUpdates,
+        CancellationToken cancellationToken)
     {
         var batch = new List<SalaryEntity>(_openAiOptions.ProcessingChunkSize);
 
@@ -157,6 +162,8 @@ public sealed partial class SalaryExtractionProcessor
 
         if (batch.Count > 0)
             await _salaryPersistenceService.ProcessBatch(batch, cancellationToken);
+
+        await BatchUpdateAdLocations(locationUpdates, cancellationToken);
     }
 
 

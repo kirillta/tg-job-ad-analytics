@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using System.Data.Common;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using TgJobAdAnalytics.Data.Messages;
@@ -27,6 +29,7 @@ public class ApplicationDbContext : DbContext
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         optionsBuilder.UseSqlite(connectionString);
         optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+        optionsBuilder.AddInterceptors(new SqliteBusyTimeoutInterceptor());
     }        
     
     
@@ -159,4 +162,23 @@ public class ApplicationDbContext : DbContext
     };
 
     private readonly IConfiguration _configuration;
+
+
+    private sealed class SqliteBusyTimeoutInterceptor : DbConnectionInterceptor
+    {
+        public override void ConnectionOpened(DbConnection connection, ConnectionEndEventData eventData)
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "PRAGMA busy_timeout = 15000;";
+            cmd.ExecuteNonQuery();
+        }
+
+
+        public override async Task ConnectionOpenedAsync(DbConnection connection, ConnectionEndEventData eventData, CancellationToken cancellationToken = default)
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "PRAGMA busy_timeout = 15000;";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
 }

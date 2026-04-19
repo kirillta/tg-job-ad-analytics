@@ -25,7 +25,7 @@ public class FileSystemLoader : ITemplateLoader
     }
 
 
-    public async ValueTask<string> LoadAsync(TemplateContext context, SourceSpan callerSpan, string templatePath)
+    public async ValueTask<string?> LoadAsync(TemplateContext context, SourceSpan callerSpan, string templatePath)
     {
         var fullPath = Path.GetFullPath(templatePath);
         return await File.ReadAllTextAsync(fullPath);

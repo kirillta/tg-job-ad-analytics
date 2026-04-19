@@ -150,9 +150,9 @@ public sealed class TelegramAdPersistenceService
 
         var resolver = await _channelStackResolverFactory.Create();
 
-        var entries = new List<AdEntity>();
+        var entries = new List<(AdEntity Ad, uint[] Signature, int ShingleCount)>();
         var entriesLock = new Lock();
-        Parallel.ForEach(messages, _parallelOptions, () => (List: new List<AdEntity>(), Builder: new StringBuilder()), (message, _, localState) =>
+        Parallel.ForEach(messages, _parallelOptions, () => (List: new List<(AdEntity Ad, uint[] Signature, int ShingleCount)>(), Builder: new StringBuilder()), (message, _, localState) =>
             {
                 if (!IsProcessable(message, timeStamp))
                     return localState;
@@ -169,7 +169,7 @@ public sealed class TelegramAdPersistenceService
 
                 var adId = DeterministicGuid.Create(Namespaces.Ads, $"{message.TelegramChatId}:{message.TelegramMessageId}:ad");
 
-                localState.List.Add(new AdEntity
+                var ad = new AdEntity
                 {
                     Id = adId,
                     Date = DateOnly.FromDateTime(message.TelegramMessageDate),
@@ -178,7 +178,10 @@ public sealed class TelegramAdPersistenceService
                     StackId = stackId,
                     CreatedAt = timeStamp,
                     UpdatedAt = timeStamp
-                });
+                };
+
+                var (signature, shingleCount) = _minHashVectorizer.GenerateMinHashSignature(normalizedText);
+                localState.List.Add((Ad: ad, Signature: signature, ShingleCount: shingleCount));
 
                 return localState;
             }, localState =>
@@ -196,21 +199,21 @@ public sealed class TelegramAdPersistenceService
             int currentBatchSize = Math.Min(batchSize, entries.Count - i);
             var batch = entries.GetRange(i, currentBatchSize);
 
-            List<AdEntity> newBatch;
+            List<(AdEntity Ad, uint[] Signature, int ShingleCount)> newBatch;
             if (skipExistenceCheck)
             {
                 newBatch = batch;
             }
             else
             {
-                var batchIds = batch.Select(e => e.Id).ToList();
+                var batchIds = batch.Select(e => e.Ad.Id).ToList();
                 var existingIds = await _dbContext.Ads
                     .IgnoreQueryFilters()
                     .Where(a => batchIds.Contains(a.Id))
                     .Select(a => a.Id)
                     .ToHashSetAsync(cancellationToken);
 
-                newBatch = batch.Where(e => !existingIds.Contains(e.Id))
+                newBatch = batch.Where(e => !existingIds.Contains(e.Ad.Id))
                     .ToList();
             }
 
@@ -219,14 +222,13 @@ public sealed class TelegramAdPersistenceService
 
             await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-            _dbContext.Ads.AddRange(newBatch);
+            _dbContext.Ads.AddRange(newBatch.Select(e => e.Ad));
 
             var vectorStoreItems = new List<(Guid AdId, uint[] Signature, int ShingleCount)>(newBatch.Count);
             var vectorIndexItems = new List<(Guid AdId, uint[] Signature)>(newBatch.Count);
 
-            foreach (var ad in newBatch)
+            foreach (var (ad, signature, shingleCount) in newBatch)
             {
-                var (signature, shingleCount) = _minHashVectorizer.GenerateMinHashSignature(ad.Text);
                 vectorStoreItems.Add((ad.Id, signature, shingleCount));
                 vectorIndexItems.Add((ad.Id, signature));
             }

@@ -79,6 +79,33 @@ public sealed class VectorStore
         => _dbContext.AdVectors.AsNoTracking().FirstOrDefaultAsync(x => x.AdId == adId && x.Version == version, cancellationToken);
 
 
+    /// <summary>
+    /// Retrieves advertisement vector entities for a batch of ad ids and a given model version, chunked to stay within
+    /// SQLite's SQL variable limit (no tracking).
+    /// </summary>
+    /// <param name="adIds">Advertisement identifiers to look up.</param>
+    /// <param name="version">Vectorization model version.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Dictionary mapping ad id to vector entity for found records.</returns>
+    public async Task<Dictionary<Guid, AdVectorEntity>> GetBatch(IReadOnlyList<Guid> adIds, int version, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, AdVectorEntity>(adIds.Count);
+
+        foreach (var chunk in adIds.Chunk(SqliteMaxVariables))
+        {
+            var rows = await _dbContext.AdVectors
+                .AsNoTracking()
+                .Where(x => chunk.Contains(x.AdId) && x.Version == version)
+                .ToDictionaryAsync(x => x.AdId, cancellationToken);
+
+            foreach (var kvp in rows)
+                result[kvp.Key] = kvp.Value;
+        }
+
+        return result;
+    }
+
+
     private static AdVectorEntity AddInternal(in Guid adId, uint[] signature, byte[] bytes, string hash, int shingleCount, in DateTime timeStamp, int configVersion)
         => new()
         {
@@ -124,6 +151,8 @@ public sealed class VectorStore
     }
 
     
+    private const int SqliteMaxVariables = 900;
+
     private readonly VectorizationModelParams _activeConfig;
     private readonly ApplicationDbContext _dbContext;
 }

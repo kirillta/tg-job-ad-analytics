@@ -147,9 +147,10 @@ namespace TgJobAdAnalytics.Services.Uploads
                 .AsNoTracking()
                 .IgnoreQueryFilters()
                 .OrderByDescending(a => a.Date)
+                .Select(a => new Data.Messages.AdEntity { Id = a.Id, Date = a.Date })
                 .ToListAsync(cancellationToken);
 
-            var uniqueAds = _similarityCalculator.Distinct(ads);
+            var uniqueAds = await _similarityCalculator.DistinctPersistent(ads, cancellationToken);
             _logger.LogInformation("Found {UniqueAdCount} unique ads out of {TotalAdCount}", uniqueAds.Count, ads.Count);
 
             var uniqueIds = uniqueAds.Select(a => a.Id).ToList();

@@ -132,6 +132,35 @@ public sealed class SimilarityCalculator
             CancellationToken = ct
         };
 
+        // When ads carry no text, retrieve pre-stored signatures from the vector store and deduplicate
+        // sequentially to avoid concurrent DbContext access and to keep LSH GetMatches+Add atomic.
+        if (ads.All(a => string.IsNullOrEmpty(a.Text)))
+        {
+            var lshCalculator = new LocalitySensitiveHashCalculator(_vectorizationOptions);
+            var result = new List<AdEntity>();
+
+            var adIds = ads.Select(a => a.Id).ToList();
+            var storedVectors = await _vectorStore.GetBatch(adIds, version, ct);
+
+            foreach (var ad in ads)
+            {
+                if (!storedVectors.TryGetValue(ad.Id, out var storedVector))
+                {
+                    result.Add(ad);
+                    continue;
+                }
+
+                var signature = SignatureSerializer.FromBytes(storedVector.Signature);
+                if (lshCalculator.GetMatches(signature).Count == 0)
+                {
+                    lshCalculator.Add(ad.Id, signature);
+                    result.Add(ad);
+                }
+            }
+
+            return result;
+        }
+
         await Parallel.ForEachAsync(ads, options, async (ad, token) =>
         {
             var (signature, shingleCount) = _vectorizer.GenerateMinHashSignature(ad.Text);

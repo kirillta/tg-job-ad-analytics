@@ -39,6 +39,8 @@ public static class HostHelper
     { 
         var dbContext = services.GetRequiredService<ApplicationDbContext>();
         await dbContext.Database.MigrateAsync();
+        await dbContext.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
+        await dbContext.Database.ExecuteSqlRawAsync("PRAGMA synchronous=NORMAL;");
     }
 
 
