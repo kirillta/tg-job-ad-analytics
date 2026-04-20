@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using TgJobAdAnalytics.Data;
 using TgJobAdAnalytics.Data.Messages;
@@ -21,7 +20,7 @@ namespace TgJobAdAnalytics.Services.Salaries;
 /// Streams ads in configurable chunks, processes them in parallel, and writes successful salary entities
 /// to a channel consumed by the <see cref="SalaryPersistenceService"/>.
 /// </summary>
-public sealed partial class SalaryExtractionProcessor
+public sealed class SalaryExtractionProcessor
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SalaryExtractionProcessor"/>.
@@ -113,10 +112,10 @@ public sealed partial class SalaryExtractionProcessor
                 }
                 catch (Exception ex)
                 {
-                    var isRateLimitError = IsRateLimitException(ex);
+                    var isRateLimitError = RateLimitHelper.IsRateLimitException(ex);
                     rateLimiter.RecordFailure(isRateLimitError);
 
-                    if (IsQuotaExceeded(ex))
+                    if (RateLimitHelper.IsQuotaExceeded(ex))
                     {
                         _logger.LogError(ex, "Quota exceeded. Cancelling processing.");
                         linkedCancellationSource.Cancel();
@@ -126,7 +125,7 @@ public sealed partial class SalaryExtractionProcessor
 
                     if (isRateLimitError)
                     {
-                        if (TryParseRetryAfter(ex, out var retryAfter))
+                        if (RateLimitHelper.TryParseRetryAfter(ex, out var retryAfter))
                             rateLimiter.RecordRetryAfter(delay: retryAfter);
 
                         return;
@@ -228,15 +227,6 @@ public sealed partial class SalaryExtractionProcessor
     }
 
 
-    private static bool IsRateLimitException(Exception ex)
-    {
-        var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
-        return message.Contains("rate_limit_exceeded") || 
-            message.Contains("429") || 
-            ex.GetType().Name.Contains("RateLimit", StringComparison.OrdinalIgnoreCase);
-    }
-
-
     private async Task<Dictionary<Guid, List<string>>> PreloadMessageTags(List<Guid> messageIds, CancellationToken cancellationToken)
     {
         if (messageIds.Count == 0)
@@ -250,49 +240,6 @@ public sealed partial class SalaryExtractionProcessor
     }
 
 
-    private static bool IsQuotaExceeded(Exception ex)
-    {
-        var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
-        return message.Contains("insufficient_quota") || message.Contains("quota") && message.Contains("exceeded");
-    }
-
-
-    private static bool TryParseRetryAfter(Exception ex, out TimeSpan delay)
-    {
-        delay = TimeSpan.Zero;
-        var errorMessage = ex.Message ?? string.Empty;
-
-        var match = RateLimitRetryRegex().Match(errorMessage);
-        if (!match.Success)
-            return false;
-
-        var retryAfterValue = int.Parse(match.Groups["val"].Value);
-        var unit = match.Groups["unit"].Value.ToLowerInvariant();
-
-        delay = unit switch
-        {
-            "ms" => TimeSpan.FromMilliseconds(retryAfterValue),
-            "s" or "sec" or "secs" or "second" or "seconds" => TimeSpan.FromSeconds(retryAfterValue),
-            _ => TimeSpan.Zero
-        };
-
-        if (delay <= TimeSpan.Zero)
-            return false;
-
-        if (delay < TimeSpan.FromMilliseconds(50))
-            delay = TimeSpan.FromMilliseconds(50);
-
-        if (delay > TimeSpan.FromSeconds(30))
-            delay = TimeSpan.FromSeconds(30);
-
-        return true;
-    }
-    
-
-    [GeneratedRegex(@"try again in\s+(?<val>\d+)\s*(?<unit>ms|s|sec|secs|second|seconds)", RegexOptions.IgnoreCase)]
-    private static partial Regex RateLimitRetryRegex();
-
-    
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<SalaryExtractionProcessor> _logger;
     private readonly OpenAiOptions _openAiOptions;

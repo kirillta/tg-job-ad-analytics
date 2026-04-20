@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using System.Text.Json;
 using TgJobAdAnalytics.Models.Locations;
@@ -9,18 +8,16 @@ namespace TgJobAdAnalytics.Services.Locations;
 /// <summary>
 /// Extracts employer location and work format from job advertisement text using a single LLM call
 /// with a constrained JSON schema. Returns <see cref="VacancyLocation.Unknown"/> and <see cref="WorkFormat.Unknown"/>
-/// on error or when no relevant information is present.
+/// when the ad text is empty or contains no relevant information. Any API errors are propagated to the caller.
 /// </summary>
 public sealed class LocationFormatExtractionService
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="LocationFormatExtractionService"/> class.
     /// </summary>
-    /// <param name="loggerFactory">Factory used to create a logger for this service.</param>
     /// <param name="chatClient">OpenAI chat client used for structured extraction.</param>
-    public LocationFormatExtractionService(ILoggerFactory loggerFactory, ChatClient chatClient)
+    public LocationFormatExtractionService(ChatClient chatClient)
     {
-        _logger = loggerFactory.CreateLogger<LocationFormatExtractionService>();
         _chatClient = chatClient;
     }
 
@@ -42,23 +39,13 @@ public sealed class LocationFormatExtractionService
 
     private async Task<(VacancyLocation, WorkFormat)> Extract(string text, CancellationToken cancellationToken)
     {
-        try
-        {
-            var completion = await _chatClient.CompleteChatAsync([SystemPrompt, text], ChatOptions, cancellationToken);
-            var raw = completion.Value.Content[0].Text;
-            var response = JsonSerializer.Deserialize<ChatGptLocationFormatResponse>(raw);
+        var completion = await _chatClient.CompleteChatAsync([SystemPrompt, text], ChatOptions, cancellationToken);
+        var raw = completion.Value.Content[0].Text;
+        var response = JsonSerializer.Deserialize<ChatGptLocationFormatResponse>(raw);
 
-            Console.Write($"\rLocation/format extracted: {response.Location}/{response.Format}                                                   ");
+        Console.Write($"\rLocation/format extracted: {response.Location}/{response.Format}                                                   ");
 
-            return (response.Location, response.Format);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine();
-            _logger.LogError(ex, "Error extracting location and work format.");
-        }
-
-        return (VacancyLocation.Unknown, WorkFormat.Unknown);
+        return (response.Location, response.Format);
     }
 
 
@@ -152,5 +139,4 @@ public sealed class LocationFormatExtractionService
 
 
     private readonly ChatClient _chatClient;
-    private readonly ILogger<LocationFormatExtractionService> _logger;
 }
