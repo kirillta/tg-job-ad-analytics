@@ -26,7 +26,7 @@
         var y1Axis = hasSecondAxis ? computeYAxis(additionalDatasets.filter(function(ds){ return ds.yAxisID==='y1'; }).reduce(function(a,ds){ return a.concat(ds.data||[]); },[])) : null;
         var scalesConf;
         if (isStacked) {
-            scalesConf = { x: { type:'category', stacked:true, offset:true, ticks:{display:false}, grid:{drawBorder:false} }, y: { stacked:true, beginAtZero:true, max:100, ticks:{display:false}, grid:{drawBorder:false} } };
+            scalesConf = { x: { type:'category', stacked:true, offset:true, ticks:{ autoSkip:false, maxRotation:0, callback: function(val,index){ var lbl=String(base.labels[index]||''); var m=/^(\d{4}) /.exec(lbl); if(!m) return ''; if(index===0||String(base.labels[index-1]||'').substring(0,4)!==m[1]) return m[1]; return ''; } }, grid:{drawBorder:false} }, y: { stacked:true, beginAtZero:true, max:100, ticks:{display:false}, grid:{drawBorder:false} } };
         } else {
             scalesConf = { x: { type:'category', offset:true, ticks:{display:false}, grid:{drawBorder:false} }, y: { beginAtZero:true, suggestedMax: yAxis.max, ticks:{display:false}, grid:{drawBorder:false} } };
             if (y1Axis) scalesConf.y1 = { position:'right', beginAtZero:true, suggestedMax: 1, ticks:{display:false}, grid:{drawOnChartArea:false,drawBorder:false} };

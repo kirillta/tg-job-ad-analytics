@@ -174,7 +174,7 @@ public sealed class AdStatsCalculator
             ProcessMonth(group);
 
         var seriesOverlays = overlayData.Where(kv => kv.Value.Count > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
-        return new Report(reportKey, primaryData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null);
+        return new Report(reportKey, primaryData, ChartType.StackedBar, seriesOverlays: seriesOverlays.Count > 0 ? seriesOverlays : null, primarySeriesLabel: labelSelector(primaryValue));
 
 
         void ProcessMonth(IGrouping<string, SalaryEntity> group)

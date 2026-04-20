@@ -125,7 +125,7 @@ public sealed class ChartBuilder
 
 
     private static ChartModel.DatasetModel GetStackedBarDataset(Report report)
-        => new(label: report.Title, data: GetDatasetData(report), backgroundColor: [_backgroundColors[0]], borderColor: [_borderColors[0]]);
+        => new(label: report.PrimarySeriesLabel ?? report.Title, data: GetDatasetData(report), backgroundColor: [_backgroundColors[0]], borderColor: [_borderColors[0]]);
 
 
     private static List<string> GetDatasetData(Report report)

@@ -59,8 +59,11 @@ public sealed partial class ReportGroupLocalizer
                 {
                     var localizedLabels = chart.Data.Labels.Select(l => LocalizeMonthKey(locale, l)).ToList();
                     var orig = chart.Data.Dataset;
+                    var primaryLabel = _localizationProvider.TryGet(locale, orig.Label, out var localizedOrigLabel) && !string.IsNullOrWhiteSpace(localizedOrigLabel)
+                        ? localizedOrigLabel
+                        : localizedTitle;
                     var localizedDataset = new ChartModel.DatasetModel(
-                        label: localizedTitle,
+                        label: primaryLabel,
                         data: orig.Data,
                         backgroundColor: orig.BackgroundColor,
                         borderColor: orig.BorderColor,
