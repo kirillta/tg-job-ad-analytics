@@ -167,6 +167,9 @@ public sealed class TelegramMessagePersistenceService
 
         static List<KeyValuePair<TgTextEntryType, string>> ToRawEntries(List<TgTextEntry> entries)
         {
+            if (entries == null || entries.Count == 0)
+                return [];
+
             var results = new List<KeyValuePair<TgTextEntryType, string>>(entries.Count);
             foreach (var entry in entries)
             {
